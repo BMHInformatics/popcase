@@ -61,11 +61,8 @@ class Acs5YrB01001(models.Model):
     name = models.TextField(db_column="NAME", null=True, blank=True)
 
     total_population = models.IntegerField(db_column="B01001_001E", null=True, blank=True)
-    total_population_moe = models.IntegerField(db_column="B01001_001M", null=True, blank=True)
     total_male = models.IntegerField(db_column="B01001_002E", null=True, blank=True)
-    total_male_moe = models.IntegerField(db_column="B01001_002M", null=True, blank=True)
     total_female = models.IntegerField(db_column="B01001_026E", null=True, blank=True)
-    total_female_moe = models.IntegerField(db_column="B01001_026M", null=True, blank=True)
 
     # Male age bands
     m_under5 = models.IntegerField(db_column="B01001_003E", null=True, blank=True)
@@ -195,9 +192,6 @@ class AcsB19013(models.Model):
     median_household_income = models.IntegerField(
         db_column="B19013_001E", null=True
     )
-    median_household_income_moe = models.IntegerField(
-        db_column="B19013_001M", null=True
-    )
 
     class Meta:
         managed = False
@@ -209,14 +203,8 @@ class AcsC16001(models.Model):
     total_population_5plus = models.IntegerField(
         db_column="C16001_001E", null=True
     )
-    total_population_5plus_moe = models.IntegerField(
-        db_column="C16001_001M", null=True
-    )
     limited_english = models.IntegerField(
         db_column="C16001_004E", null=True
-    )
-    limited_english_moe = models.IntegerField(
-        db_column="C16001_004M", null=True
     )
 
     class Meta:
@@ -247,77 +235,23 @@ class TravelTimeTract(models.Model):
 class CDCPlacesTract2024(models.Model):
     tract_fips = models.TextField(db_column="TractFIPS", primary_key=True)
 
-    mammography_screening = models.FloatField(db_column="MAMMOUSE_CrudePrev", null=True)
-    mammography_screening_ci = models.TextField(db_column="MAMMOUSE_Crude95CI", null=True, blank=True)
-    lack_transportation = models.FloatField(db_column="LACKTRPT_CrudePrev", null=True)
-    lack_transportation_ci = models.TextField(db_column="LACKTRPT_Crude95CI", null=True, blank=True)
-    routine_checkup = models.FloatField(db_column="CHECKUP_CrudePrev", null=True)
-    routine_checkup_ci = models.TextField(db_column="CHECKUP_Crude95CI", null=True, blank=True)
-    uninsured = models.FloatField(db_column="ACCESS2_CrudePrev", null=True)
-    uninsured_ci = models.TextField(db_column="ACCESS2_Crude95CI", null=True, blank=True)
-
-    smoking = models.FloatField(db_column="CSMOKING_CrudePrev", null=True)
-    smoking_ci = models.TextField(db_column="CSMOKING_Crude95CI", null=True, blank=True)
-    obesity = models.FloatField(db_column="OBESITY_CrudePrev", null=True)
-    obesity_ci = models.TextField(db_column="OBESITY_Crude95CI", null=True, blank=True)
-    binge_drinking = models.FloatField(db_column="BINGE_CrudePrev", null=True)
-    binge_drinking_ci = models.TextField(db_column="BINGE_Crude95CI", null=True, blank=True)
-    no_leisure_pa = models.FloatField(db_column="LPA_CrudePrev", null=True)
-    no_leisure_pa_ci = models.TextField(db_column="LPA_Crude95CI", null=True, blank=True)
-    short_sleep = models.FloatField(db_column="SLEEP_CrudePrev", null=True)
-    short_sleep_ci = models.TextField(db_column="SLEEP_Crude95CI", null=True, blank=True)
-
-    colorectal_screening = models.FloatField(db_column="COLON_SCREEN_CrudePrev", null=True)
-    colorectal_screening_ci = models.TextField(db_column="COLON_SCREEN_Crude95CI", null=True, blank=True)
-    dental = models.FloatField(db_column="DENTAL_CrudePrev", null=True)
-    dental_ci = models.TextField(db_column="DENTAL_Crude95CI", null=True, blank=True)
-
-    poor_health = models.FloatField(db_column="GHLTH_CrudePrev", null=True)
-    poor_health_ci = models.TextField(db_column="GHLTH_Crude95CI", null=True, blank=True)
-    physical_distress = models.FloatField(db_column="PHLTH_CrudePrev", null=True)
-    physical_distress_ci = models.TextField(db_column="PHLTH_Crude95CI", null=True, blank=True)
-    mental_distress = models.FloatField(db_column="MHLTH_CrudePrev", null=True)
-    mental_distress_ci = models.TextField(db_column="MHLTH_Crude95CI", null=True, blank=True)
-    food_insecurity = models.FloatField(db_column="FOODINSECU_CrudePrev", null=True)
-    food_insecurity_ci = models.TextField(db_column="FOODINSECU_Crude95CI", null=True, blank=True)
-    social_isolation = models.FloatField(db_column="ISOLATION_CrudePrev", null=True)
-    social_isolation_ci = models.TextField(db_column="ISOLATION_Crude95CI", null=True, blank=True)
-    any_disability = models.FloatField(db_column="DISABILITY_CrudePrev", null=True)
-    any_disability_ci = models.TextField(db_column="DISABILITY_Crude95CI", null=True, blank=True)
-    mobility_disability = models.FloatField(db_column="MOBILITY_CrudePrev", null=True)
-    mobility_disability_ci = models.TextField(db_column="MOBILITY_Crude95CI", null=True, blank=True)
-    selfcare_disability = models.FloatField(db_column="SELFCARE_CrudePrev", null=True)
-    selfcare_disability_ci = models.TextField(db_column="SELFCARE_Crude95CI", null=True, blank=True)
-    independent_living_disability = models.FloatField(db_column="INDEPLIVE_CrudePrev", null=True)
-    independent_living_disability_ci = models.TextField(db_column="INDEPLIVE_Crude95CI", null=True, blank=True)
+    mammography_screening = models.FloatField(
+        db_column="MAMMOUSE_CrudePrev", null=True
+    )
+    lack_transportation = models.FloatField(
+        db_column="LACKTRPT_CrudePrev", null=True
+    )
+    routine_checkup = models.FloatField(
+        db_column="CHECKUP_CrudePrev", null=True
+    )
+    uninsured = models.FloatField(
+        db_column="ACCESS2_CrudePrev", null=True
+    )
 
     class Meta:
         managed = False
         db_table = "cdc_places_tract_data_2024"
-
-
-class CDCPlacesCounty2024(models.Model):
-    county_fips = models.TextField(db_column="CountyFIPS", primary_key=True)
-
-    class Meta:
-        managed = False
-        db_table = "cdc_places_county_data_2024"
-
-
-class CDCPlacesZCTA2024(models.Model):
-    zcta = models.TextField(db_column="ZCTA5", primary_key=True)
-
-    class Meta:
-        managed = False
-        db_table = "cdc_places_zcta_data_2024"
-
-
-class CDCPlacesPlace2024(models.Model):
-    place_fips = models.TextField(db_column="PlaceFIPS", primary_key=True)
-
-    class Meta:
-        managed = False
-        db_table = "cdc_places_place_data_2024"
+        app_label = "popcase_manual_etl"
 
 class UICounty(models.Model):
     geoid = models.TextField(primary_key=True)

@@ -27,15 +27,6 @@
     .measure-select-all .form-check-input {
       margin-top: 0;
     }
-
-    .measure-sub-option {
-      margin-top: 0.35rem;
-      margin-left: 1rem;
-    }
-
-    .form-check-input {
-      border-color: #6c757d;
-    }
   </style>
 
   <div class="d-flex justify-content-between align-items-center mb-2">
@@ -133,91 +124,43 @@
                 {{ form.disease_measures.5.tag }}
                 <label class="form-check-label" for="{{ form.disease_measures.5.id_for_label }}">Median time to treatment initiation</label>
               </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.6.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.6.id_for_label }}">Interquartile Range (IQR)</label>
-                </div>
-              </div>
 
-            {% if geographic_level == "county" or geographic_level == "tract" %}
               <div class="form-check mt-2">
-                {{ form.disease_measures.7.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">Crude incidence rate (per 100,000)</label>
+                {{ form.disease_measures.6.tag }}
+                <label class="form-check-label" for="{{ form.disease_measures.6.id_for_label }}">Age-adjusted incidence rate (per 100,000)</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
-                  {{ form.disease_measures.8.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.8.id_for_label }}">95% Confidence Interval</label>
+                  {{ form.disease_measures.7.tag }}
+                  <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">95% Confidence Interval (incidence)</label>
                 </div>
               </div>
 
               <div class="form-check mt-2">
-                {{ form.disease_measures.9.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">Crude mortality rate (per 100,000)</label>
+                {{ form.disease_measures.8.tag }}
+                <label class="form-check-label" for="{{ form.disease_measures.8.id_for_label }}">Age-adjusted mortality rate (per 100,000)</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
+                  {{ form.disease_measures.9.tag }}
+                  <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">95% Confidence Interval (mortality)</label>
+                </div>
+              </div>
+
+              {% if prostate_selected %}
+                <div class="form-check mt-2">
                   {{ form.disease_measures.10.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.10.id_for_label }}">95% Confidence Interval</label>
+                  <label class="form-check-label" for="{{ form.disease_measures.10.id_for_label }}">Gleason Score (Prostate cancer only)</label>
                 </div>
-              </div>
-
-              <div class="form-check mt-2">
-                {{ form.disease_measures.11.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.11.id_for_label }}">Age-adjusted incidence rate (per 100,000)</label>
-              </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.12.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.12.id_for_label }}">95% Confidence Interval</label>
-                </div>
-              </div>
-
-              <div class="form-check mt-2">
-                {{ form.disease_measures.13.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.13.id_for_label }}">Age-adjusted mortality rate (per 100,000)</label>
-              </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.14.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.14.id_for_label }}">95% Confidence Interval</label>
-                </div>
-              </div>
-            {% endif %}
-
-            {% if prostate_selected %}
-              <div class="form-check mt-2">
-                {{ form.disease_measures.15.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.15.id_for_label }}">
-                  Mean Gleason Score (Prostate cancer only)
-                </label>
-              </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.16.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.16.id_for_label }}">
-                    95% Confidence Interval
+              {% else %}
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" name="disease_measures" value="gleason" id="id_disease_measures_10" disabled {% if gleason_selected %}checked{% endif %}>
+                  <label class="form-check-label text-muted" for="id_disease_measures_10">
+                    Gleason Score (Prostate cancer only)
+                    <span class="small">(enable by selecting Prostate in Filters → Cancer Type(s))</span>
                   </label>
                 </div>
-              </div>
-            {% else %}
-              <div class="form-check mt-2">
-                <input class="form-check-input" type="checkbox" name="disease_measures" value="gleason" id="id_disease_measures_15" disabled {% if gleason_selected %}checked{% endif %}>
-                <label class="form-check-label text-muted" for="id_disease_measures_15">
-                  Mean Gleason Score (Prostate cancer only)
-                  <span class="small">(enable by selecting Prostate in Filters → Cancer Type(s))</span>
-                </label>
-              </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="disease_measures" value="gleason_ci" id="id_disease_measures_16" disabled>
-                  <label class="form-check-label text-muted" for="id_disease_measures_16">
-                    95% Confidence Interval
-                  </label>
-                </div>
-              </div>
-            {% endif %}
+              {% endif %}
             </div>
           </div>
         </div>
@@ -295,83 +238,41 @@
                 {{ form.disease_measures.5.tag }}
                 <label class="form-check-label" for="{{ form.disease_measures.5.id_for_label }}">Median time to treatment initiation</label>
               </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.6.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.6.id_for_label }}">Interquartile Range (IQR)</label>
-                </div>
-              </div>
 
-            {% if geographic_level == "county" or geographic_level == "tract" %}
               <div class="form-check mt-2">
-                {{ form.disease_measures.7.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">Crude incidence rate (per 100,000)</label>
+                {{ form.disease_measures.6.tag }}
+                <label class="form-check-label" for="{{ form.disease_measures.6.id_for_label }}">Age-adjusted incidence rate (per 100,000)</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
-                  {{ form.disease_measures.8.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.8.id_for_label }}">95% Confidence Interval</label>
+                  {{ form.disease_measures.7.tag }}
+                  <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">95% Confidence Interval (incidence)</label>
                 </div>
               </div>
 
               <div class="form-check mt-2">
-                {{ form.disease_measures.9.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">Crude mortality rate (per 100,000)</label>
+                {{ form.disease_measures.8.tag }}
+                <label class="form-check-label" for="{{ form.disease_measures.8.id_for_label }}">Age-adjusted mortality rate (per 100,000)</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
-                  {{ form.disease_measures.10.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.10.id_for_label }}">95% Confidence Interval</label>
+                  {{ form.disease_measures.9.tag }}
+                  <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">95% Confidence Interval (mortality)</label>
                 </div>
               </div>
-
-              <div class="form-check mt-2">
-                {{ form.disease_measures.11.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.11.id_for_label }}">Age-adjusted incidence rate (per 100,000)</label>
-              </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.12.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.12.id_for_label }}">95% Confidence Interval</label>
-                </div>
-              </div>
-
-              <div class="form-check mt-2">
-                {{ form.disease_measures.13.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.13.id_for_label }}">Age-adjusted mortality rate (per 100,000)</label>
-              </div>
-              <div class="ms-4">
-                <div class="form-check">
-                  {{ form.disease_measures.14.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.14.id_for_label }}">95% Confidence Interval</label>
-                </div>
-              </div>
-            {% endif %}
 
               {% if prostate_selected %}
                 <div class="form-check mt-2">
-                  {{ form.disease_measures.15.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.15.id_for_label }}">Mean Gleason Score (Prostate cancer only)</label>
-                </div>
-                <div class="ms-4">
-                  <div class="form-check">
-                    {{ form.disease_measures.16.tag }}
-                    <label class="form-check-label" for="{{ form.disease_measures.16.id_for_label }}">95% Confidence Interval</label>
-                  </div>
+                  {{ form.disease_measures.10.tag }}
+                  <label class="form-check-label" for="{{ form.disease_measures.10.id_for_label }}">Gleason Score (Prostate cancer only)</label>
                 </div>
               {% else %}
                 <div class="form-check mt-2">
-                  <input class="form-check-input" type="checkbox" name="disease_measures" value="gleason" id="id_disease_measures_15" disabled {% if gleason_selected %}checked{% endif %}>
-                  <label class="form-check-label text-muted" for="id_disease_measures_15">
-                    Mean Gleason Score (Prostate cancer only)
+                  <input class="form-check-input" type="checkbox" name="disease_measures" value="gleason" id="id_disease_measures_10" disabled {% if gleason_selected %}checked{% endif %}>
+                  <label class="form-check-label text-muted" for="id_disease_measures_10">
+                    Gleason Score (Prostate cancer only)
                     <span class="small">(enable by selecting Prostate in Filters → Cancer Type(s))</span>
                   </label>
-                </div>
-                <div class="ms-4">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="disease_measures" value="gleason_ci" id="id_disease_measures_16" disabled>
-                    <label class="form-check-label text-muted" for="id_disease_measures_16">95% Confidence Interval</label>
-                  </div>
                 </div>
               {% endif %}
             </div>
@@ -390,10 +291,6 @@
               </div>
 
               <div class="fw-semibold">Cancer Risk Factors (Community-level, Adults only)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.cancer_risk_factors_ci }}
-                <label class="form-check-label" for="{{ form.cancer_risk_factors_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.cancer_prevention.0.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.0.id_for_label }}">Current cigarette smoking</label></div>
                 <div class="form-check">{{ form.cancer_prevention.1.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.1.id_for_label }}">Obesity</label></div>
@@ -403,10 +300,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Cancer Screening (Community-level)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.cancer_screening_ci }}
-                <label class="form-check-label" for="{{ form.cancer_screening_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.cancer_prevention.5.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.5.id_for_label }}">Colorectal cancer screening (age 45-75)</label></div>
                 <div class="form-check">{{ form.cancer_prevention.6.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.6.id_for_label }}">Breast cancer screening (age 50-74)</label></div>
@@ -425,11 +318,6 @@
                   <input class="form-check-input select-all-master" type="checkbox" id="select_all_noncancer_health">
                   <label class="form-check-label" for="select_all_noncancer_health">Select all</label>
                 </div>
-              </div>
-
-              <div class="form-check measure-sub-option">
-                {{ form.noncancer_health_status_ci }}
-                <label class="form-check-label" for="{{ form.noncancer_health_status_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
 
               {% for cb in form.noncancer_health_status %}
@@ -466,14 +354,6 @@
                 </div>
 
                 <div class="mt-3 fw-semibold">Survey-based community access measures</div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_tract_survey_ci }}
-                  <label class="form-check-label" for="{{ form.access_comm_tract_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-                </div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_tract_survey_age_adjusted }}
-                  <label class="form-check-label" for="{{ form.access_comm_tract_survey_age_adjusted.id_for_label }}" style="color: #4477f8; font-style: italic">Display age-adjusted measures</label>
-                </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_tract %}
                     {% if forloop.counter0 >= 6 %}
@@ -498,10 +378,6 @@
                 </div>
 
                 <div class="fw-semibold">Survey-based community access measures</div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_zcta_place_survey_ci }}
-                  <label class="form-check-label" for="{{ form.access_comm_zcta_place_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-                </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_zcta_place %}
                     <div class="form-check">{{ cb.tag }} <label class="form-check-label" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label></div>
@@ -532,14 +408,6 @@
                 </div>
 
                 <div class="mt-3 fw-semibold">Survey-based community access measures</div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_county_survey_ci }}
-                  <label class="form-check-label" for="{{ form.access_comm_county_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-                </div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_county_survey_age_adjusted }}
-                  <label class="form-check-label" for="{{ form.access_comm_county_survey_age_adjusted.id_for_label }}" style="color: #4477f8; font-style: italic">Display age-adjusted measures</label>
-                </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_county %}
                     {% if forloop.counter0 >= 6 %}
@@ -564,10 +432,6 @@
               </div>
 
               <div class="fw-semibold">Demographic (Basic)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_basic_ci }}
-                <label class="form-check-label" for="{{ form.community_basic_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.0.tag }} <label class="form-check-label" for="{{ form.community_characteristics.0.id_for_label }}">Total population</label></div>
                 <div class="form-check">{{ form.community_characteristics.1.tag }} <label class="form-check-label" for="{{ form.community_characteristics.1.id_for_label }}">Sex distribution</label></div>
@@ -576,10 +440,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Demographic (Extended)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_extended_ci }}
-                <label class="form-check-label" for="{{ form.community_extended_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.4.tag }} <label class="form-check-label" for="{{ form.community_characteristics.4.id_for_label }}">Age distribution (__ groups)</label></div>
                 <div class="form-check">{{ form.community_characteristics.5.tag }} <label class="form-check-label" for="{{ form.community_characteristics.5.id_for_label }}">Marital status</label></div>
@@ -591,10 +451,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Economic</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_economic_ci }}
-                <label class="form-check-label" for="{{ form.community_economic_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.11.tag }} <label class="form-check-label" for="{{ form.community_characteristics.11.id_for_label }}">Median household income</label></div>
                 <div class="form-check">{{ form.community_characteristics.12.tag }} <label class="form-check-label" for="{{ form.community_characteristics.12.id_for_label }}">Per capita income</label></div>
@@ -603,18 +459,13 @@
                 <div class="form-check">{{ form.community_characteristics.15.tag }} <label class="form-check-label" for="{{ form.community_characteristics.15.id_for_label }}">% of households receiving Food stamps/SNAP</label></div>
                 <div class="form-check">{{ form.community_characteristics.16.tag }} <label class="form-check-label" for="{{ form.community_characteristics.16.id_for_label }}">Employment status for population >=16 years</label></div>
                 <div class="form-check">{{ form.community_characteristics.17.tag }} <label class="form-check-label" for="{{ form.community_characteristics.17.id_for_label }}">Utility services shut-off threat in the past 12 months among adults</label></div>
-                <div class="form-check">{{ form.community_characteristics.17.tag }} <label class="form-check-label" for="{{ form.community_characteristics.17.id_for_label }}">Housing insecurity in the past 12 months among adults</label></div>
                 <div class="form-check">{{ form.community_characteristics.18.tag }} <label class="form-check-label" for="{{ form.community_characteristics.18.id_for_label }}">Occupational category distribution</label></div>
                 <div class="form-check">{{ form.community_characteristics.19.tag }} <label class="form-check-label" for="{{ form.community_characteristics.19.id_for_label }}">GINI Index</label></div>
                 <div class="form-check">{{ form.community_characteristics.20.tag }} <label class="form-check-label" for="{{ form.community_characteristics.20.id_for_label }}">% of population living in formerly redlined neighborhoods</label></div>
-                <div class="form-check">{{ form.community_characteristics.21.tag }} <label class="form-check-label" for="{{ form.community_characteristics.21.id_for_label }}">Social Vulnerability Index</label></div>
+                <div class="form-check">{{ form.community_characteristics.21.tag }} <label class="form-check-label" for="{{ form.community_characteristics.21.id_for_label }}">Social Vulnerability Index (ADI, including all subcomponents)</label></div>
               </div>
 
               <div class="mt-3 fw-semibold">Housing</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_housing_ci }}
-                <label class="form-check-label" for="{{ form.community_housing_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.22.tag }} <label class="form-check-label" for="{{ form.community_characteristics.22.id_for_label }}">% of housing units unoccupied</label></div>
                 <div class="form-check">{{ form.community_characteristics.23.tag }} <label class="form-check-label" for="{{ form.community_characteristics.23.id_for_label }}">% Renting</label></div>
@@ -627,10 +478,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Household characteristics</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_household_ci }}
-                <label class="form-check-label" for="{{ form.community_household_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.30.tag }} <label class="form-check-label" for="{{ form.community_characteristics.30.id_for_label }}">% Female-headed households</label></div>
                 <div class="form-check">{{ form.community_characteristics.31.tag }} <label class="form-check-label" for="{{ form.community_characteristics.31.id_for_label }}">% of households with grandparents caring for children</label></div>
@@ -661,10 +508,6 @@
       const warningBox = document.getElementById("sexSpecificRateWarning");
       if (warningBox) {
         const rateCheckboxes = [
-          document.querySelector('input[name="disease_measures"][value="crude_inc_rate"]'),
-          document.querySelector('input[name="disease_measures"][value="crude_inc_ci"]'),
-          document.querySelector('input[name="disease_measures"][value="crude_mort_rate"]'),
-          document.querySelector('input[name="disease_measures"][value="crude_mort_ci"]'),
           document.querySelector('input[name="disease_measures"][value="inc_rate"]'),
           document.querySelector('input[name="disease_measures"][value="inc_ci"]'),
           document.querySelector('input[name="disease_measures"][value="mort_rate"]'),
@@ -711,36 +554,6 @@
         master.indeterminate = checkedCount > 0 && checkedCount < children.length;
       }
 
-      const parentChildPairs = [
-        ['pct_advanced', 'pct_advanced_ci'],
-        ['pct_metastatic', 'pct_metastatic_ci'],
-        ['median_tti', 'median_tti_iqr'],
-        ['crude_inc_rate', 'crude_inc_ci'],
-        ['crude_mort_rate', 'crude_mort_ci'],
-        ['inc_rate', 'inc_ci'],
-        ['mort_rate', 'mort_ci'],
-        ['gleason', 'gleason_ci']
-      ];
-
-      function checkboxByValue(value) {
-        return document.querySelector('input[name="disease_measures"][value="' + value + '"]');
-      }
-
-      parentChildPairs.forEach(function (pair) {
-        const parent = checkboxByValue(pair[0]);
-        const child = checkboxByValue(pair[1]);
-        if (!parent || !child || child.disabled) return;
-
-        if (parent.checked) {
-          child.checked = true;
-        }
-
-        parent.addEventListener('change', function () {
-          child.checked = parent.checked;
-          document.querySelectorAll('.select-all-scope').forEach(syncMaster);
-        });
-      });
-
       document.querySelectorAll('.select-all-scope').forEach(function (scope) {
         const master = scope.querySelector('.select-all-master');
         if (!master) return;
@@ -751,13 +564,6 @@
           children.forEach(function (cb) {
             if (!cb.disabled) {
               cb.checked = master.checked;
-            }
-          });
-          parentChildPairs.forEach(function (pair) {
-            const parent = checkboxByValue(pair[0]);
-            const child = checkboxByValue(pair[1]);
-            if (parent && child && !child.disabled && parent.checked) {
-              child.checked = true;
             }
           });
         });

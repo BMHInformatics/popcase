@@ -122,119 +122,62 @@
       Showing the first {{ dataset_preview_limit }} of {{ dataset_total_rows }} rows for faster page rendering. Use <strong>Download Results (CSV)</strong> for the full dataset.
     </div>
   {% endif %}
-
   <div class="table-responsive mt-3" style="overflow-x:auto;">
     <table class="table table-sm table-striped align-middle mb-0" style="min-width: 1200px;">
       <thead class="table-light">
         <tr>
-          {% if dataset_columns %}
-            {% for key in dataset_columns %}
-              {% if key == "label" %}
-                <th data-sort="string"
-                    class="sortable bg-light"
-                    style="position: sticky; left: 0; z-index: 3; white-space: nowrap;">
+          {% for key, val in mvp_rows.0.items %}
+            {% if key == "label" %}
+              <th data-sort="string"
+                  class="sortable bg-light"
+                  style="position: sticky; left: 0; z-index: 3; white-space: nowrap;">
+                {{ tract_header_map|get_item:key|default:key }}
+                <span></span>
+              </th>
+            {% else %}
+              {% if key in tract_numeric_cols %}
+                <th data-sort="number"
+                    class="sortable text-end"
+                    style="white-space: nowrap;">
                   {{ tract_header_map|get_item:key|default:key }}
                   <span></span>
                 </th>
               {% else %}
-                {% if key in tract_numeric_cols %}
-                  <th data-sort="number"
-                      class="sortable text-end"
-                      style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
-                    <span></span>
-                  </th>
-                {% else %}
-                  <th data-sort="string"
-                      class="sortable"
-                      style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
-                    <span></span>
-                  </th>
-                {% endif %}
-              {% endif %}
-            {% endfor %}
-          {% else %}
-            {% for key, val in mvp_rows.0.items %}
-              {% if key in dataset_exclude_columns %}
-              {% elif key == "label" %}
                 <th data-sort="string"
-                    class="sortable bg-light"
-                    style="position: sticky; left: 0; z-index: 3; white-space: nowrap;">
+                    class="sortable"
+                    style="white-space: nowrap;">
                   {{ tract_header_map|get_item:key|default:key }}
                   <span></span>
                 </th>
-              {% else %}
-                {% if key in tract_numeric_cols %}
-                  <th data-sort="number"
-                      class="sortable text-end"
-                      style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
-                    <span></span>
-                  </th>
-                {% else %}
-                  <th data-sort="string"
-                      class="sortable"
-                      style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
-                    <span></span>
-                  </th>
-                {% endif %}
               {% endif %}
-            {% endfor %}
-          {% endif %}
+            {% endif %}
+          {% endfor %}
         </tr>
       </thead>
 
       <tbody>
         {% for row in mvp_rows %}
           <tr>
-            {% if dataset_columns %}
-              {% for key in dataset_columns %}
-                {% with val=row|get_item:key %}
-                  {% if key == "label" %}
-                    <td class="bg-white"
-                        style="position: sticky; left: 0; z-index: 2; white-space: nowrap;">
-                      {{ val }}
-                    </td>
-                  {% elif key == "tract_geoid" or key == "geoid" %}
-                    <td style="white-space: nowrap;">{{ val }}</td>
+            {% for key, val in row.items %}
+              {% if key == "label" %}
+                <td class="bg-white"
+                    style="position: sticky; left: 0; z-index: 2; white-space: nowrap;">
+                  {{ val }}
+                </td>
+              {% elif key == "tract_geoid" %}
+                <td style="white-space: nowrap;">{{ val }}</td>
+              {% else %}
+                <td class="text-end" style="white-space: nowrap;">
+                  {% if val is None %}
+                    <span class="text-muted">—</span>
+                  {% elif key == "total_population" or key == "median_household_income" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
+                    {{ val|intcomma }}
                   {% else %}
-                    <td class="text-end" style="white-space: nowrap;">
-                      {% if val is None or val == "" %}
-                        <span class="text-muted">—</span>
-                      {% elif key == "total_population" or key == "total_population_ci_lower" or key == "total_population_ci_upper" or key == "median_household_income" or key == "median_household_income_ci_lower" or key == "median_household_income_ci_upper" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
-                        {{ val|intcomma }}
-                      {% else %}
-                        {{ val }}
-                      {% endif %}
-                    </td>
-                  {% endif %}
-                {% endwith %}
-              {% endfor %}
-            {% else %}
-              {% for key, val in row.items %}
-                {% if key in dataset_exclude_columns %}
-                {% elif key == "label" %}
-                  <td class="bg-white"
-                      style="position: sticky; left: 0; z-index: 2; white-space: nowrap;">
                     {{ val }}
-                  </td>
-                {% elif key == "tract_geoid" or key == "geoid" %}
-                  <td style="white-space: nowrap;">{{ val }}</td>
-                {% else %}
-                  <td class="text-end" style="white-space: nowrap;">
-                    {% if val is None %}
-                      <span class="text-muted">—</span>
-                    {% elif key == "total_population" or key == "total_population_ci_lower" or key == "total_population_ci_upper" or key == "median_household_income" or key == "median_household_income_ci_lower" or key == "median_household_income_ci_upper" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
-                      {{ val|intcomma }}
-                    {% else %}
-                      {{ val }}
-                    {% endif %}
-                  </td>
-                {% endif %}
-              {% endfor %}
-            {% endif %}
+                  {% endif %}
+                </td>
+              {% endif %}
+            {% endfor %}
           </tr>
         {% endfor %}
       </tbody>

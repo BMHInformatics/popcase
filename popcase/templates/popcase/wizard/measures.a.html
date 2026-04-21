@@ -27,15 +27,6 @@
     .measure-select-all .form-check-input {
       margin-top: 0;
     }
-
-    .measure-sub-option {
-      margin-top: 0.35rem;
-      margin-left: 1rem;
-    }
-
-    .form-check-input {
-      border-color: #6c757d;
-    }
   </style>
 
   <div class="d-flex justify-content-between align-items-center mb-2">
@@ -390,10 +381,6 @@
               </div>
 
               <div class="fw-semibold">Cancer Risk Factors (Community-level, Adults only)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.cancer_risk_factors_ci }}
-                <label class="form-check-label" for="{{ form.cancer_risk_factors_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.cancer_prevention.0.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.0.id_for_label }}">Current cigarette smoking</label></div>
                 <div class="form-check">{{ form.cancer_prevention.1.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.1.id_for_label }}">Obesity</label></div>
@@ -403,10 +390,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Cancer Screening (Community-level)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.cancer_screening_ci }}
-                <label class="form-check-label" for="{{ form.cancer_screening_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.cancer_prevention.5.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.5.id_for_label }}">Colorectal cancer screening (age 45-75)</label></div>
                 <div class="form-check">{{ form.cancer_prevention.6.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.6.id_for_label }}">Breast cancer screening (age 50-74)</label></div>
@@ -425,11 +408,6 @@
                   <input class="form-check-input select-all-master" type="checkbox" id="select_all_noncancer_health">
                   <label class="form-check-label" for="select_all_noncancer_health">Select all</label>
                 </div>
-              </div>
-
-              <div class="form-check measure-sub-option">
-                {{ form.noncancer_health_status_ci }}
-                <label class="form-check-label" for="{{ form.noncancer_health_status_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
 
               {% for cb in form.noncancer_health_status %}
@@ -466,14 +444,6 @@
                 </div>
 
                 <div class="mt-3 fw-semibold">Survey-based community access measures</div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_tract_survey_ci }}
-                  <label class="form-check-label" for="{{ form.access_comm_tract_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-                </div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_tract_survey_age_adjusted }}
-                  <label class="form-check-label" for="{{ form.access_comm_tract_survey_age_adjusted.id_for_label }}" style="color: #4477f8; font-style: italic">Display age-adjusted measures</label>
-                </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_tract %}
                     {% if forloop.counter0 >= 6 %}
@@ -498,10 +468,6 @@
                 </div>
 
                 <div class="fw-semibold">Survey-based community access measures</div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_zcta_place_survey_ci }}
-                  <label class="form-check-label" for="{{ form.access_comm_zcta_place_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-                </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_zcta_place %}
                     <div class="form-check">{{ cb.tag }} <label class="form-check-label" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label></div>
@@ -532,14 +498,6 @@
                 </div>
 
                 <div class="mt-3 fw-semibold">Survey-based community access measures</div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_county_survey_ci }}
-                  <label class="form-check-label" for="{{ form.access_comm_county_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-                </div>
-                <div class="form-check measure-sub-option">
-                  {{ form.access_comm_county_survey_age_adjusted }}
-                  <label class="form-check-label" for="{{ form.access_comm_county_survey_age_adjusted.id_for_label }}" style="color: #4477f8; font-style: italic">Display age-adjusted measures</label>
-                </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_county %}
                     {% if forloop.counter0 >= 6 %}
@@ -564,10 +522,6 @@
               </div>
 
               <div class="fw-semibold">Demographic (Basic)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_basic_ci }}
-                <label class="form-check-label" for="{{ form.community_basic_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.0.tag }} <label class="form-check-label" for="{{ form.community_characteristics.0.id_for_label }}">Total population</label></div>
                 <div class="form-check">{{ form.community_characteristics.1.tag }} <label class="form-check-label" for="{{ form.community_characteristics.1.id_for_label }}">Sex distribution</label></div>
@@ -576,10 +530,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Demographic (Extended)</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_extended_ci }}
-                <label class="form-check-label" for="{{ form.community_extended_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.4.tag }} <label class="form-check-label" for="{{ form.community_characteristics.4.id_for_label }}">Age distribution (__ groups)</label></div>
                 <div class="form-check">{{ form.community_characteristics.5.tag }} <label class="form-check-label" for="{{ form.community_characteristics.5.id_for_label }}">Marital status</label></div>
@@ -591,10 +541,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Economic</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_economic_ci }}
-                <label class="form-check-label" for="{{ form.community_economic_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.11.tag }} <label class="form-check-label" for="{{ form.community_characteristics.11.id_for_label }}">Median household income</label></div>
                 <div class="form-check">{{ form.community_characteristics.12.tag }} <label class="form-check-label" for="{{ form.community_characteristics.12.id_for_label }}">Per capita income</label></div>
@@ -611,10 +557,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Housing</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_housing_ci }}
-                <label class="form-check-label" for="{{ form.community_housing_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.22.tag }} <label class="form-check-label" for="{{ form.community_characteristics.22.id_for_label }}">% of housing units unoccupied</label></div>
                 <div class="form-check">{{ form.community_characteristics.23.tag }} <label class="form-check-label" for="{{ form.community_characteristics.23.id_for_label }}">% Renting</label></div>
@@ -627,10 +569,6 @@
               </div>
 
               <div class="mt-3 fw-semibold">Household characteristics</div>
-              <div class="form-check measure-sub-option">
-                {{ form.community_household_ci }}
-                <label class="form-check-label" for="{{ form.community_household_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
-              </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.30.tag }} <label class="form-check-label" for="{{ form.community_characteristics.30.id_for_label }}">% Female-headed households</label></div>
                 <div class="form-check">{{ form.community_characteristics.31.tag }} <label class="form-check-label" for="{{ form.community_characteristics.31.id_for_label }}">% of households with grandparents caring for children</label></div>

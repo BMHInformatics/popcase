@@ -13,6 +13,7 @@ from django.db.models import Count, Q
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
 from django.db import connection, connections
+from django.db.models import Subquery
 
 from popcase.models import (
     NaaccrData,
@@ -366,9 +367,19 @@ def _compute_sex_specific_age_adjusted_ci_by_geo(year, geographic_level, filtere
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
               AND l.geographic_level = %s
-              AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
         """, [str(year), geographic_level] + filtered_pat_ids)
         rows = cur.fetchall()
 
@@ -767,9 +778,9 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
     filters = filters or {}
 
     filtered_qs = apply_naaccr_filters(NaaccrData.objects.all(), filters)
-    filtered_pat_ids = list(filtered_qs.values_list("mid", flat=True))
+    filtered_mid_subquery = filtered_qs.values("mid")
 
-    if not filtered_pat_ids:
+    if not filtered_mid_subquery:
         return []
 
     case_counts = (
@@ -777,7 +788,7 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
         .filter(
             year=year,
             geographic_level=geographic_level,
-            pat_id__in=filtered_pat_ids,
+            pat_id__in=Subquery(filtered_mid_subquery),
         )
         .values("geoid")
         .annotate(case_count=Count("pat_id", distinct=True))
@@ -797,17 +808,17 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
         aa_stats = _compute_sex_specific_age_adjusted_ci_by_geo(
             year=year,
             geographic_level=geographic_level,
-            filtered_pat_ids=filtered_pat_ids,
+            filtered_mid_subquery=filtered_mid_subquery,
             sex=sex_specific_denominator,
         )
     else:
         aa_stats = {}
         if geographic_level == "tract":
-            aa_stats = _compute_age_adjusted_ci_by_tract(year, filtered_pat_ids)
+            aa_stats = _compute_age_adjusted_ci_by_tract(year, filtered_mid_subquery)
         elif geographic_level == "county":
-            aa_stats = _compute_age_adjusted_ci_by_county(year, filtered_pat_ids)
+            aa_stats = _compute_age_adjusted_ci_by_county(year, filtered_mid_subquery)
         elif geographic_level == "zcta":
-            aa_stats = _compute_age_adjusted_ci_by_zcta(year, filtered_pat_ids)
+            aa_stats = _compute_age_adjusted_ci_by_zcta(year, filtered_mid_subquery)
 
     pop_field = _population_total_field_for_incidence(filters)
 
@@ -843,7 +854,7 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
         else:
             label = geoid
 
-        crude_rate, crude_lo, crude_hi = _rate_ci_from_count(case_count, pop)
+        crude_rate = round((case_count / pop) * 100000, 1)
         age_adj, age_lo, age_hi = aa_stats.get(geoid, (None, None, None))
 
         results.append({
@@ -852,9 +863,6 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
             "case_count": case_count,
             "population": int(pop),
             "incidence_per_100k": crude_rate,
-            "crude_incidence_per_100k": crude_rate,
-            "crude_incidence_ci_lower": crude_lo,
-            "crude_incidence_ci_upper": crude_hi,
             "age_adjusted_per_100k": age_adj if age_adj is not None else crude_rate,
             "age_adjusted_ci_lower": age_lo,
             "age_adjusted_ci_upper": age_hi,
@@ -886,14 +894,14 @@ def _get_total_incidence_uncached(year: str, filters: dict):
     filters = filters or {}
 
     filtered_qs = apply_naaccr_filters(NaaccrData.objects.all(), filters)
-    filtered_pat_ids = list(filtered_qs.values_list("mid", flat=True))
+    filtered_mid_subquery = filtered_qs.values("mid")
 
-    if not filtered_pat_ids:
+    if not filtered_mid_subquery:
         return None
 
     total_cases = (
         NaaccrPatientCensusLinking.objects
-        .filter(year=year, pat_id__in=filtered_pat_ids)
+        .filter(year=year, pat_id__in=Subquery(filtered_mid_subquery))
         .values("pat_id")
         .distinct()
         .count()
@@ -1013,7 +1021,7 @@ def build_mvp_tract_dataset(
         return (lo, hi)
 
     incidence_lookup = {}
-    if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
+    if ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
         if incidence_year is None:
             incidence_year = (
                 NaaccrPatientCensusLinking.objects
@@ -1074,41 +1082,16 @@ def build_mvp_tract_dataset(
                 out["meta_ci_lower"] = None
                 out["meta_ci_upper"] = None
 
-        if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
+        if ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
             ir = incidence_lookup.get(tract_geoid)
-            if ("crude_inc_rate" in disease_measures):
-                out["crude_incidence_per_100k"] = ir.get("crude_incidence_per_100k") if ir else None
-            if ("crude_inc_ci" in disease_measures):
-                out["crude_inc_ci_lower_per_100k"] = ir.get("crude_incidence_ci_lower") if ir else None
-                out["crude_inc_ci_upper_per_100k"] = ir.get("crude_incidence_ci_upper") if ir else None
-            if ("inc_rate" in disease_measures):
-                out["age_adjusted_per_100k"] = ir.get("age_adjusted_per_100k") if ir else None
-            if ("inc_ci" in disease_measures):
-                out["inc_ci_lower_per_100k"] = ir.get("age_adjusted_ci_lower") if ir else None
-                out["inc_ci_upper_per_100k"] = ir.get("age_adjusted_ci_upper") if ir else None
-
-        if ("crude_mort_rate" in disease_measures):
-            out["crude_mortality_per_100k"] = None
-        if ("crude_mort_ci" in disease_measures):
-            out["crude_mort_ci_lower_per_100k"] = None
-            out["crude_mort_ci_upper_per_100k"] = None
-        if ("mort_rate" in disease_measures):
-            out["age_adjusted_mortality_per_100k"] = None
-        if ("mort_ci" in disease_measures):
-            out["mort_ci_lower_per_100k"] = None
-            out["mort_ci_upper_per_100k"] = None
-
-        source_values = {
-            "mammography_screening_pct": out.get("mammography_screening_pct"),
-            "routine_checkup_pct": out.get("routine_checkup_pct"),
-            "lack_transportation_pct": out.get("lack_transportation_pct"),
-            "uninsured_pct": out.get("uninsured_pct"),
-            "total_population": out.get("total_population"),
-            "median_household_income": out.get("median_household_income"),
-            "limited_english_pct": out.get("limited_english_pct"),
-            "median_age": out.get("median_age"),
-        }
-        _add_display_option_columns(out, support_measures, display_options, source_values)
+            if ir:
+                out["age_adjusted_per_100k"] = ir.get("age_adjusted_per_100k")
+                out["inc_ci_lower_per_100k"] = ir.get("age_adjusted_ci_lower")
+                out["inc_ci_upper_per_100k"] = ir.get("age_adjusted_ci_upper")
+            else:
+                out["age_adjusted_per_100k"] = None
+                out["inc_ci_lower_per_100k"] = None
+                out["inc_ci_upper_per_100k"] = None
 
         rows.append(out)
 
@@ -1131,92 +1114,6 @@ def _as_list(value):
     if isinstance(value, (list, tuple, set)):
         return list(value)
     return []
-
-
-SUPPORT_MEASURE_OUTPUT_SPECS = {
-    "smoking": ("smoking_pct", "smoking_ci_lower", "smoking_ci_upper", None),
-    "obesity": ("obesity_pct", "obesity_ci_lower", "obesity_ci_upper", None),
-    "binge_drinking": ("binge_drinking_pct", "binge_drinking_ci_lower", "binge_drinking_ci_upper", None),
-    "no_leisure_pa": ("no_leisure_pa_pct", "no_leisure_pa_ci_lower", "no_leisure_pa_ci_upper", None),
-    "short_sleep": ("short_sleep_pct", "short_sleep_ci_lower", "short_sleep_ci_upper", None),
-
-    "crc_screen": ("crc_screening_pct", "crc_screening_ci_lower", "crc_screening_ci_upper", None),
-    "breast_screen": ("mammography_screening_pct", "mammography_screening_ci_lower", "mammography_screening_ci_upper", None),
-    "cervical_screen": ("cervical_screening_pct", "cervical_screening_ci_lower", "cervical_screening_ci_upper", None),
-
-    "poor_health": ("poor_health_pct", "poor_health_ci_lower", "poor_health_ci_upper", None),
-    "phys_distress": ("phys_distress_pct", "phys_distress_ci_lower", "phys_distress_ci_upper", None),
-    "mental_distress": ("mental_distress_pct", "mental_distress_ci_lower", "mental_distress_ci_upper", None),
-    "food_insecurity": ("food_insecurity_pct", "food_insecurity_ci_lower", "food_insecurity_ci_upper", None),
-    "social_isolation": ("social_isolation_pct", "social_isolation_ci_lower", "social_isolation_ci_upper", None),
-    "any_disability": ("any_disability_pct", "any_disability_ci_lower", "any_disability_ci_upper", None),
-    "mobility_disability": ("mobility_disability_pct", "mobility_disability_ci_lower", "mobility_disability_ci_upper", None),
-    "selfcare_disability": ("selfcare_disability_pct", "selfcare_disability_ci_lower", "selfcare_disability_ci_upper", None),
-    "independent_living_disability": ("independent_living_disability_pct", "independent_living_disability_ci_lower", "independent_living_disability_ci_upper", None),
-
-    "routine_checkup": ("routine_checkup_pct", "routine_checkup_ci_lower", "routine_checkup_ci_upper", "routine_checkup_age_adjusted_pct"),
-    "no_transport": ("lack_transportation_pct", "lack_transportation_ci_lower", "lack_transportation_ci_upper", "lack_transportation_age_adjusted_pct"),
-    "no_insurance": ("uninsured_pct", "uninsured_ci_lower", "uninsured_ci_upper", "uninsured_age_adjusted_pct"),
-    "dentist": ("dentist_pct", "dentist_ci_lower", "dentist_ci_upper", "dentist_age_adjusted_pct"),
-
-    "pop_total": ("total_population", "total_population_ci_lower", "total_population_ci_upper", None),
-    "sex_distribution": ("sex_distribution", "sex_distribution_ci_lower", "sex_distribution_ci_upper", None),
-    "median_age": ("median_age", "median_age_ci_lower", "median_age_ci_upper", None),
-    "race_eth": ("race_ethnicity", "race_eth_ci_lower", "race_eth_ci_upper", None),
-
-    "age_dist": ("age_distribution", "age_distribution_ci_lower", "age_distribution_ci_upper", None),
-    "marital_status": ("marital_status", "marital_status_ci_lower", "marital_status_ci_upper", None),
-    "educ_attain": ("educational_attainment", "educational_attainment_ci_lower", "educational_attainment_ci_upper", None),
-    "lang_home": ("language_home", "language_home_ci_lower", "language_home_ci_upper", None),
-    "limited_english_pct": ("limited_english_pct", "limited_english_ci_lower", "limited_english_ci_upper", None),
-    "citizenship": ("citizenship_status", "citizenship_status_ci_lower", "citizenship_status_ci_upper", None),
-    "rurality": ("rurality", "rurality_ci_lower", "rurality_ci_upper", None),
-
-    "med_hh_income": ("median_household_income", "median_household_income_ci_lower", "median_household_income_ci_upper", None),
-    "per_capita_income": ("per_capita_income", "per_capita_income_ci_lower", "per_capita_income_ci_upper", None),
-    "poverty_pct": ("poverty_pct", "poverty_ci_lower", "poverty_ci_upper", None),
-    "income_pov_ratio": ("income_poverty_ratio", "income_poverty_ratio_ci_lower", "income_poverty_ratio_ci_upper", None),
-    "snap_pct": ("snap_pct", "snap_ci_lower", "snap_ci_upper", None),
-    "employment_16plus": ("employment_16plus", "employment_16plus_ci_lower", "employment_16plus_ci_upper", None),
-    "utility_shutoff_threat": ("utility_shutoff_threat_pct", "utility_shutoff_threat_ci_lower", "utility_shutoff_threat_ci_upper", None),
-    "occupation_dist": ("occupation_distribution", "occupation_distribution_ci_lower", "occupation_distribution_ci_upper", None),
-    "gini": ("gini_index", "gini_ci_lower", "gini_ci_upper", None),
-    "redlined_pct": ("redlined_pct", "redlined_ci_lower", "redlined_ci_upper", None),
-    "svi_adi": ("svi_adi", "svi_adi_ci_lower", "svi_adi_ci_upper", None),
-
-    "housing_unoccupied": ("housing_unoccupied_pct", "housing_unoccupied_ci_lower", "housing_unoccupied_ci_upper", None),
-    "renting_pct": ("renting_pct", "renting_ci_lower", "renting_ci_upper", None),
-    "median_year_built": ("median_year_built", "median_year_built_ci_lower", "median_year_built_ci_upper", None),
-    "median_housing_costs": ("median_housing_costs", "median_housing_costs_ci_lower", "median_housing_costs_ci_upper", None),
-    "occupants_per_room": ("occupants_per_room", "occupants_per_room_ci_lower", "occupants_per_room_ci_upper", None),
-    "plumbing_complete": ("plumbing_complete_pct", "plumbing_complete_ci_lower", "plumbing_complete_ci_upper", None),
-    "kitchen_complete": ("kitchen_complete_pct", "kitchen_complete_ci_lower", "kitchen_complete_ci_upper", None),
-    "median_home_value": ("median_home_value", "median_home_value_ci_lower", "median_home_value_ci_upper", None),
-
-    "female_headed": ("female_headed_pct", "female_headed_ci_lower", "female_headed_ci_upper", None),
-    "grandparents_care": ("grandparents_care_pct", "grandparents_care_ci_lower", "grandparents_care_ci_upper", None),
-    "internet_access": ("internet_access_pct", "internet_access_ci_lower", "internet_access_ci_upper", None),
-    "moved_last_year": ("moved_last_year_pct", "moved_last_year_ci_lower", "moved_last_year_ci_upper", None),
-}
-
-CI_DISPLAY_OPTION_TO_TOKENS = {
-    "cancer_risk_factors_ci": {"smoking", "obesity", "binge_drinking", "no_leisure_pa", "short_sleep"},
-    "cancer_screening_ci": {"crc_screen", "breast_screen", "cervical_screen"},
-    "noncancer_health_status_ci": {"poor_health", "phys_distress", "mental_distress", "food_insecurity", "social_isolation", "any_disability", "mobility_disability", "selfcare_disability", "independent_living_disability"},
-    "access_comm_tract_survey_ci": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
-    "access_comm_zcta_place_survey_ci": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
-    "access_comm_county_survey_ci": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
-    "community_basic_ci": {"pop_total", "sex_distribution", "median_age", "race_eth"},
-    "community_extended_ci": {"age_dist", "marital_status", "educ_attain", "lang_home", "limited_english_pct", "citizenship", "rurality"},
-    "community_economic_ci": {"med_hh_income", "per_capita_income", "poverty_pct", "income_pov_ratio", "snap_pct", "employment_16plus", "utility_shutoff_threat", "occupation_dist", "gini", "redlined_pct", "svi_adi"},
-    "community_housing_ci": {"housing_unoccupied", "renting_pct", "median_year_built", "median_housing_costs", "occupants_per_room", "plumbing_complete", "kitchen_complete", "median_home_value"},
-    "community_household_ci": {"female_headed", "grandparents_care", "internet_access", "moved_last_year"},
-}
-
-AGE_ADJUST_DISPLAY_OPTION_TO_TOKENS = {
-    "access_comm_tract_survey_age_adjusted": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
-    "access_comm_county_survey_age_adjusted": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
-}
 
 
 def _normalize_support_measure_tokens(tokens):
@@ -1271,11 +1168,6 @@ def _normalize_support_measure_tokens(tokens):
         "race_ethnicity": "race_eth",
     }
 
-    # Preserve all currently selectable support-measure tokens, including
-    # display-only placeholders whose data source will be connected later.
-    for token in SUPPORT_MEASURE_OUTPUT_SPECS:
-        aliases.setdefault(token, token)
-
     out = []
     seen = set()
     for tok in _as_list(tokens):
@@ -1309,637 +1201,6 @@ def _safe_float(x):
         return float(x)
     except Exception:
         return None
-
-def _quote_identifier(identifier):
-    return '"' + str(identifier).replace('"', '""') + '"'
-
-
-@lru_cache(maxsize=64)
-def _get_table_column_map(table_name):
-    with connection.cursor() as cur:
-        cur.execute(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = %s
-            """,
-            [table_name],
-        )
-        rows = cur.fetchall()
-    return {str(row[0]).lower(): str(row[0]) for row in rows}
-
-
-
-# ---------------------------------------------------------
-# ACS MOE / CONFIDENCE INTERVAL HELPERS
-# ---------------------------------------------------------
-
-ACS_90_TO_95 = 1.96 / 1.645
-
-
-
-def _parse_places_ci(ci_text):
-    """
-    Parse CDC PLACES CI strings such as '( 8.7, 14.2)' into floats.
-    Returns (lower, upper).
-    """
-    if ci_text in (None, ""):
-        return (None, None)
-    s = str(ci_text).strip().replace("(", "").replace(")", "")
-    parts = [p.strip() for p in s.split(",")]
-    if len(parts) != 2:
-        return (None, None)
-    try:
-        return (float(parts[0]), float(parts[1]))
-    except (TypeError, ValueError):
-        return (None, None)
-
-def _safe_num(x):
-    try:
-        if x in (None, ""):
-            return None
-        return float(x)
-    except Exception:
-        return None
-
-
-def _acs_moe_95(moe_90):
-    """
-    ACS MOE columns are published at the 90% confidence level.
-    Convert to an approximate 95% MOE so the output is consistent with the
-    PopCASE "95% CI" display language.
-    """
-    moe = _safe_num(moe_90)
-    return None if moe is None else moe * ACS_90_TO_95
-
-
-def _acs_estimate_ci(estimate, moe_90, floor_zero=True, ndigits=2):
-    est = _safe_num(estimate)
-    moe95 = _acs_moe_95(moe_90)
-    if est is None or moe95 is None:
-        return (None, None)
-    lo = est - moe95
-    hi = est + moe95
-    if floor_zero:
-        lo = max(0.0, lo)
-    return (round(lo, ndigits), round(hi, ndigits))
-
-
-def _acs_pct_ci_from_num_denom(num, num_moe_90, denom, denom_moe_90, ndigits=2):
-    """
-    Approximate ACS percentage CI from numerator/denominator estimates and
-    their 90% MOEs. Uses the ACS-style ratio MOE formula when possible, and a
-    conservative fallback if the nested-subset formula becomes negative.
-    """
-    n = _safe_num(num)
-    d = _safe_num(denom)
-    n_moe = _acs_moe_95(num_moe_90)
-    d_moe = _acs_moe_95(denom_moe_90)
-
-    if n is None or d is None or d <= 0 or n_moe is None:
-        return (None, None)
-
-    pct = (n / d) * 100.0
-
-    if d_moe is None:
-        moe_pct = (n_moe / d) * 100.0
-    else:
-        ratio = n / d
-        inner = (n_moe ** 2) - ((ratio ** 2) * (d_moe ** 2))
-        if inner < 0:
-            inner = (n_moe ** 2) + ((ratio ** 2) * (d_moe ** 2))
-        moe_pct = (math.sqrt(inner) / d) * 100.0
-
-    return (round(max(0.0, pct - moe_pct), ndigits), round(min(100.0, pct + moe_pct), ndigits))
-
-
-def _first_existing_col(colmap, candidates):
-    for c in candidates:
-        if c and c.lower() in colmap:
-            return colmap[c.lower()]
-    return None
-
-
-def _select_columns_from_table(table_name, columns, where_sql=None, where_params=None):
-    """
-    Safe helper for mixed-case ACS/CDC table columns. Missing optional columns
-    are returned as absent rather than causing the query to fail.
-    """
-    colmap = _get_table_column_map(table_name)
-    selected = []
-    aliases = {}
-    for alias, candidates in columns.items():
-        col = _first_existing_col(colmap, candidates if isinstance(candidates, (list, tuple)) else [candidates])
-        if col:
-            aliases[alias] = col
-            selected.append(col)
-
-    if not selected:
-        return [], aliases
-
-    sql = f'SELECT {", ".join(_quote_identifier(c) for c in selected)} FROM {_quote_identifier(table_name)}'
-    if where_sql:
-        sql += f" WHERE {where_sql}"
-
-    with connection.cursor() as cur:
-        cur.execute(sql, where_params or [])
-        rows = cur.fetchall()
-        returned = [desc[0] for desc in cur.description]
-
-    out = [dict(zip(returned, row)) for row in rows]
-    return out, aliases
-
-
-def _get_acs_b01001_tract_community_lookup(requested):
-    """
-    Tract-level ACS B01001 estimates + MOE-derived 95% bounds for:
-      - total population
-      - sex distribution
-      - approximate median age
-    """
-    requested = set(requested or ())
-    if not (requested & {"pop_total", "sex_distribution", "median_age"}):
-        return {}
-
-    table = "acs_5yr_B01001"
-    colmap = _get_table_column_map(table)
-    if not colmap:
-        return {}
-
-    base_cols = {
-        "geo_id": ["GEO_ID", "geo_id"],
-        "year": ["year"],
-        "geographic_level": ["geographic_level"],
-        "total": ["B01001_001E"],
-        "total_moe": ["B01001_001M"],
-        "male": ["B01001_002E"],
-        "male_moe": ["B01001_002M"],
-        "female": ["B01001_026E"],
-        "female_moe": ["B01001_026M"],
-    }
-
-    age_groups = [
-        ("m_under5", "B01001_003E", "B01001_003M", 0, 5), ("m_5_9", "B01001_004E", "B01001_004M", 5, 10),
-        ("m_10_14", "B01001_005E", "B01001_005M", 10, 15), ("m_15_17", "B01001_006E", "B01001_006M", 15, 18),
-        ("m_18_19", "B01001_007E", "B01001_007M", 18, 20), ("m_20", "B01001_008E", "B01001_008M", 20, 21),
-        ("m_21", "B01001_009E", "B01001_009M", 21, 22), ("m_22_24", "B01001_010E", "B01001_010M", 22, 25),
-        ("m_25_29", "B01001_011E", "B01001_011M", 25, 30), ("m_30_34", "B01001_012E", "B01001_012M", 30, 35),
-        ("m_35_39", "B01001_013E", "B01001_013M", 35, 40), ("m_40_44", "B01001_014E", "B01001_014M", 40, 45),
-        ("m_45_49", "B01001_015E", "B01001_015M", 45, 50), ("m_50_54", "B01001_016E", "B01001_016M", 50, 55),
-        ("m_55_59", "B01001_017E", "B01001_017M", 55, 60), ("m_60_61", "B01001_018E", "B01001_018M", 60, 62),
-        ("m_62_64", "B01001_019E", "B01001_019M", 62, 65), ("m_65_66", "B01001_020E", "B01001_020M", 65, 67),
-        ("m_67_69", "B01001_021E", "B01001_021M", 67, 70), ("m_70_74", "B01001_022E", "B01001_022M", 70, 75),
-        ("m_75_79", "B01001_023E", "B01001_023M", 75, 80), ("m_80_84", "B01001_024E", "B01001_024M", 80, 85),
-        ("m_85_plus", "B01001_025E", "B01001_025M", 85, 90),
-        ("f_under5", "B01001_027E", "B01001_027M", 0, 5), ("f_5_9", "B01001_028E", "B01001_028M", 5, 10),
-        ("f_10_14", "B01001_029E", "B01001_029M", 10, 15), ("f_15_17", "B01001_030E", "B01001_030M", 15, 18),
-        ("f_18_19", "B01001_031E", "B01001_031M", 18, 20), ("f_20", "B01001_032E", "B01001_032M", 20, 21),
-        ("f_21", "B01001_033E", "B01001_033M", 21, 22), ("f_22_24", "B01001_034E", "B01001_034M", 22, 25),
-        ("f_25_29", "B01001_035E", "B01001_035M", 25, 30), ("f_30_34", "B01001_036E", "B01001_036M", 30, 35),
-        ("f_35_39", "B01001_037E", "B01001_037M", 35, 40), ("f_40_44", "B01001_038E", "B01001_038M", 40, 45),
-        ("f_45_49", "B01001_039E", "B01001_039M", 45, 50), ("f_50_54", "B01001_040E", "B01001_040M", 50, 55),
-        ("f_55_59", "B01001_041E", "B01001_041M", 55, 60), ("f_60_61", "B01001_042E", "B01001_042M", 60, 62),
-        ("f_62_64", "B01001_043E", "B01001_043M", 62, 65), ("f_65_66", "B01001_044E", "B01001_044M", 65, 67),
-        ("f_67_69", "B01001_045E", "B01001_045M", 67, 70), ("f_70_74", "B01001_046E", "B01001_046M", 70, 75),
-        ("f_75_79", "B01001_047E", "B01001_047M", 75, 80), ("f_80_84", "B01001_048E", "B01001_048M", 80, 85),
-        ("f_85_plus", "B01001_049E", "B01001_049M", 85, 90),
-    ]
-
-    cols = dict(base_cols)
-    if "median_age" in requested:
-        for alias, e_col, m_col, _, _ in age_groups:
-            cols[alias] = [e_col]
-            cols[f"{alias}_moe"] = [m_col]
-
-    where = None
-    params = []
-    level_col = _first_existing_col(colmap, ["geographic_level"])
-    if level_col:
-        where = f'{_quote_identifier(level_col)} = %s'
-        params = ["tract"]
-
-    rows, aliases = _select_columns_from_table(table, cols, where, params)
-
-    def val(row, alias):
-        col = aliases.get(alias)
-        return row.get(col) if col else None
-
-    lookup = {}
-    for row in rows:
-        tract = _tract_from_geo_id(val(row, "geo_id"))
-        if not tract:
-            continue
-
-        total = val(row, "total")
-        total_moe = val(row, "total_moe")
-        male = val(row, "male")
-        male_moe = val(row, "male_moe")
-        female = val(row, "female")
-        female_moe = val(row, "female_moe")
-
-        out = {}
-
-        if "pop_total" in requested:
-            out["total_population"] = total
-            out["total_population_moe_90"] = total_moe
-            lo, hi = _acs_estimate_ci(total, total_moe, floor_zero=True, ndigits=0)
-            out["total_population_ci_lower"] = lo
-            out["total_population_ci_upper"] = hi
-
-        if "sex_distribution" in requested:
-            out["male_population"] = male
-            out["female_population"] = female
-            out["male_pct"] = _safe_pct(male, total)
-            out["female_pct"] = _safe_pct(female, total)
-            out["male_pct_ci_lower"], out["male_pct_ci_upper"] = _acs_pct_ci_from_num_denom(male, male_moe, total, total_moe)
-            out["female_pct_ci_lower"], out["female_pct_ci_upper"] = _acs_pct_ci_from_num_denom(female, female_moe, total, total_moe)
-            out["sex_distribution"] = "Male/Female"
-            out["sex_distribution_ci_lower"] = None
-            out["sex_distribution_ci_upper"] = None
-
-        if "median_age" in requested:
-            # Current app estimates median age from grouped B01001 age/sex bins.
-            # These bounds are approximate because ACS does not publish a direct
-            # MOE for this derived grouped median in B01001.
-            bins = defaultdict(lambda: [0.0, 0.0])
-            for alias, _, _, lower, upper in age_groups:
-                est = _safe_num(val(row, alias)) or 0.0
-                moe95 = _acs_moe_95(val(row, f"{alias}_moe")) or 0.0
-                bins[(lower, upper)][0] += est
-                bins[(lower, upper)][1] = math.sqrt((bins[(lower, upper)][1] ** 2) + (moe95 ** 2))
-            counts_est = [(lo, hi, est_moe[0]) for (lo, hi), est_moe in sorted(bins.items())]
-            counts_low = [(lo, hi, max(0.0, est_moe[0] - est_moe[1])) for (lo, hi), est_moe in sorted(bins.items())]
-            counts_high = [(lo, hi, est_moe[0] + est_moe[1]) for (lo, hi), est_moe in sorted(bins.items())]
-            out["median_age"] = _estimate_grouped_median_age(counts_est)
-            low_med = _estimate_grouped_median_age(counts_low)
-            high_med = _estimate_grouped_median_age(counts_high)
-            out["median_age_ci_lower"] = min(low_med, high_med) if low_med is not None and high_med is not None else None
-            out["median_age_ci_upper"] = max(low_med, high_med) if low_med is not None and high_med is not None else None
-
-        if out:
-            lookup[tract] = out
-
-    return lookup
-
-
-def _get_acs_income_tract_lookup():
-    table = "acs_5yr_B19013"
-    cols = {
-        "geo_id": ["GEO_ID", "geo_id"],
-        "income": ["B19013_001E"],
-        "income_moe": ["B19013_001M"],
-    }
-    rows, aliases = _select_columns_from_table(table, cols)
-
-    def val(row, alias):
-        col = aliases.get(alias)
-        return row.get(col) if col else None
-
-    lookup = {}
-    for row in rows:
-        tract = _tract_from_geo_id(val(row, "geo_id"))
-        if not tract:
-            continue
-        income = val(row, "income")
-        lo, hi = _acs_estimate_ci(income, val(row, "income_moe"), floor_zero=True, ndigits=0)
-        lookup[tract] = {
-            "median_household_income": income,
-            "median_household_income_ci_lower": lo,
-            "median_household_income_ci_upper": hi,
-        }
-    return lookup
-
-
-def _get_acs_limited_english_tract_lookup():
-    table = "acs_5yr_C16001"
-    cols = {
-        "geo_id": ["GEO_ID", "geo_id"],
-        "denom": ["C16001_001E"],
-        "denom_moe": ["C16001_001M"],
-        "num": ["C16001_004E"],
-        "num_moe": ["C16001_004M"],
-    }
-    rows, aliases = _select_columns_from_table(table, cols)
-
-    def val(row, alias):
-        col = aliases.get(alias)
-        return row.get(col) if col else None
-
-    lookup = {}
-    for row in rows:
-        tract = _tract_from_geo_id(val(row, "geo_id"))
-        if not tract:
-            continue
-        num, denom = val(row, "num"), val(row, "denom")
-        lookup[tract] = {
-            "limited_english_pct": _safe_pct(num, denom),
-        }
-        lo, hi = _acs_pct_ci_from_num_denom(num, val(row, "num_moe"), denom, val(row, "denom_moe"))
-        lookup[tract]["limited_english_ci_lower"] = lo
-        lookup[tract]["limited_english_ci_upper"] = hi
-    return lookup
-
-
-
-def _safe_round_float(x, digits=2):
-    """Return a rounded float, preserving None/blank/non-numeric values as None."""
-    try:
-        if x in (None, ""):
-            return None
-        return round(float(x), digits)
-    except Exception:
-        return None
-
-
-def _quote_ident(name: str) -> str:
-    """Safely quote a PostgreSQL identifier."""
-    return '"' + str(name).replace('"', '""') + '"'
-
-
-def _get_model_table_columns(model, using="default"):
-    """Return physical database column names for a Django model table."""
-    table_name = model._meta.db_table
-    with connections[using].cursor() as cur:
-        cur.execute(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = %s
-            """,
-            [table_name.lower()],
-        )
-        cols = [row[0] for row in cur.fetchall()]
-
-    # Some uploaded tables use mixed-case quoted names; fall back to an
-    # exact-name lookup when the lowercase information_schema lookup misses.
-    if not cols:
-        with connections[using].cursor() as cur:
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = %s
-                """,
-                [table_name],
-            )
-            cols = [row[0] for row in cur.fetchall()]
-    return cols
-
-
-def _first_existing_column(columns, candidates):
-    lower_map = {str(c).lower(): c for c in columns}
-    for candidate in candidates:
-        found = lower_map.get(str(candidate).lower())
-        if found:
-            return found
-    return None
-
-
-def _find_measure_column(columns, stem_candidates, suffix_candidates=None, contains_all=None):
-    """
-    Finds a column by exact candidate names first, then by loose token search.
-    This makes the CDC PLACES CI lookup resilient to different ETL naming styles.
-    """
-    lower_map = {str(c).lower(): c for c in columns}
-
-    exact_candidates = []
-    suffix_candidates = suffix_candidates or []
-    for stem in stem_candidates:
-        exact_candidates.append(stem)
-        for suffix in suffix_candidates:
-            exact_candidates.append(f"{stem}_{suffix}")
-            exact_candidates.append(f"{stem}{suffix}")
-
-    for candidate in exact_candidates:
-        found = lower_map.get(str(candidate).lower())
-        if found:
-            return found
-
-    if contains_all:
-        tokens = [t.lower() for t in contains_all if t]
-        for col in columns:
-            col_l = str(col).lower()
-            if all(t in col_l for t in tokens):
-                return col
-    return None
-
-
-def _parse_ci_text(value):
-    """
-    CDC/PLACES exports sometimes store CI as a single string like
-    "(62.1, 68.4)". Return (lower, upper) when possible.
-    """
-    if value in (None, ""):
-        return (None, None)
-    nums = re.findall(r"-?\d+(?:\.\d+)?", str(value))
-    if len(nums) >= 2:
-        return (_safe_round_float(nums[0], 2), _safe_round_float(nums[1], 2))
-    return (None, None)
-
-
-CDC_PLACES_TRACT_MEASURE_SPECS = {
-    "breast_screen": {
-        "estimate_key": "breast_screen",
-        "output_key": "mammography_screening_pct",
-        "ci_lower_key": "mammography_screening_ci_lower",
-        "ci_upper_key": "mammography_screening_ci_upper",
-        "age_adjusted_key": None,
-        "estimate_stems": [
-            "mammography_screening", "mammography", "mammouse", "mammography_use",
-            "mammo", "mammography_screening_pct",
-        ],
-        "lower_stems": [
-            "mammography_screening_ci_lower", "mammography_screening_lci", "mammography_screening_low",
-            "mammography_screening_lower", "mammography_lci", "mammography_low",
-            "mammouse_lci", "mammouse_low", "mammo_lci", "mammo_low",
-        ],
-        "upper_stems": [
-            "mammography_screening_ci_upper", "mammography_screening_uci", "mammography_screening_high",
-            "mammography_screening_upper", "mammography_uci", "mammography_high",
-            "mammouse_uci", "mammouse_high", "mammo_uci", "mammo_high",
-        ],
-        "ci_text_stems": [
-            "mammography_screening_ci", "mammography_screening_95ci", "mammography_95ci",
-            "mammouse_95ci", "mammo_95ci",
-        ],
-    },
-    "routine_checkup": {
-        "estimate_key": "routine_checkup",
-        "output_key": "routine_checkup_pct",
-        "ci_lower_key": "routine_checkup_ci_lower",
-        "ci_upper_key": "routine_checkup_ci_upper",
-        "age_adjusted_key": "routine_checkup_age_adjusted_pct",
-        "estimate_stems": ["routine_checkup", "checkup", "checkup_pct"],
-        "lower_stems": ["routine_checkup_ci_lower", "routine_checkup_lci", "routine_checkup_low", "checkup_lci", "checkup_low"],
-        "upper_stems": ["routine_checkup_ci_upper", "routine_checkup_uci", "routine_checkup_high", "checkup_uci", "checkup_high"],
-        "ci_text_stems": ["routine_checkup_ci", "routine_checkup_95ci", "checkup_95ci"],
-        "age_adjusted_stems": ["routine_checkup_age_adjusted", "routine_checkup_age_adjusted_pct", "checkup_age_adjusted"],
-    },
-    "no_transport": {
-        "estimate_key": "no_transport",
-        "output_key": "lack_transportation_pct",
-        "ci_lower_key": "lack_transportation_ci_lower",
-        "ci_upper_key": "lack_transportation_ci_upper",
-        "age_adjusted_key": "lack_transportation_age_adjusted_pct",
-        "estimate_stems": ["lack_transportation", "no_transport", "transportation", "transportation_barrier"],
-        "lower_stems": ["lack_transportation_ci_lower", "lack_transportation_lci", "lack_transportation_low", "no_transport_lci", "transportation_lci"],
-        "upper_stems": ["lack_transportation_ci_upper", "lack_transportation_uci", "lack_transportation_high", "no_transport_uci", "transportation_uci"],
-        "ci_text_stems": ["lack_transportation_ci", "lack_transportation_95ci", "no_transport_95ci", "transportation_95ci"],
-        "age_adjusted_stems": ["lack_transportation_age_adjusted", "lack_transportation_age_adjusted_pct", "no_transport_age_adjusted"],
-    },
-    "no_insurance": {
-        "estimate_key": "no_insurance",
-        "output_key": "uninsured_pct",
-        "ci_lower_key": "uninsured_ci_lower",
-        "ci_upper_key": "uninsured_ci_upper",
-        "age_adjusted_key": "uninsured_age_adjusted_pct",
-        "estimate_stems": ["uninsured", "no_insurance", "health_insurance_none"],
-        "lower_stems": ["uninsured_ci_lower", "uninsured_lci", "uninsured_low", "no_insurance_lci", "no_insurance_low"],
-        "upper_stems": ["uninsured_ci_upper", "uninsured_uci", "uninsured_high", "no_insurance_uci", "no_insurance_high"],
-        "ci_text_stems": ["uninsured_ci", "uninsured_95ci", "no_insurance_95ci"],
-        "age_adjusted_stems": ["uninsured_age_adjusted", "uninsured_age_adjusted_pct", "no_insurance_age_adjusted"],
-    },
-}
-
-
-def _get_cdc_places_tract_lookup(requested):
-    """
-    Reads CDC PLACES tract estimates plus lower/upper confidence limits when
-    those columns exist in the loaded ETL table.
-
-    The app's model currently uses simplified estimate names, but different
-    PLACES ETL files name CI columns differently. This raw-column reader checks
-    the actual database columns and maps any available lower/upper CI columns
-    into the output keys expected by results.html/views.py.
-    """
-    requested = set(requested or ())
-    measure_specs = {
-        token: spec
-        for token, spec in CDC_PLACES_TRACT_MEASURE_SPECS.items()
-        if token in requested
-    }
-    if not measure_specs:
-        return {}
-
-    table_name = CDCPlacesTract2024._meta.db_table
-    columns = _get_model_table_columns(CDCPlacesTract2024)
-    if not columns:
-        return {}
-
-    geoid_col = _first_existing_column(columns, [
-        "tract_fips", "tractfips", "tract", "geoid", "geo_id", "locationid", "location_id",
-    ])
-    if not geoid_col:
-        return {}
-
-    selected = {"geoid": geoid_col}
-    col_roles = {}
-
-    for token, spec in measure_specs.items():
-        est_col = _find_measure_column(
-            columns,
-            spec["estimate_stems"],
-            contains_all=[spec["estimate_stems"][0]],
-        )
-        low_col = _find_measure_column(
-            columns,
-            spec.get("lower_stems", []),
-            suffix_candidates=["ci_lower", "lower", "lci", "low", "95ci_lower", "95ci_low"],
-            contains_all=[spec["estimate_stems"][0].split("_")[0], "lci"],
-        )
-        high_col = _find_measure_column(
-            columns,
-            spec.get("upper_stems", []),
-            suffix_candidates=["ci_upper", "upper", "uci", "high", "95ci_upper", "95ci_high"],
-            contains_all=[spec["estimate_stems"][0].split("_")[0], "uci"],
-        )
-        ci_text_col = _find_measure_column(
-            columns,
-            spec.get("ci_text_stems", []),
-            suffix_candidates=["ci", "95ci", "confidence_interval"],
-            contains_all=[spec["estimate_stems"][0].split("_")[0], "95ci"],
-        )
-        age_col = None
-        if spec.get("age_adjusted_key"):
-            age_col = _find_measure_column(
-                columns,
-                spec.get("age_adjusted_stems", []),
-                suffix_candidates=["age_adjusted", "ageadj", "age_adjusted_pct"],
-                contains_all=[spec["estimate_stems"][0].split("_")[0], "age"],
-            )
-
-        for role, col in (
-            ("estimate", est_col),
-            ("low", low_col),
-            ("high", high_col),
-            ("ci_text", ci_text_col),
-            ("age_adjusted", age_col),
-        ):
-            if col:
-                alias = f"{token}__{role}"
-                selected[alias] = col
-                col_roles[(token, role)] = alias
-
-    select_sql = ", ".join(
-        f"{_quote_ident(col)} AS {_quote_ident(alias)}"
-        for alias, col in selected.items()
-    )
-    sql = f"SELECT {select_sql} FROM {_quote_ident(table_name)}"
-
-    lookup = {}
-    with connection.cursor() as cur:
-        cur.execute(sql)
-        colnames = [desc[0] for desc in cur.description]
-        for db_row in cur.fetchall():
-            row = dict(zip(colnames, db_row))
-            tract = row.get("geoid")
-            tract = str(tract).strip() if tract is not None else None
-            if not tract:
-                continue
-            tract = tract[-11:] if len(tract) >= 11 else tract
-
-            out = {}
-            for token, spec in measure_specs.items():
-                est = row.get(col_roles.get((token, "estimate")))
-                low = row.get(col_roles.get((token, "low")))
-                high = row.get(col_roles.get((token, "high")))
-                if (low in (None, "")) or (high in (None, "")):
-                    parsed_low, parsed_high = _parse_ci_text(row.get(col_roles.get((token, "ci_text"))))
-                    low = low if low not in (None, "") else parsed_low
-                    high = high if high not in (None, "") else parsed_high
-
-                age_adjusted = row.get(col_roles.get((token, "age_adjusted")))
-
-                out[spec["estimate_key"]] = _safe_round_float(est, 2)
-                out[spec["output_key"]] = _safe_round_float(est, 2)
-                out[spec["ci_lower_key"]] = _safe_round_float(low, 2)
-                out[spec["ci_upper_key"]] = _safe_round_float(high, 2)
-                if spec.get("age_adjusted_key"):
-                    out[spec["age_adjusted_key"]] = _safe_round_float(age_adjusted, 2)
-
-            lookup[tract] = out
-
-    return lookup
-
-
-def _rate_ci_from_count(case_count, population, multiplier=100000.0):
-    if case_count in (None, "") or population in (None, "", 0):
-        return (None, None, None)
-
-    try:
-        case_count = float(case_count)
-        population = float(population)
-    except Exception:
-        return (None, None, None)
-
-    if population <= 0:
-        return (None, None, None)
-
-    rate = (case_count / population) * multiplier
-    se = (math.sqrt(case_count) / population) * multiplier if case_count >= 0 else 0.0
-    lo = max(0.0, rate - 1.96 * se)
-    hi = rate + 1.96 * se
-    return (round(rate, 1), round(lo, 1), round(hi, 1))
 
 
 def _haversine_miles(lat1, lon1, lat2, lon2):
@@ -2045,92 +1306,65 @@ def _fetch_acs_total_lookup(table_name):
     return lookup
 
 
-@lru_cache(maxsize=32)
-def _fetch_acs_total_moe_lookup(table_name):
-    spec = RACE_TABLE_SPECS.get(table_name)
-    if not spec:
-        return {}
-
-    rows, aliases = _select_columns_from_table(
-        table_name,
-        {
-            "geo": [spec["geo_col"]],
-            "estimate": [spec["total_col"]],
-            "moe": [spec.get("moe_col") or spec["total_col"].replace("_001E", "_001M")],
-        },
-    )
-
-    def val(row, alias):
-        col = aliases.get(alias)
-        return row.get(col) if col else None
-
-    lookup = {}
-    for row in rows:
-        tract = _normalize_geoid_from_geo_id(val(row, "geo"))
-        if not tract:
-            continue
-        tract = str(tract).strip()
-        if len(tract) != 11:
-            continue
-        lookup[tract] = {
-            "estimate": _safe_num(val(row, "estimate")) or 0.0,
-            "moe": val(row, "moe"),
-        }
-    return lookup
-
-
 @lru_cache(maxsize=1)
 def _get_tract_race_ethnicity_lookup():
-    total_lookup = {}
-    for tract, row in _get_acs_b01001_tract_community_lookup(("pop_total",)).items():
-        total_lookup[tract] = {
-            "estimate": row.get("total_population"),
-            "moe": row.get("total_population_moe_90"),
-            "ci_lower": row.get("total_population_ci_lower"),
-            "ci_upper": row.get("total_population_ci_upper"),
-        }
-
-    race_specs = {
-        "white_alone": ("acs_5yr_B01001A", "white_alone_pct", "white_alone_ci_lower", "white_alone_ci_upper"),
-        "black_alone": ("acs_5yr_B01001B", "black_alone_pct", "black_alone_ci_lower", "black_alone_ci_upper"),
-        "aian_alone": ("acs_5yr_B01001C", "aian_alone_pct", "aian_alone_ci_lower", "aian_alone_ci_upper"),
-        "asian_alone": ("acs_5yr_B01001D", "asian_alone_pct", "asian_alone_ci_lower", "asian_alone_ci_upper"),
-        "nhpi_alone": ("acs_5yr_B01001E", "nhpi_alone_pct", "nhpi_alone_ci_lower", "nhpi_alone_ci_upper"),
-        "other_race_alone": ("acs_5yr_B01001F", "other_race_alone_pct", "other_race_alone_ci_lower", "other_race_alone_ci_upper"),
-        "multiracial": ("acs_5yr_B01001G", "multiracial_pct", "multiracial_ci_lower", "multiracial_ci_upper"),
-        "nh_white": ("acs_5yr_B01001H", "nh_white_pct", "nh_white_ci_lower", "nh_white_ci_upper"),
-        "hispanic": ("acs_5yr_B01001I", "hispanic_pct", "hispanic_ci_lower", "hispanic_ci_upper"),
+    total_pop_lookup = {
+        _tract_from_geo_id(row["geo_id"]): float(row["total_population"] or 0)
+        for row in (
+            Acs5YrB01001.objects
+            .filter(geographic_level="tract")
+            .values("geo_id", "total_population")
+            .iterator(chunk_size=5000)
+        )
+        if _tract_from_geo_id(row["geo_id"])
     }
 
-    race_lookups = {
-        name: _fetch_acs_total_moe_lookup(table)
-        for name, (table, _, _, _) in race_specs.items()
-    }
+    white_lookup = _fetch_acs_total_lookup("acs_5yr_B01001A")
+    black_lookup = _fetch_acs_total_lookup("acs_5yr_B01001B")
+    aian_lookup = _fetch_acs_total_lookup("acs_5yr_B01001C")
+    asian_lookup = _fetch_acs_total_lookup("acs_5yr_B01001D")
+    nhpi_lookup = _fetch_acs_total_lookup("acs_5yr_B01001E")
+    other_lookup = _fetch_acs_total_lookup("acs_5yr_B01001F")
+    multiracial_lookup = _fetch_acs_total_lookup("acs_5yr_B01001G")
+    nh_white_lookup = _fetch_acs_total_lookup("acs_5yr_B01001H")
+    hispanic_lookup = _fetch_acs_total_lookup("acs_5yr_B01001I")
 
-    all_tracts = set(total_lookup.keys())
-    for lu in race_lookups.values():
-        all_tracts |= set(lu.keys())
+    all_tracts = set(total_pop_lookup.keys())
+    all_tracts |= set(white_lookup.keys())
+    all_tracts |= set(black_lookup.keys())
+    all_tracts |= set(aian_lookup.keys())
+    all_tracts |= set(asian_lookup.keys())
+    all_tracts |= set(nhpi_lookup.keys())
+    all_tracts |= set(other_lookup.keys())
+    all_tracts |= set(multiracial_lookup.keys())
+    all_tracts |= set(nh_white_lookup.keys())
+    all_tracts |= set(hispanic_lookup.keys())
 
     lookup = {}
     for tract in all_tracts:
-        total = (total_lookup.get(tract) or {}).get("estimate")
-        # Use the raw ACS total MOE when available from B01001.
-        total_moe = (total_lookup.get(tract) or {}).get("moe")
+        total_pop = float(total_pop_lookup.get(tract) or 0)
 
-        row_out = {}
-        for name, (_, pct_key, low_key, high_key) in race_specs.items():
-            race_row = race_lookups.get(name, {}).get(tract, {})
-            estimate = race_row.get("estimate")
-            moe = race_row.get("moe")
-            row_out[pct_key] = _safe_pct(estimate, total)
-            row_out[low_key], row_out[high_key] = _acs_pct_ci_from_num_denom(
-                estimate, moe, total, total_moe
-            )
+        white = float(white_lookup.get(tract) or 0)
+        black = float(black_lookup.get(tract) or 0)
+        aian = float(aian_lookup.get(tract) or 0)
+        asian = float(asian_lookup.get(tract) or 0)
+        nhpi = float(nhpi_lookup.get(tract) or 0)
+        other = float(other_lookup.get(tract) or 0)
+        multiracial = float(multiracial_lookup.get(tract) or 0)
+        nh_white = float(nh_white_lookup.get(tract) or 0)
+        hispanic = float(hispanic_lookup.get(tract) or 0)
 
-        row_out["race_ethnicity"] = "Race/Ethnicity percentages"
-        row_out["race_eth_ci_lower"] = None
-        row_out["race_eth_ci_upper"] = None
-        lookup[tract] = row_out
+        lookup[tract] = {
+            "white_alone_pct": _safe_pct(white, total_pop),
+            "black_alone_pct": _safe_pct(black, total_pop),
+            "aian_alone_pct": _safe_pct(aian, total_pop),
+            "asian_alone_pct": _safe_pct(asian, total_pop),
+            "nhpi_alone_pct": _safe_pct(nhpi, total_pop),
+            "other_race_alone_pct": _safe_pct(other, total_pop),
+            "multiracial_pct": _safe_pct(multiracial, total_pop),
+            "nh_white_pct": _safe_pct(nh_white, total_pop),
+            "hispanic_pct": _safe_pct(hispanic, total_pop),
+        }
 
     return lookup
 
@@ -2139,163 +1373,107 @@ def _get_tract_race_ethnicity_lookup():
 def _get_tract_support_lookups_cached(requested_tuple):
     """
     Returns tract-level lookup dicts for selected non-disease MVP fields.
-
-    ACS community-characteristic CIs are calculated from ACS MOE columns.
-    ACS publishes MOEs at 90%; helpers above convert those MOEs to approximate
-    95% bounds for the PopCASE display.
     """
     requested = set(requested_tuple or ())
     lookups = {}
 
-    community_acs = {}
-
     if requested & {"pop_total", "sex_distribution", "median_age"}:
-        basic_lookup = _get_acs_b01001_tract_community_lookup(requested)
-        for tract, row in basic_lookup.items():
-            community_acs.setdefault(tract, {}).update(row)
-
-        if "pop_total" in requested:
-            lookups["pop"] = {
-                tract: row.get("total_population")
-                for tract, row in basic_lookup.items()
-            }
-
-        if "sex_distribution" in requested:
-            lookups["sex"] = {
-                tract: {
-                    "male_population": row.get("male_population"),
-                    "female_population": row.get("female_population"),
-                    "male_pct": row.get("male_pct"),
-                    "female_pct": row.get("female_pct"),
-                    "male_pct_ci_lower": row.get("male_pct_ci_lower"),
-                    "male_pct_ci_upper": row.get("male_pct_ci_upper"),
-                    "female_pct_ci_lower": row.get("female_pct_ci_lower"),
-                    "female_pct_ci_upper": row.get("female_pct_ci_upper"),
-                }
-                for tract, row in basic_lookup.items()
-            }
-
-        if "median_age" in requested:
-            lookups["median_age"] = {
-                tract: row.get("median_age")
-                for tract, row in basic_lookup.items()
-            }
-
-    if "race_eth" in requested:
-        race_lookup = _get_tract_race_ethnicity_lookup()
-        lookups["race_eth"] = race_lookup
-        for tract, row in race_lookup.items():
-            community_acs.setdefault(tract, {}).update(row)
-
-    if "med_hh_income" in requested:
-        income_lookup = _get_acs_income_tract_lookup()
-        lookups["income"] = {
-            tract: row.get("median_household_income")
-            for tract, row in income_lookup.items()
-        }
-        for tract, row in income_lookup.items():
-            community_acs.setdefault(tract, {}).update(row)
-
-    if "limited_english_pct" in requested:
-        limited_lookup = _get_acs_limited_english_tract_lookup()
-        lookups["limited_english_pct"] = {
-            tract: row.get("limited_english_pct")
-            for tract, row in limited_lookup.items()
-        }
-        for tract, row in limited_lookup.items():
-            community_acs.setdefault(tract, {}).update(row)
-
-    if community_acs:
-        lookups["community_acs"] = community_acs
-
-    if requested & {"breast_screen", "routine_checkup", "no_transport", "no_insurance", "smoking", "obesity", "binge_drinking", "no_leisure_pa", "short_sleep", "crc_screen", "dentist", "poor_health", "phys_distress", "mental_distress", "food_insecurity", "social_isolation", "any_disability", "mobility_disability", "selfcare_disability", "independent_living_disability"}:
-        places_lookup = {}
-        # Keep the model-based estimate lookup as a fallback for the core tract
-        # measures. If raw CDC lookup helpers are present in this services.py,
-        # they will be used elsewhere/merged by _get_support_lookups.
-        model_fields = {f.name for f in CDCPlacesTract2024._meta.get_fields() if hasattr(f, "attname")}
-        values_fields = ["tract_fips"]
-        for f in [
-            "mammography_screening", "routine_checkup", "lack_transportation", "uninsured",
-            "mammography_screening_ci", "routine_checkup_ci", "lack_transportation_ci", "uninsured_ci",
-            "smoking", "smoking_ci", "obesity", "obesity_ci", "binge_drinking", "binge_drinking_ci",
-            "no_leisure_pa", "no_leisure_pa_ci", "short_sleep", "short_sleep_ci",
-            "colorectal_screening", "colorectal_screening_ci", "dental", "dental_ci",
-            "poor_health", "poor_health_ci", "physical_distress", "physical_distress_ci",
-            "mental_distress", "mental_distress_ci", "food_insecurity", "food_insecurity_ci",
-            "social_isolation", "social_isolation_ci", "any_disability", "any_disability_ci",
-            "mobility_disability", "mobility_disability_ci", "selfcare_disability", "selfcare_disability_ci",
-            "independent_living_disability", "independent_living_disability_ci",
-        ]:
-            if f in model_fields:
-                values_fields.append(f)
-
-        def add_ci(out, row, src_key, low_key, high_key):
-            lo, hi = _parse_places_ci(row.get(src_key))
-            out[low_key] = lo
-            out[high_key] = hi
-
-        for row in CDCPlacesTract2024.objects.all().values(*values_fields).iterator(chunk_size=5000):
-            tract = str(row["tract_fips"]).strip() if row.get("tract_fips") else None
+        acs_rows = list(
+            Acs5YrB01001.objects
+            .filter(geographic_level="tract")
+            .values(
+                "geo_id", "total_population", "total_male", "total_female",
+                "m_under5", "m_5_9", "m_10_14", "m_15_17", "m_18_19", "m_20", "m_21", "m_22_24",
+                "m_25_29", "m_30_34", "m_35_39", "m_40_44", "m_45_49", "m_50_54", "m_55_59",
+                "m_60_61", "m_62_64", "m_65_66", "m_67_69", "m_70_74", "m_75_79", "m_80_84", "m_85_plus",
+                "f_under5", "f_5_9", "f_10_14", "f_15_17", "f_18_19", "f_20", "f_21", "f_22_24",
+                "f_25_29", "f_30_34", "f_35_39", "f_40_44", "f_45_49", "f_50_54", "f_55_59",
+                "f_60_61", "f_62_64", "f_65_66", "f_67_69", "f_70_74", "f_75_79", "f_80_84", "f_85_plus",
+            )
+            .iterator(chunk_size=5000)
+        )
+        pop_lookup, sex_lookup, median_age_lookup = {}, {}, {}
+        for row in acs_rows:
+            tract = _tract_from_geo_id(row["geo_id"])
             if not tract:
                 continue
-            tract = tract.zfill(11)[-11:]
+            total_pop = row.get("total_population")
+            if "pop_total" in requested:
+                pop_lookup[tract] = total_pop
+            if "sex_distribution" in requested:
+                male = row.get("total_male")
+                female = row.get("total_female")
+                sex_lookup[tract] = {
+                    "male_population": male,
+                    "female_population": female,
+                    "male_pct": _safe_pct(male, total_pop),
+                    "female_pct": _safe_pct(female, total_pop),
+                }
+            if "median_age" in requested:
+                counts = [
+                    (0, 5, (row["m_under5"] or 0) + (row["f_under5"] or 0)),
+                    (5, 10, (row["m_5_9"] or 0) + (row["f_5_9"] or 0)),
+                    (10, 15, (row["m_10_14"] or 0) + (row["f_10_14"] or 0)),
+                    (15, 18, (row["m_15_17"] or 0) + (row["f_15_17"] or 0)),
+                    (18, 20, (row["m_18_19"] or 0) + (row["f_18_19"] or 0)),
+                    (20, 21, (row["m_20"] or 0) + (row["f_20"] or 0)),
+                    (21, 22, (row["m_21"] or 0) + (row["f_21"] or 0)),
+                    (22, 25, (row["m_22_24"] or 0) + (row["f_22_24"] or 0)),
+                    (25, 30, (row["m_25_29"] or 0) + (row["f_25_29"] or 0)),
+                    (30, 35, (row["m_30_34"] or 0) + (row["f_30_34"] or 0)),
+                    (35, 40, (row["m_35_39"] or 0) + (row["f_35_39"] or 0)),
+                    (40, 45, (row["m_40_44"] or 0) + (row["f_40_44"] or 0)),
+                    (45, 50, (row["m_45_49"] or 0) + (row["f_45_49"] or 0)),
+                    (50, 55, (row["m_50_54"] or 0) + (row["f_50_54"] or 0)),
+                    (55, 60, (row["m_55_59"] or 0) + (row["f_55_59"] or 0)),
+                    (60, 62, (row["m_60_61"] or 0) + (row["f_60_61"] or 0)),
+                    (62, 65, (row["m_62_64"] or 0) + (row["f_62_64"] or 0)),
+                    (65, 67, (row["m_65_66"] or 0) + (row["f_65_66"] or 0)),
+                    (67, 70, (row["m_67_69"] or 0) + (row["f_67_69"] or 0)),
+                    (70, 75, (row["m_70_74"] or 0) + (row["f_70_74"] or 0)),
+                    (75, 80, (row["m_75_79"] or 0) + (row["f_75_79"] or 0)),
+                    (80, 85, (row["m_80_84"] or 0) + (row["f_80_84"] or 0)),
+                    (85, 90, (row["m_85_plus"] or 0) + (row["f_85_plus"] or 0)),
+                ]
+                median_age_lookup[tract] = _estimate_grouped_median_age(counts)
+        if "pop_total" in requested:
+            lookups["pop"] = pop_lookup
+        if "sex_distribution" in requested:
+            lookups["sex"] = sex_lookup
+        if "median_age" in requested:
+            lookups["median_age"] = median_age_lookup
 
-            out = {}
+    if "race_eth" in requested:
+        lookups["race_eth"] = _get_tract_race_ethnicity_lookup()
 
-            if "mammography_screening" in row:
-                out["breast_screen"] = row.get("mammography_screening")
-                out["mammography_screening_pct"] = row.get("mammography_screening")
-            if "mammography_screening_ci" in row:
-                add_ci(out, row, "mammography_screening_ci", "mammography_screening_ci_lower", "mammography_screening_ci_upper")
+    if "med_hh_income" in requested:
+        lookups["income"] = {
+            _tract_from_geo_id(row["geo_id"]): row["median_household_income"]
+            for row in AcsB19013.objects.all().values("geo_id", "median_household_income").iterator(chunk_size=5000)
+            if _tract_from_geo_id(row["geo_id"])
+        }
 
-            if "routine_checkup" in row:
-                out["routine_checkup"] = row.get("routine_checkup")
-                out["routine_checkup_pct"] = row.get("routine_checkup")
-            if "routine_checkup_ci" in row:
-                add_ci(out, row, "routine_checkup_ci", "routine_checkup_ci_lower", "routine_checkup_ci_upper")
+    if "limited_english_pct" in requested:
+        lookups["limited_english_pct"] = {
+            _tract_from_geo_id(row["geo_id"]): _safe_pct(row["limited_english"], row["total_population_5plus"])
+            for row in AcsC16001.objects.all().values("geo_id", "limited_english", "total_population_5plus").iterator(chunk_size=5000)
+            if _tract_from_geo_id(row["geo_id"])
+        }
 
-            if "lack_transportation" in row:
-                out["no_transport"] = row.get("lack_transportation")
-                out["lack_transportation_pct"] = row.get("lack_transportation")
-            if "lack_transportation_ci" in row:
-                add_ci(out, row, "lack_transportation_ci", "lack_transportation_ci_lower", "lack_transportation_ci_upper")
-
-            if "uninsured" in row:
-                out["no_insurance"] = row.get("uninsured")
-                out["uninsured_pct"] = row.get("uninsured")
-            if "uninsured_ci" in row:
-                add_ci(out, row, "uninsured_ci", "uninsured_ci_lower", "uninsured_ci_upper")
-
-            places_map = {
-                "smoking": ("smoking_pct", "smoking_ci", "smoking_ci_lower", "smoking_ci_upper"),
-                "obesity": ("obesity_pct", "obesity_ci", "obesity_ci_lower", "obesity_ci_upper"),
-                "binge_drinking": ("binge_drinking_pct", "binge_drinking_ci", "binge_drinking_ci_lower", "binge_drinking_ci_upper"),
-                "no_leisure_pa": ("no_leisure_pa_pct", "no_leisure_pa_ci", "no_leisure_pa_ci_lower", "no_leisure_pa_ci_upper"),
-                "short_sleep": ("short_sleep_pct", "short_sleep_ci", "short_sleep_ci_lower", "short_sleep_ci_upper"),
-                "colorectal_screening": ("crc_screening_pct", "colorectal_screening_ci", "crc_screening_ci_lower", "crc_screening_ci_upper"),
-                "dental": ("dentist_pct", "dental_ci", "dentist_ci_lower", "dentist_ci_upper"),
-                "poor_health": ("poor_health_pct", "poor_health_ci", "poor_health_ci_lower", "poor_health_ci_upper"),
-                "physical_distress": ("phys_distress_pct", "physical_distress_ci", "phys_distress_ci_lower", "phys_distress_ci_upper"),
-                "mental_distress": ("mental_distress_pct", "mental_distress_ci", "mental_distress_ci_lower", "mental_distress_ci_upper"),
-                "food_insecurity": ("food_insecurity_pct", "food_insecurity_ci", "food_insecurity_ci_lower", "food_insecurity_ci_upper"),
-                "social_isolation": ("social_isolation_pct", "social_isolation_ci", "social_isolation_ci_lower", "social_isolation_ci_upper"),
-                "any_disability": ("any_disability_pct", "any_disability_ci", "any_disability_ci_lower", "any_disability_ci_upper"),
-                "mobility_disability": ("mobility_disability_pct", "mobility_disability_ci", "mobility_disability_ci_lower", "mobility_disability_ci_upper"),
-                "selfcare_disability": ("selfcare_disability_pct", "selfcare_disability_ci", "selfcare_disability_ci_lower", "selfcare_disability_ci_upper"),
-                "independent_living_disability": ("independent_living_disability_pct", "independent_living_disability_ci", "independent_living_disability_ci_lower", "independent_living_disability_ci_upper"),
-            }
-            for model_key, (out_key, ci_key, low_key, high_key) in places_map.items():
-                if model_key in row:
-                    out[out_key] = row.get(model_key)
-                if ci_key in row:
-                    add_ci(out, row, ci_key, low_key, high_key)
-
-            if out:
-                places_lookup[tract] = out
-
-        if places_lookup:
-            lookups["places"] = places_lookup
+    if requested & {"breast_screen", "routine_checkup", "no_transport", "no_insurance"}:
+        places_lookup = {}
+        for row in CDCPlacesTract2024.objects.all().values(
+            "tract_fips", "mammography_screening", "routine_checkup", "lack_transportation", "uninsured"
+        ).iterator(chunk_size=5000):
+            tract = str(row["tract_fips"]).strip() if row["tract_fips"] else None
+            if tract:
+                places_lookup[tract] = {
+                    "breast_screen": row["mammography_screening"],
+                    "routine_checkup": row["routine_checkup"],
+                    "no_transport": row["lack_transportation"],
+                    "no_insurance": row["uninsured"],
+                }
+        lookups["places"] = places_lookup
 
     if "pcp_access_score" in requested:
         try:
@@ -2316,49 +1494,6 @@ def _get_tract_support_lookups_cached(requested_tuple):
     return lookups
 
 
-def _ci_requested_for_token(token, display_options):
-    return any(
-        token in CI_DISPLAY_OPTION_TO_TOKENS.get(option, set())
-        for option in display_options
-    )
-
-
-def _age_adjusted_requested_for_token(token, display_options):
-    return any(
-        token in AGE_ADJUST_DISPLAY_OPTION_TO_TOKENS.get(option, set())
-        for option in display_options
-    )
-
-
-def _add_display_option_columns(out, support_measures, display_options, source_values=None):
-    """
-    Add selected support-measure columns plus optional CI/age-adjusted companion columns.
-
-    If the real lower/upper CI or age-adjusted source field is not mapped yet,
-    the column is intentionally left blank instead of being filled with an
-    unsupported estimate.
-    """
-    source_values = source_values or {}
-    display_options = set(display_options or [])
-
-    for token in support_measures:
-        spec = SUPPORT_MEASURE_OUTPUT_SPECS.get(token)
-        if not spec:
-            continue
-
-        value_key, ci_low_key, ci_high_key, age_adjusted_key = spec
-
-        if value_key not in out:
-            out[value_key] = source_values.get(value_key)
-
-        if _ci_requested_for_token(token, display_options):
-            out[ci_low_key] = source_values.get(ci_low_key)
-            out[ci_high_key] = source_values.get(ci_high_key)
-
-        if age_adjusted_key and _age_adjusted_requested_for_token(token, display_options):
-            out[age_adjusted_key] = source_values.get(age_adjusted_key)
-
-
 def _get_tract_support_lookups(requested_support_measures=None):
     normalized = tuple(sorted(_normalize_support_measure_tokens(requested_support_measures or [])))
     return _get_tract_support_lookups_cached(normalized)
@@ -2370,7 +1505,6 @@ def _build_mvp_geo_dataset_uncached(
     filters=None,
     disease_measures=None,
     support_measures=None,
-    display_options=None,
     incidence_year=None,
 ):
     """
@@ -2389,7 +1523,6 @@ def _build_mvp_geo_dataset_uncached(
 
     disease_measures = set(_as_list(disease_measures))
     support_measures = _normalize_support_measure_tokens(support_measures)
-    display_options = set(_as_list(display_options))
 
     dx_start, dx_end = year_range
     filters = dict(filters)
@@ -2398,13 +1531,13 @@ def _build_mvp_geo_dataset_uncached(
 
     filtered_qs = apply_naaccr_filters(NaaccrData.objects.all(), filters)
     stage_by_mid = dict(filtered_qs.values_list("mid", "stg_grp"))
-    filtered_pat_ids = list(stage_by_mid.keys())
+    filtered_mid_subquery = filtered_qs.values("mid")
 
     linking_rows = []
-    if filtered_pat_ids:
+    if filtered_mid_subquery:
         linking_rows = list(
             NaaccrPatientCensusLinking.objects
-            .filter(geographic_level=geographic_level, pat_id__in=filtered_pat_ids)
+            .filter(geographic_level=geographic_level, pat_id__in=Subquery(filtered_mid_subquery))
             .values_list("pat_id", "geoid")
             .distinct()
         )
@@ -2456,7 +1589,7 @@ def _build_mvp_geo_dataset_uncached(
         return (p, lo, hi)
 
     incidence_lookup = {}
-    if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
+    if ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
         if incidence_year is None:
             incidence_year = (
                 NaaccrPatientCensusLinking.objects
@@ -2532,89 +1665,52 @@ def _build_mvp_geo_dataset_uncached(
                 out["meta_ci_lower"] = round(lo * 100, 2) if lo is not None else None
                 out["meta_ci_upper"] = round(hi * 100, 2) if hi is not None else None
 
-        if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
+        if ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
             ir = incidence_lookup.get(geoid)
-            if "crude_inc_rate" in disease_measures:
-                out["crude_incidence_per_100k"] = ir.get("crude_incidence_per_100k") if ir else None
-            if "crude_inc_ci" in disease_measures:
-                out["crude_inc_ci_lower_per_100k"] = ir.get("crude_incidence_ci_lower") if ir else None
-                out["crude_inc_ci_upper_per_100k"] = ir.get("crude_incidence_ci_upper") if ir else None
-            if "inc_rate" in disease_measures:
-                out["age_adjusted_per_100k"] = ir.get("age_adjusted_per_100k") if ir else None
-            if "inc_ci" in disease_measures:
-                out["inc_ci_lower_per_100k"] = ir.get("age_adjusted_ci_lower") if ir else None
-                out["inc_ci_upper_per_100k"] = ir.get("age_adjusted_ci_upper") if ir else None
-
-        if ("crude_mort_rate" in disease_measures):
-            out["crude_mortality_per_100k"] = None
-        if ("crude_mort_ci" in disease_measures):
-            out["crude_mort_ci_lower_per_100k"] = None
-            out["crude_mort_ci_upper_per_100k"] = None
-        if ("mort_rate" in disease_measures):
-            out["age_adjusted_mortality_per_100k"] = None
-        if ("mort_ci" in disease_measures):
-            out["mort_ci_lower_per_100k"] = None
-            out["mort_ci_upper_per_100k"] = None
+            if ir:
+                out["age_adjusted_per_100k"] = ir.get("age_adjusted_per_100k")
+                if "inc_ci" in disease_measures:
+                    out["inc_ci_lower_per_100k"] = ir.get("age_adjusted_ci_lower")
+                    out["inc_ci_upper_per_100k"] = ir.get("age_adjusted_ci_upper")
+            else:
+                out["age_adjusted_per_100k"] = None
+                if "inc_ci" in disease_measures:
+                    out["inc_ci_lower_per_100k"] = None
+                    out["inc_ci_upper_per_100k"] = None
 
         if geographic_level == "tract" and tract_support:
-            community_row = tract_support.get("community_acs", {}).get(geoid, {})
-            if community_row:
-                out.update(community_row)
-                out.pop("total_population_moe_90", None)
-
             if "pop_total" in support_measures:
-                out["total_population"] = community_row.get("total_population", tract_support.get("pop", {}).get(geoid))
+                out["total_population"] = tract_support["pop"].get(geoid)
 
             if "med_hh_income" in support_measures:
-                out["median_household_income"] = community_row.get("median_household_income", tract_support.get("income", {}).get(geoid))
-                out["median_household_income_ci_lower"] = community_row.get("median_household_income_ci_lower")
-                out["median_household_income_ci_upper"] = community_row.get("median_household_income_ci_upper")
+                out["median_household_income"] = tract_support["income"].get(geoid)
 
             if "limited_english_pct" in support_measures:
-                out["limited_english_pct"] = community_row.get("limited_english_pct", tract_support.get("limited_english_pct", {}).get(geoid))
-                out["limited_english_ci_lower"] = community_row.get("limited_english_ci_lower")
-                out["limited_english_ci_upper"] = community_row.get("limited_english_ci_upper")
+                out["limited_english_pct"] = tract_support["limited_english_pct"].get(geoid)
 
             if "sex_distribution" in support_measures:
-                sex_row = tract_support.get("sex", {}).get(geoid, {})
+                sex_row = tract_support["sex"].get(geoid, {})
                 out["male_population"] = sex_row.get("male_population")
                 out["female_population"] = sex_row.get("female_population")
                 out["male_pct"] = sex_row.get("male_pct")
                 out["female_pct"] = sex_row.get("female_pct")
-                out["male_pct_ci_lower"] = sex_row.get("male_pct_ci_lower")
-                out["male_pct_ci_upper"] = sex_row.get("male_pct_ci_upper")
-                out["female_pct_ci_lower"] = sex_row.get("female_pct_ci_lower")
-                out["female_pct_ci_upper"] = sex_row.get("female_pct_ci_upper")
 
             if "median_age" in support_measures:
-                out["median_age"] = community_row.get("median_age", tract_support.get("median_age", {}).get(geoid))
-                out["median_age_ci_lower"] = community_row.get("median_age_ci_lower")
-                out["median_age_ci_upper"] = community_row.get("median_age_ci_upper")
+                out["median_age"] = tract_support["median_age"].get(geoid)
 
-            places_row = tract_support.get("places", {}).get(geoid, {})
+            places_row = tract_support["places"].get(geoid, {})
 
             if "breast_screen" in support_measures:
-                out["mammography_screening_pct"] = places_row.get("mammography_screening_pct", places_row.get("breast_screen"))
-                out["mammography_screening_ci_lower"] = places_row.get("mammography_screening_ci_lower")
-                out["mammography_screening_ci_upper"] = places_row.get("mammography_screening_ci_upper")
+                out["mammography_screening_pct"] = places_row.get("breast_screen")
 
             if "routine_checkup" in support_measures:
-                out["routine_checkup_pct"] = places_row.get("routine_checkup_pct", places_row.get("routine_checkup"))
-                out["routine_checkup_ci_lower"] = places_row.get("routine_checkup_ci_lower")
-                out["routine_checkup_ci_upper"] = places_row.get("routine_checkup_ci_upper")
-                out["routine_checkup_age_adjusted_pct"] = places_row.get("routine_checkup_age_adjusted_pct")
+                out["routine_checkup_pct"] = places_row.get("routine_checkup")
 
             if "no_transport" in support_measures:
-                out["lack_transportation_pct"] = places_row.get("lack_transportation_pct", places_row.get("no_transport"))
-                out["lack_transportation_ci_lower"] = places_row.get("lack_transportation_ci_lower")
-                out["lack_transportation_ci_upper"] = places_row.get("lack_transportation_ci_upper")
-                out["lack_transportation_age_adjusted_pct"] = places_row.get("lack_transportation_age_adjusted_pct")
+                out["lack_transportation_pct"] = places_row.get("no_transport")
 
             if "no_insurance" in support_measures:
-                out["uninsured_pct"] = places_row.get("uninsured_pct", places_row.get("no_insurance"))
-                out["uninsured_ci_lower"] = places_row.get("uninsured_ci_lower")
-                out["uninsured_ci_upper"] = places_row.get("uninsured_ci_upper")
-                out["uninsured_age_adjusted_pct"] = places_row.get("uninsured_age_adjusted_pct")
+                out["uninsured_pct"] = places_row.get("no_insurance")
 
             if "pcp_access_score" in support_measures:
                 out["primary_care_access_score"] = tract_support["pcp_access"].get(geoid)
@@ -2627,40 +1723,15 @@ def _build_mvp_geo_dataset_uncached(
 
             if "race_eth" in support_measures:
                 race_row = tract_support.get("race_eth", {}).get(geoid, {})
-                for key in (
-                    "race_ethnicity", "race_eth_ci_lower", "race_eth_ci_upper",
-                    "white_alone_pct", "white_alone_ci_lower", "white_alone_ci_upper",
-                    "black_alone_pct", "black_alone_ci_lower", "black_alone_ci_upper",
-                    "aian_alone_pct", "aian_alone_ci_lower", "aian_alone_ci_upper",
-                    "asian_alone_pct", "asian_alone_ci_lower", "asian_alone_ci_upper",
-                    "nhpi_alone_pct", "nhpi_alone_ci_lower", "nhpi_alone_ci_upper",
-                    "other_race_alone_pct", "other_race_alone_ci_lower", "other_race_alone_ci_upper",
-                    "multiracial_pct", "multiracial_ci_lower", "multiracial_ci_upper",
-                    "nh_white_pct", "nh_white_ci_lower", "nh_white_ci_upper",
-                    "hispanic_pct", "hispanic_ci_lower", "hispanic_ci_upper",
-                ):
-                    if key in race_row:
-                        out[key] = race_row.get(key)
-
-        # Add optional Display 95% CI / age-adjusted companion columns for
-        # geo-stratified support measures selected on measures.html.
-        #
-        # results.html builds the table columns dynamically from the keys
-        # present in mvp_rows. Without this call, checkbox-only options such as
-        # cancer_screening_ci, noncancer_health_status_ci, access survey CI,
-        # and community-characteristics CI are saved in the session but never
-        # appear as row keys, so no CI columns can be displayed or exported.
-        #
-        # Passing `out` as source_values preserves any real value/CI keys that
-        # were already populated above. If a real CI source is not connected
-        # yet, _add_display_option_columns intentionally creates the requested
-        # columns with None values instead of inventing unsupported estimates.
-        _add_display_option_columns(
-            out,
-            support_measures=support_measures,
-            display_options=display_options,
-            source_values=out,
-        )
+                out["white_alone_pct"] = race_row.get("white_alone_pct")
+                out["black_alone_pct"] = race_row.get("black_alone_pct")
+                out["aian_alone_pct"] = race_row.get("aian_alone_pct")
+                out["asian_alone_pct"] = race_row.get("asian_alone_pct")
+                out["nhpi_alone_pct"] = race_row.get("nhpi_alone_pct")
+                out["other_race_alone_pct"] = race_row.get("other_race_alone_pct")
+                out["multiracial_pct"] = race_row.get("multiracial_pct")
+                out["nh_white_pct"] = race_row.get("nh_white_pct")
+                out["hispanic_pct"] = race_row.get("hispanic_pct")
 
         rows.append(out)
 
@@ -2696,7 +1767,6 @@ def _build_mvp_geo_dataset_cached(
     filters_json: str,
     disease_measures_tuple: tuple,
     support_measures_tuple: tuple,
-    display_options_tuple: tuple,
     incidence_year: str,
 ):
     return _build_mvp_geo_dataset_uncached(
@@ -2705,7 +1775,6 @@ def _build_mvp_geo_dataset_cached(
         filters=_deserialize_cache_payload(filters_json),
         disease_measures=list(disease_measures_tuple),
         support_measures=list(support_measures_tuple),
-        display_options=list(display_options_tuple),
         incidence_year=incidence_year or None,
     )
 
@@ -2716,14 +1785,12 @@ def build_mvp_geo_dataset(
     filters=None,
     disease_measures=None,
     support_measures=None,
-    display_options=None,
     incidence_year=None,
 ):
     filters = filters or {}
     dx_start, dx_end = year_range
     normalized_disease = tuple(sorted(_as_list(disease_measures)))
     normalized_support = tuple(sorted(_normalize_support_measure_tokens(support_measures)))
-    normalized_display_options = tuple(sorted(_as_list(display_options)))
     return _build_mvp_geo_dataset_cached(
         geographic_level=geographic_level,
         dx_start=str(dx_start),
@@ -2731,7 +1798,6 @@ def build_mvp_geo_dataset(
         filters_json=_serialize_cache_payload(filters),
         disease_measures_tuple=normalized_disease,
         support_measures_tuple=normalized_support,
-        display_options_tuple=normalized_display_options,
         incidence_year=str(incidence_year or ""),
     )
 
@@ -2797,9 +1863,19 @@ def _compute_age_adjusted_by_tract(year, filtered_pat_ids):
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
-            AND l.geographic_level = 'tract'
-            AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
+              AND l.geographic_level = %s
         """, [year] + filtered_pat_ids)
         case_rows = cur.fetchall()
 
@@ -2863,9 +1939,19 @@ def _compute_age_adjusted_ci_by_tract(year, filtered_pat_ids):
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
-            AND l.geographic_level = 'tract'
-            AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
+              AND l.geographic_level = %s
         """, [str(year)] + filtered_pat_ids)
         case_rows = cur.fetchall()
 
@@ -2933,9 +2019,19 @@ def _compute_age_adjusted_by_county(year, filtered_pat_ids):
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
-            AND l.geographic_level = 'county'
-            AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
+              AND l.geographic_level = %s
         """, [year] + filtered_pat_ids)
         rows = cur.fetchall()
 
@@ -2996,9 +2092,19 @@ def _compute_age_adjusted_ci_by_county(year, filtered_pat_ids):
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
-              AND l.geographic_level = 'county'
-              AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
+              AND l.geographic_level = %s
         """, [str(year)] + filtered_pat_ids)
         rows = cur.fetchall()
 
@@ -3066,9 +2172,19 @@ def _compute_age_adjusted_by_zcta(year, filtered_pat_ids):
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
-            AND l.geographic_level = 'zcta'
-            AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
+              AND l.geographic_level = %s
         """, [year] + filtered_pat_ids)
         rows = cur.fetchall()
 
@@ -3130,9 +2246,19 @@ def _compute_age_adjusted_ci_by_zcta(year, filtered_pat_ids):
             FROM naaccr_data d
             JOIN naaccr_patient_census_linking l
                 ON d."Patient ID Number" = l."Patient ID Number"
+            WITH filtered_patients AS (
+                SELECT d."Patient ID Number"
+                FROM naaccr_data d
+                -- apply the same filters here
+            )
+            SELECT l.geoid, d."Age at Diagnosis"::int
+            FROM naaccr_data d
+            JOIN naaccr_patient_census_linking l
+              ON d."Patient ID Number" = l."Patient ID Number"
+            JOIN filtered_patients fp
+              ON fp."Patient ID Number" = d."Patient ID Number"
             WHERE l.year = %s
-              AND l.geographic_level = 'zcta'
-              AND l."Patient ID Number" IN ({",".join(["%s"] * len(filtered_pat_ids))})
+              AND l.geographic_level = %s
         """, [year] + filtered_pat_ids)
         rows = cur.fetchall()
 

@@ -58,28 +58,8 @@ RATE_ONLY_FOR_COUNTY_TRACT = {
 }
 NORMALIZED_TOTAL_LEVELS = {None, "", "none", "total", "do_not_compare", "no_compare"}
 
-CI_DISPLAY_OPTION_FIELDS = {
-    "cancer_risk_factors_ci",
-    "cancer_screening_ci",
-    "noncancer_health_status_ci",
-    "access_comm_tract_survey_ci",
-    "access_comm_zcta_place_survey_ci",
-    "access_comm_county_survey_ci",
-    "community_basic_ci",
-    "community_extended_ci",
-    "community_economic_ci",
-    "community_housing_ci",
-    "community_household_ci",
-}
-
-AGE_ADJUST_DISPLAY_OPTION_FIELDS = {
-    "access_comm_tract_survey_age_adjusted",
-    "access_comm_county_survey_age_adjusted",
-}
-
 TRACT_HEADER_MAP = {
     "label": "Location",
-    "geoid": "Geographic ID",
     "tract_geoid": "Census Tract",
     "case_count": "Case count",
     "n_total_staged_unstaged": "N",
@@ -118,42 +98,20 @@ TRACT_HEADER_MAP = {
     "male_population": "Male population",
     "female_population": "Female population",
     "male_pct": "Male (%)",
-    "male_pct_ci_lower": "Male (%) CI 95% (L)",
-    "male_pct_ci_upper": "Male (%) CI 95% (U)",
     "female_pct": "Female (%)",
-    "female_pct_ci_lower": "Female (%) CI 95% (L)",
-    "female_pct_ci_upper": "Female (%) CI 95% (U)",
     "median_age": "Median age (approx)",
     "nearest_mammography_distance_miles": "Nearest mammography facility (miles)",
     "mammography_facility_count_20mi": "Mammography facilities within 20 miles",
     "mammography_access_score": "Mammography access score",
     "white_alone_pct": "White alone (%)",
-    "white_alone_ci_lower": "White alone (%) CI 95% (L)",
-    "white_alone_ci_upper": "White alone (%) CI 95% (U)",
     "black_alone_pct": "Black alone (%)",
-    "black_alone_ci_lower": "Black alone (%) CI 95% (L)",
-    "black_alone_ci_upper": "Black alone (%) CI 95% (U)",
     "aian_alone_pct": "AI/AN alone (%)",
-    "aian_alone_ci_lower": "AI/AN alone (%) CI 95% (L)",
-    "aian_alone_ci_upper": "AI/AN alone (%) CI 95% (U)",
     "asian_alone_pct": "Asian alone (%)",
-    "asian_alone_ci_lower": "Asian alone (%) CI 95% (L)",
-    "asian_alone_ci_upper": "Asian alone (%) CI 95% (U)",
     "nhpi_alone_pct": "NHPI alone (%)",
-    "nhpi_alone_ci_lower": "NHPI alone (%) CI 95% (L)",
-    "nhpi_alone_ci_upper": "NHPI alone (%) CI 95% (U)",
     "other_race_alone_pct": "Other race alone (%)",
-    "other_race_alone_ci_lower": "Other race alone (%) CI 95% (L)",
-    "other_race_alone_ci_upper": "Other race alone (%) CI 95% (U)",
     "multiracial_pct": "Two or more races (%)",
-    "multiracial_ci_lower": "Two or more races (%) CI 95% (L)",
-    "multiracial_ci_upper": "Two or more races (%) CI 95% (U)",
     "nh_white_pct": "NH White (%)",
-    "nh_white_ci_lower": "NH White (%) CI 95% (L)",
-    "nh_white_ci_upper": "NH White (%) CI 95% (U)",
     "hispanic_pct": "Hispanic (%)",
-    "hispanic_ci_lower": "Hispanic (%) CI 95% (L)",
-    "hispanic_ci_upper": "Hispanic (%) CI 95% (U)",
 }
 
 TRACT_NUMERIC_COLS = [
@@ -194,230 +152,21 @@ TRACT_NUMERIC_COLS = [
     "male_population",
     "female_population",
     "male_pct",
-    "male_pct_ci_lower",
-    "male_pct_ci_upper",
     "female_pct",
-    "female_pct_ci_lower",
-    "female_pct_ci_upper",
     "median_age",
     "nearest_mammography_distance_miles",
     "mammography_facility_count_20mi",
     "mammography_access_score",
     "white_alone_pct",
-    "white_alone_ci_lower",
-    "white_alone_ci_upper",
     "black_alone_pct",
-    "black_alone_ci_lower",
-    "black_alone_ci_upper",
     "aian_alone_pct",
-    "aian_alone_ci_lower",
-    "aian_alone_ci_upper",
     "asian_alone_pct",
-    "asian_alone_ci_lower",
-    "asian_alone_ci_upper",
     "nhpi_alone_pct",
-    "nhpi_alone_ci_lower",
-    "nhpi_alone_ci_upper",
     "other_race_alone_pct",
-    "other_race_alone_ci_lower",
-    "other_race_alone_ci_upper",
     "multiracial_pct",
-    "multiracial_ci_lower",
-    "multiracial_ci_upper",
     "nh_white_pct",
-    "nh_white_ci_lower",
-    "nh_white_ci_upper",
     "hispanic_pct",
-    "hispanic_ci_lower",
-    "hispanic_ci_upper",
 ]
-
-
-# Headers for the geo-stratified display-option columns added on the Measures page.
-# Some of these are placeholders until their source tables/fields are connected in services.py.
-SUPPORT_DISPLAY_HEADER_MAP = {
-    "smoking_pct": "Current cigarette smoking (%)",
-    "smoking_ci_lower": "Current cigarette smoking CI 95% (L)",
-    "smoking_ci_upper": "Current cigarette smoking CI 95% (U)",
-    "obesity_pct": "Obesity (%)",
-    "obesity_ci_lower": "Obesity CI 95% (L)",
-    "obesity_ci_upper": "Obesity CI 95% (U)",
-    "binge_drinking_pct": "Binge drinking (%)",
-    "binge_drinking_ci_lower": "Binge drinking CI 95% (L)",
-    "binge_drinking_ci_upper": "Binge drinking CI 95% (U)",
-    "no_leisure_pa_pct": "No leisure-time physical activity (%)",
-    "no_leisure_pa_ci_lower": "No leisure-time physical activity CI 95% (L)",
-    "no_leisure_pa_ci_upper": "No leisure-time physical activity CI 95% (U)",
-    "short_sleep_pct": "Short sleep duration (%)",
-    "short_sleep_ci_lower": "Short sleep duration CI 95% (L)",
-    "short_sleep_ci_upper": "Short sleep duration CI 95% (U)",
-
-    "crc_screening_pct": "Colorectal cancer screening (%)",
-    "crc_screening_ci_lower": "Colorectal cancer screening CI 95% (L)",
-    "crc_screening_ci_upper": "Colorectal cancer screening CI 95% (U)",
-    "mammography_screening_ci_lower": "Mammography screening CI 95% (L)",
-    "mammography_screening_ci_upper": "Mammography screening CI 95% (U)",
-    "cervical_screening_pct": "Cervical cancer screening (%)",
-    "cervical_screening_ci_lower": "Cervical cancer screening CI 95% (L)",
-    "cervical_screening_ci_upper": "Cervical cancer screening CI 95% (U)",
-
-    "poor_health_pct": "Fair or poor self-rated health status (%)",
-    "poor_health_ci_lower": "Fair or poor self-rated health status CI 95% (L)",
-    "poor_health_ci_upper": "Fair or poor self-rated health status CI 95% (U)",
-    "phys_distress_pct": "Frequent physical distress (%)",
-    "phys_distress_ci_lower": "Frequent physical distress CI 95% (L)",
-    "phys_distress_ci_upper": "Frequent physical distress CI 95% (U)",
-    "mental_distress_pct": "Frequent mental distress (%)",
-    "mental_distress_ci_lower": "Frequent mental distress CI 95% (L)",
-    "mental_distress_ci_upper": "Frequent mental distress CI 95% (U)",
-    "food_insecurity_pct": "Food insecurity in the past 12 months (%)",
-    "food_insecurity_ci_lower": "Food insecurity CI 95% (L)",
-    "food_insecurity_ci_upper": "Food insecurity CI 95% (U)",
-    "social_isolation_pct": "Feeling socially isolated (%)",
-    "social_isolation_ci_lower": "Social isolation CI 95% (L)",
-    "social_isolation_ci_upper": "Social isolation CI 95% (U)",
-    "any_disability_pct": "Any disability (%)",
-    "any_disability_ci_lower": "Any disability CI 95% (L)",
-    "any_disability_ci_upper": "Any disability CI 95% (U)",
-    "mobility_disability_pct": "Mobility disability (%)",
-    "mobility_disability_ci_lower": "Mobility disability CI 95% (L)",
-    "mobility_disability_ci_upper": "Mobility disability CI 95% (U)",
-    "selfcare_disability_pct": "Self-care disability (%)",
-    "selfcare_disability_ci_lower": "Self-care disability CI 95% (L)",
-    "selfcare_disability_ci_upper": "Self-care disability CI 95% (U)",
-    "independent_living_disability_pct": "Independent living disability (%)",
-    "independent_living_disability_ci_lower": "Independent living disability CI 95% (L)",
-    "independent_living_disability_ci_upper": "Independent living disability CI 95% (U)",
-
-    "routine_checkup_ci_lower": "Routine checkup CI 95% (L)",
-    "routine_checkup_ci_upper": "Routine checkup CI 95% (U)",
-    "routine_checkup_age_adjusted_pct": "Routine checkup age-adjusted (%)",
-    "lack_transportation_ci_lower": "Lack reliable transportation CI 95% (L)",
-    "lack_transportation_ci_upper": "Lack reliable transportation CI 95% (U)",
-    "lack_transportation_age_adjusted_pct": "Lack reliable transportation age-adjusted (%)",
-    "uninsured_ci_lower": "Uninsured age 18-64 CI 95% (L)",
-    "uninsured_ci_upper": "Uninsured age 18-64 CI 95% (U)",
-    "uninsured_age_adjusted_pct": "Uninsured age 18-64 age-adjusted (%)",
-    "dentist_pct": "Visited dentist/dental clinic in past year (%)",
-    "dentist_ci_lower": "Dentist visit CI 95% (L)",
-    "dentist_ci_upper": "Dentist visit CI 95% (U)",
-    "dentist_age_adjusted_pct": "Dentist visit age-adjusted (%)",
-
-    "total_population_ci_lower": "Total population CI 95% (L)",
-    "total_population_ci_upper": "Total population CI 95% (U)",
-    "sex_distribution": "Sex distribution",
-    "sex_distribution_ci_lower": "Sex distribution CI 95% (L)",
-    "sex_distribution_ci_upper": "Sex distribution CI 95% (U)",
-    "median_age_ci_lower": "Median age CI 95% (L)",
-    "median_age_ci_upper": "Median age CI 95% (U)",
-    "race_ethnicity": "Race/Ethnicity",
-    "race_eth_ci_lower": "Race/Ethnicity CI 95% (L)",
-    "race_eth_ci_upper": "Race/Ethnicity CI 95% (U)",
-    "age_distribution": "Age distribution",
-    "age_distribution_ci_lower": "Age distribution CI 95% (L)",
-    "age_distribution_ci_upper": "Age distribution CI 95% (U)",
-    "marital_status": "Marital status",
-    "marital_status_ci_lower": "Marital status CI 95% (L)",
-    "marital_status_ci_upper": "Marital status CI 95% (U)",
-    "educational_attainment": "Educational attainment",
-    "educational_attainment_ci_lower": "Educational attainment CI 95% (L)",
-    "educational_attainment_ci_upper": "Educational attainment CI 95% (U)",
-    "language_home": "Distribution of language spoken at home",
-    "language_home_ci_lower": "Language spoken at home CI 95% (L)",
-    "language_home_ci_upper": "Language spoken at home CI 95% (U)",
-    "limited_english_ci_lower": "% speak English less than very well CI 95% (L)",
-    "limited_english_ci_upper": "% speak English less than very well CI 95% (U)",
-    "citizenship_status": "Citizenship status",
-    "citizenship_status_ci_lower": "Citizenship status CI 95% (L)",
-    "citizenship_status_ci_upper": "Citizenship status CI 95% (U)",
-    "rurality": "Rurality (RUCC / RUCA code)",
-    "rurality_ci_lower": "Rurality CI 95% (L)",
-    "rurality_ci_upper": "Rurality CI 95% (U)",
-    "median_household_income_ci_lower": "Median household income CI 95% (L)",
-    "median_household_income_ci_upper": "Median household income CI 95% (U)",
-    "per_capita_income": "Per capita income",
-    "per_capita_income_ci_lower": "Per capita income CI 95% (L)",
-    "per_capita_income_ci_upper": "Per capita income CI 95% (U)",
-    "poverty_pct": "% households below poverty level",
-    "poverty_ci_lower": "Poverty CI 95% (L)",
-    "poverty_ci_upper": "Poverty CI 95% (U)",
-    "income_poverty_ratio": "Income to poverty-level ratio",
-    "income_poverty_ratio_ci_lower": "Income to poverty-level ratio CI 95% (L)",
-    "income_poverty_ratio_ci_upper": "Income to poverty-level ratio CI 95% (U)",
-    "snap_pct": "% households receiving Food stamps/SNAP",
-    "snap_ci_lower": "Food stamps/SNAP CI 95% (L)",
-    "snap_ci_upper": "Food stamps/SNAP CI 95% (U)",
-    "employment_16plus": "Employment status for population >=16 years",
-    "employment_16plus_ci_lower": "Employment status CI 95% (L)",
-    "employment_16plus_ci_upper": "Employment status CI 95% (U)",
-    "utility_shutoff_threat_pct": "Utility services shut-off threat (%)",
-    "utility_shutoff_threat_ci_lower": "Utility shut-off threat CI 95% (L)",
-    "utility_shutoff_threat_ci_upper": "Utility shut-off threat CI 95% (U)",
-    "occupation_distribution": "Occupational category distribution",
-    "occupation_distribution_ci_lower": "Occupational category distribution CI 95% (L)",
-    "occupation_distribution_ci_upper": "Occupational category distribution CI 95% (U)",
-    "gini_index": "GINI Index",
-    "gini_ci_lower": "GINI Index CI 95% (L)",
-    "gini_ci_upper": "GINI Index CI 95% (U)",
-    "redlined_ci_lower": "Formerly-redlined neighborhood CI 95% (L)",
-    "redlined_ci_upper": "Formerly-redlined neighborhood CI 95% (U)",
-    "svi_adi": "Social Vulnerability Index",
-    "svi_adi_ci_lower": "Social Vulnerability Index CI 95% (L)",
-    "svi_adi_ci_upper": "Social Vulnerability Index CI 95% (U)",
-
-    "housing_unoccupied_pct": "% housing units unoccupied",
-    "housing_unoccupied_ci_lower": "Housing units unoccupied CI 95% (L)",
-    "housing_unoccupied_ci_upper": "Housing units unoccupied CI 95% (U)",
-    "renting_ci_lower": "Renting CI 95% (L)",
-    "renting_ci_upper": "Renting CI 95% (U)",
-    "median_year_built": "Median Year Structure Built",
-    "median_year_built_ci_lower": "Median Year Structure Built CI 95% (L)",
-    "median_year_built_ci_upper": "Median Year Structure Built CI 95% (U)",
-    "median_housing_costs": "Median monthly housing costs",
-    "median_housing_costs_ci_lower": "Median housing costs CI 95% (L)",
-    "median_housing_costs_ci_upper": "Median housing costs CI 95% (U)",
-    "occupants_per_room": "Occupants per room",
-    "occupants_per_room_ci_lower": "Occupants per room CI 95% (L)",
-    "occupants_per_room_ci_upper": "Occupants per room CI 95% (U)",
-    "plumbing_complete_pct": "% with complete plumbing facilities",
-    "plumbing_complete_ci_lower": "Complete plumbing facilities CI 95% (L)",
-    "plumbing_complete_ci_upper": "Complete plumbing facilities CI 95% (U)",
-    "kitchen_complete_pct": "% with complete kitchen facilities",
-    "kitchen_complete_ci_lower": "Complete kitchen facilities CI 95% (L)",
-    "kitchen_complete_ci_upper": "Complete kitchen facilities CI 95% (U)",
-    "median_home_value": "Median value of occupied housing units",
-    "median_home_value_ci_lower": "Median home value CI 95% (L)",
-    "median_home_value_ci_upper": "Median home value CI 95% (U)",
-
-    "female_headed_pct": "% Female-headed households",
-    "female_headed_ci_lower": "Female-headed households CI 95% (L)",
-    "female_headed_ci_upper": "Female-headed households CI 95% (U)",
-    "grandparents_care_pct": "% households with grandparents caring for children",
-    "grandparents_care_ci_lower": "Grandparents caring for children CI 95% (L)",
-    "grandparents_care_ci_upper": "Grandparents caring for children CI 95% (U)",
-    "internet_access_pct": "% with internet access",
-    "internet_access_ci_lower": "Internet access CI 95% (L)",
-    "internet_access_ci_upper": "Internet access CI 95% (U)",
-    "moved_last_year_pct": "% who moved in last year",
-    "moved_last_year_ci_lower": "Moved in last year CI 95% (L)",
-    "moved_last_year_ci_upper": "Moved in last year CI 95% (U)",
-}
-TRACT_HEADER_MAP.update(SUPPORT_DISPLAY_HEADER_MAP)
-TRACT_NUMERIC_COLS = list(dict.fromkeys(TRACT_NUMERIC_COLS + list(SUPPORT_DISPLAY_HEADER_MAP.keys())))
-
-# These are aggregate placeholder columns created only to trigger display-option logic.
-# They do not represent a single measurable estimate/CI and should not be displayed
-# or exported. The real component columns (male/female %, race-specific %, etc.)
-# are displayed instead.
-DATASET_EXCLUDE_COLUMNS = {
-    "sex_distribution",
-    "sex_distribution_ci_lower",
-    "sex_distribution_ci_upper",
-    "race_ethnicity",
-    "race_eth_ci_lower",
-    "race_eth_ci_upper",
-}
-
 
 
 class PopcaseLoginView(auth_views.LoginView):
@@ -484,13 +233,11 @@ def _build_results_payload_cached(
     filters_json: str,
     disease_measures_tuple: tuple,
     support_measures_tuple: tuple,
-    display_options_tuple: tuple,
     latest_year: str,
 ):
     filters = _deserialize_payload(filters_json)
     disease_measures = list(disease_measures_tuple)
     support_measures = list(support_measures_tuple)
-    display_options = list(display_options_tuple)
 
     incidence = []
     total_incidence = None
@@ -506,7 +253,6 @@ def _build_results_payload_cached(
             filters=filters,
             disease_measures=disease_measures,
             support_measures=support_measures,
-            display_options=display_options,
             incidence_year=latest_year,
         ) or []
         result_mode = "dataset"
@@ -544,14 +290,6 @@ def _get_measure_selections(measures_state: dict, geographic_level: str):
     support_measures = _unique_in_order(cancer_prevention_measures + community_measures + access_measures)
 
     return disease_measures, support_measures
-
-
-def _get_display_options(measures_state: dict):
-    display_options = []
-    for field in sorted(CI_DISPLAY_OPTION_FIELDS | AGE_ADJUST_DISPLAY_OPTION_FIELDS):
-        if measures_state.get(field):
-            display_options.append(field)
-    return display_options
 
 
 def _session_get(request, key: str, default=None):
@@ -776,7 +514,6 @@ def results(request):
     measures_state = wizard.get("measures", {}) or {}
 
     disease_measures, support_measures = _get_measure_selections(measures_state, geographic_level)
-    display_options = _get_display_options(measures_state)
     disease_measures = _filter_disease_measures_for_geography(disease_measures, geographic_level)
     year = str(_latest_linking_year())
     dx_start = (filters.get("dx_start") or "2011").strip() or "2011"
@@ -790,7 +527,6 @@ def results(request):
         filters_json=_serialize_payload(filters),
         disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
         support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
-        display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
         latest_year=year,
     )
 
@@ -816,13 +552,10 @@ def results(request):
         "dataset_is_truncated": dataset_is_truncated,
         "result_mode": result_mode,
         "disease_measures": disease_measures,
-        "display_options": display_options,
         "cancer_type_labels": cancer_type_labels,
         "dataset_title": f"Selected measures by {geographic_level.title()}",
         "tract_header_map": TRACT_HEADER_MAP,
         "tract_numeric_cols": TRACT_NUMERIC_COLS,
-        "dataset_columns": _build_dataset_columns(mvp_rows, TRACT_HEADER_MAP),
-        "dataset_exclude_columns": DATASET_EXCLUDE_COLUMNS,
     }
     return render(request, "popcase/results.html", context)
 
@@ -840,7 +573,6 @@ def export_mvp_geo_csv(request):
     geographic_level = _normalize_geographic_level(wizard.get("geographic_level", "county"))
     measures_state = wizard.get("measures", {}) or {}
     disease_measures, support_measures = _get_measure_selections(measures_state, geographic_level)
-    display_options = _get_display_options(measures_state)
     disease_measures = _filter_disease_measures_for_geography(disease_measures, geographic_level)
 
     dx_start = (filters.get("dx_start") or "2011").strip() or "2011"
@@ -858,7 +590,6 @@ def export_mvp_geo_csv(request):
             filters_json=_serialize_payload(filters),
             disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
             support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
-            display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
             latest_year=latest_year,
         )
         rows = payload["mvp_rows"] or []
@@ -867,36 +598,18 @@ def export_mvp_geo_csv(request):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f"attachment; filename={filename}"
 
-    columns = _build_dataset_columns(rows, TRACT_HEADER_MAP)
-    if not columns:
-        columns = ["label"]
+    if rows:
+        fieldnames = list(rows[0].keys())
+        seen = set(fieldnames)
+        for row in rows[1:]:
+            for key in row.keys():
+                if key not in seen:
+                    fieldnames.append(key)
+                    seen.add(key)
+    else:
+        fieldnames = ["label"]
 
-    writer = csv.writer(response)
-    writer.writerow([TRACT_HEADER_MAP.get(col, col) for col in columns])
-
-    for row in rows:
-        writer.writerow(["" if row.get(col) is None else row.get(col, "") for col in columns])
-
+    writer = csv.DictWriter(response, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
     return response
-
-def _build_dataset_columns(rows, header_map):
-    if not rows:
-        return []
-
-    preferred = [col for col in header_map.keys() if col not in DATASET_EXCLUDE_COLUMNS]
-    present = set()
-
-    for row in rows:
-        present.update(row.keys())
-
-    present -= DATASET_EXCLUDE_COLUMNS
-    ordered = [col for col in preferred if col in present]
-
-    for row in rows:
-        for col in row.keys():
-            if col in DATASET_EXCLUDE_COLUMNS:
-                continue
-            if col not in ordered:
-                ordered.append(col)
-
-    return ordered
