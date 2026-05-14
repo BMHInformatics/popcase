@@ -13,5 +13,4 @@ urlpatterns = [
 
     path("results/", views.results, name="results"),
     path("reset/", views.reset_wizard, name="reset"),
-    path("export/mvp/tracts/", views.export_mvp_geo_csv, name="export_mvp_geo_csv"),
-]
+    path("results/export/", views.export_geo_dataset_csv, name="export_geo_dataset_csv")]

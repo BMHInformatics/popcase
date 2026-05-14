@@ -76,7 +76,7 @@ MEASURE_COMMUNITY_CHOICES = [
     ("poverty_pct", "% of households below poverty level"),
     ("snap_pct", "% of households receiving Food stamps/SNAP"),
     ("gini", "GINI Index"),
-    ("redlined_pct", "% of population living in formerly-redlined neighborhoods"),
+    ("redlined_pct", "Historic Redlining Index"),
     ("smoking", "Current cigarette smoking (Adults only)"),
     ("obesity", "Obesity (Adults only)"),
     ("no_leisure_pa", "No leisure-time physical activity (Adults only)"),
@@ -111,7 +111,7 @@ GEOGRAPHY_SCOPE_CHOICES = [
 ]
 
 # Diagnosis year choices (Filters step)
-# MVP: 2011–2022 (you can later populate dynamically from DB)
+# initial configured use case: 2011–2022 (you can later populate dynamically from DB)
 DX_YEAR_CHOICES = [("", "Any")] + [(str(y), str(y)) for y in range(2011, 2023)]
 
 
@@ -296,10 +296,11 @@ class MeasuresForm(forms.Form):
         ("snap_pct", "% of households receiving Food stamps/SNAP"),
         ("employment_16plus", "Employment status for population >=16 years"),
         ("utility_shutoff_threat", "Utility services shut-off threat in the past 12 months among adults"),
+        ("housing_insecurity", "Housing insecurity in the past 12 months among adults"),
         ("occupation_dist", "Occupational category distribution"),
         ("gini", "GINI Index"),
-        ("redlined_pct", "% of population living in formerly-redlined neighborhoods"),
-        ("svi_adi", "Social Vulnerability Index (ADI, including all subcomponents)"),
+        ("redlined_pct", "Historic Redlining Index"),
+        ("svi_adi", "Social Vulnerability Index / ADI"),
     ]
     COMMUNITY_HOUSING_LEAVES = [
         ("housing_unoccupied", "% of housing units unoccupied"),

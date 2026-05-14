@@ -109,10 +109,9 @@
     <div class="card-body">
 
 {#         ==============================#}
-{#         ADVANCED OUTCOME TABLE (ONLY if selected)#}
-{#         result_mode should be set in views.py:#}
-{#           - "advanced" when pct_advanced selected and geographic_level=="tract"#}
-{#           - otherwise "incidence" or "none"#}
+{#         SELECTED-MEASURES DATASET TABLE#}
+{#         result_mode is "dataset" when any supported disease/community/access#}
+{#         measure is selected for county, tract, ZCTA, or place.#}
 {#         ==============================#}
       {% if result_mode == "dataset" %}
         <div class="d-flex justify-content-between align-items-center">
@@ -120,12 +119,12 @@
               {{ dataset_title|default:"Selected measures by geography" }}
               ({% if filters.dx_start %}{{ filters.dx_start }}{% else %}2011{% endif %}–{% if filters.dx_end %}{{ filters.dx_end }}{% else %}2022{% endif %})
             </h5>
-          <a class="btn btn-outline-primary btn-sm" href="{% url 'popcase:export_mvp_geo_csv' %}">
+          <a class="btn btn-outline-primary btn-sm" href="{% url 'popcase:export_geo_dataset_csv' %}">
             Download Results (CSV)
           </a>
         </div>
 
-{% if mvp_rows %}
+{% if dataset_rows %}
   {% if dataset_is_truncated %}
     <div class="alert alert-info mt-3 mb-2 py-2">
       Showing the first {{ dataset_preview_limit }} of {{ dataset_total_rows }} rows for faster page rendering. Use <strong>Download Results (CSV)</strong> for the full dataset.
@@ -142,50 +141,50 @@
                 <th data-sort="string"
                     class="sortable bg-light"
                     style="position: sticky; left: 0; z-index: 3; white-space: nowrap;">
-                  {{ tract_header_map|get_item:key|default:key }}
+                  {{ dataset_header_map|get_item:key|default:key }}
                   <span></span>
                 </th>
               {% else %}
-                {% if key in tract_numeric_cols %}
+                {% if key in dataset_numeric_cols %}
                   <th data-sort="number"
                       class="sortable text-end"
                       style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
+                    {{ dataset_header_map|get_item:key|default:key }}
                     <span></span>
                   </th>
                 {% else %}
                   <th data-sort="string"
                       class="sortable"
                       style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
+                    {{ dataset_header_map|get_item:key|default:key }}
                     <span></span>
                   </th>
                 {% endif %}
               {% endif %}
             {% endfor %}
           {% else %}
-            {% for key, val in mvp_rows.0.items %}
+            {% for key, val in dataset_rows.0.items %}
               {% if key in dataset_exclude_columns %}
               {% elif key == "label" %}
                 <th data-sort="string"
                     class="sortable bg-light"
                     style="position: sticky; left: 0; z-index: 3; white-space: nowrap;">
-                  {{ tract_header_map|get_item:key|default:key }}
+                  {{ dataset_header_map|get_item:key|default:key }}
                   <span></span>
                 </th>
               {% else %}
-                {% if key in tract_numeric_cols %}
+                {% if key in dataset_numeric_cols %}
                   <th data-sort="number"
                       class="sortable text-end"
                       style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
+                    {{ dataset_header_map|get_item:key|default:key }}
                     <span></span>
                   </th>
                 {% else %}
                   <th data-sort="string"
                       class="sortable"
                       style="white-space: nowrap;">
-                    {{ tract_header_map|get_item:key|default:key }}
+                    {{ dataset_header_map|get_item:key|default:key }}
                     <span></span>
                   </th>
                 {% endif %}
@@ -196,7 +195,7 @@
       </thead>
 
       <tbody>
-        {% for row in mvp_rows %}
+        {% for row in dataset_rows %}
           <tr>
             {% if dataset_columns %}
               {% for key in dataset_columns %}

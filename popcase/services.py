@@ -4,6 +4,7 @@ import math
 import ast
 import json
 from math import sqrt
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from collections import defaultdict
@@ -22,6 +23,9 @@ from popcase.models import (
     AcsC16001,
     TravelTimeTract,
     CDCPlacesTract2024,
+    CDCPlacesCounty2024,
+    CDCPlacesZCTA2024,
+    CDCPlacesPlace2024,
     TigerTractShapefile,
     FdaMammographyFacility,
 )
@@ -929,199 +933,30 @@ def get_total_incidence(year: str, filters: dict):
 
 
 
-def build_mvp_tract_dataset(
+def build_tract_dataset(
     year_range=("2011", "2022"),
     filters=None,
     disease_measures=None,
     incidence_year=None,
+    support_measures=None,
+    display_options=None,
+    community_timeframes=None,
 ):
-    if filters is None:
-        filters = {}
-    if disease_measures is None:
-        disease_measures = []
+    """Backward-compatible wrapper for older code paths.
 
-    if isinstance(disease_measures, str):
-        disease_measures = [disease_measures]
-    disease_measures = set(disease_measures)
-
-    dx_start, dx_end = year_range
-    filters = dict(filters)
-    filters["dx_start"] = str(dx_start)
-    filters["dx_end"] = str(dx_end)
-    neo15_scope = _is_neo15_scope(filters)
-
-    filtered_qs = apply_naaccr_filters(NaaccrData.objects.all(), filters)
-    stage_by_mid = dict(filtered_qs.values_list("mid", "stg_grp"))
-    if not stage_by_mid:
-        return []
-
-    filtered_pat_ids = list(stage_by_mid.keys())
-
-    linking_rows = (
-        NaaccrPatientCensusLinking.objects
-        .filter(geographic_level="tract", pat_id__in=filtered_pat_ids)
-        .values_list("pat_id", "geoid")
-        .distinct()
+    The implementation is now geography-agnostic; new code should call
+    build_geo_dataset(geographic_level=...) instead.
+    """
+    return build_geo_dataset(
+        geographic_level="tract",
+        year_range=year_range,
+        filters=filters,
+        disease_measures=disease_measures,
+        support_measures=support_measures,
+        display_options=display_options,
+        community_timeframes=community_timeframes,
+        incidence_year=incidence_year,
     )
-
-    denom_ids = {"0", "1", "2", "3", "4", "5", "6", "7", "9"}
-    adv_ids = {"2", "3", "4", "5", "7"}
-    meta_id = "7"
-    non_applicable_ids = {"8"}
-
-    denom_by_tract = defaultdict(int)
-    adv_by_tract = defaultdict(int)
-    meta_by_tract = defaultdict(int)
-
-    geo_scope = (filters.get("geography") or "all_ohio").strip().lower()
-
-    for pat_id, tract_geoid in linking_rows:
-        if not tract_geoid:
-            continue
-
-        tract_geoid = str(tract_geoid).strip()
-        if len(tract_geoid) < 5:
-            continue
-
-        if geo_scope in ("neo15", "neo_15", "catchment15", "catchment_15"):
-            county_geoid = tract_geoid[:5]
-            if county_geoid not in NEO_15_COUNTY_GEOIDS:
-                continue
-
-        stg = stage_by_mid.get(pat_id)
-        if stg is None:
-            continue
-
-        stg = str(stg).strip()
-        if not stg or stg in non_applicable_ids:
-            continue
-
-        if stg in denom_ids:
-            denom_by_tract[tract_geoid] += 1
-            if stg in adv_ids:
-                adv_by_tract[tract_geoid] += 1
-            if stg == meta_id:
-                meta_by_tract[tract_geoid] += 1
-
-    def _prop_ci(a, n):
-        if n <= 0:
-            return (None, None)
-        p = a / n
-        se = sqrt(p * (1 - p) / n) if n > 0 else 0.0
-        lo = max(0.0, p - 1.96 * se)
-        hi = min(1.0, p + 1.96 * se)
-        return (lo, hi)
-
-    incidence_lookup = {}
-    if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
-        if incidence_year is None:
-            incidence_year = (
-                NaaccrPatientCensusLinking.objects
-                .values_list("year", flat=True)
-                .order_by("-year")
-                .first()
-            )
-
-        inc_rows = get_incidence_by_geography(
-            year=incidence_year,
-            geographic_level="tract",
-            filters=filters,
-        )
-        for r in inc_rows:
-            incidence_lookup[r["geoid"]] = r
-
-    rows = []
-    all_tracts = set(denom_by_tract.keys()) | set(incidence_lookup.keys())
-
-    for tract_geoid in all_tracts:
-        out = {"tract_geoid": tract_geoid}
-
-        if "case_count" in disease_measures:
-            if tract_geoid in denom_by_tract:
-                out["case_count"] = int(denom_by_tract[tract_geoid])
-            elif tract_geoid in incidence_lookup:
-                out["case_count"] = int(incidence_lookup[tract_geoid].get("case_count", 0))
-            else:
-                out["case_count"] = 0
-
-        if "pct_advanced" in disease_measures:
-            n = int(denom_by_tract.get(tract_geoid, 0))
-            a = int(adv_by_tract.get(tract_geoid, 0))
-            out["n_total_staged_unstaged"] = n
-            if n > 0:
-                p = a / n
-                lo, hi = _prop_ci(a, n)
-                out["pct_advanced"] = round(p * 100, 2)
-                out["adv_ci_lower"] = round(lo * 100, 2) if lo is not None else None
-                out["adv_ci_upper"] = round(hi * 100, 2) if hi is not None else None
-            else:
-                out["pct_advanced"] = None
-                out["adv_ci_lower"] = None
-                out["adv_ci_upper"] = None
-
-        if "pct_metastatic" in disease_measures:
-            n = int(denom_by_tract.get(tract_geoid, 0))
-            m = int(meta_by_tract.get(tract_geoid, 0))
-            out["n_metastatic"] = m
-            if n > 0:
-                p = m / n
-                lo, hi = _prop_ci(m, n)
-                out["pct_metastatic"] = round(p * 100, 2)
-                out["meta_ci_lower"] = round(lo * 100, 2) if lo is not None else None
-                out["meta_ci_upper"] = round(hi * 100, 2) if hi is not None else None
-            else:
-                out["pct_metastatic"] = None
-                out["meta_ci_lower"] = None
-                out["meta_ci_upper"] = None
-
-        if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
-            ir = incidence_lookup.get(tract_geoid)
-            if ("crude_inc_rate" in disease_measures):
-                out["crude_incidence_per_100k"] = ir.get("crude_incidence_per_100k") if ir else None
-            if ("crude_inc_ci" in disease_measures):
-                out["crude_inc_ci_lower_per_100k"] = ir.get("crude_incidence_ci_lower") if ir else None
-                out["crude_inc_ci_upper_per_100k"] = ir.get("crude_incidence_ci_upper") if ir else None
-            if ("inc_rate" in disease_measures):
-                out["age_adjusted_per_100k"] = ir.get("age_adjusted_per_100k") if ir else None
-            if ("inc_ci" in disease_measures):
-                out["inc_ci_lower_per_100k"] = ir.get("age_adjusted_ci_lower") if ir else None
-                out["inc_ci_upper_per_100k"] = ir.get("age_adjusted_ci_upper") if ir else None
-
-        if ("crude_mort_rate" in disease_measures):
-            out["crude_mortality_per_100k"] = None
-        if ("crude_mort_ci" in disease_measures):
-            out["crude_mort_ci_lower_per_100k"] = None
-            out["crude_mort_ci_upper_per_100k"] = None
-        if ("mort_rate" in disease_measures):
-            out["age_adjusted_mortality_per_100k"] = None
-        if ("mort_ci" in disease_measures):
-            out["mort_ci_lower_per_100k"] = None
-            out["mort_ci_upper_per_100k"] = None
-
-        source_values = {
-            "mammography_screening_pct": out.get("mammography_screening_pct"),
-            "routine_checkup_pct": out.get("routine_checkup_pct"),
-            "lack_transportation_pct": out.get("lack_transportation_pct"),
-            "uninsured_pct": out.get("uninsured_pct"),
-            "total_population": out.get("total_population"),
-            "median_household_income": out.get("median_household_income"),
-            "limited_english_pct": out.get("limited_english_pct"),
-            "median_age": out.get("median_age"),
-        }
-        _add_display_option_columns(out, support_measures, display_options, source_values)
-
-        rows.append(out)
-
-    def _sort_key(r):
-        if r.get("pct_advanced") is not None:
-            return (r.get("pct_advanced"), r.get("case_count") or 0)
-        if r.get("incidence_per_100k") is not None:
-            return (r.get("incidence_per_100k"), r.get("cases_for_incidence") or 0)
-        return (0, 0)
-
-    rows.sort(key=_sort_key, reverse=True)
-    return rows
-
 
 def _as_list(value):
     if value is None:
@@ -1179,6 +1014,7 @@ SUPPORT_MEASURE_OUTPUT_SPECS = {
     "snap_pct": ("snap_pct", "snap_ci_lower", "snap_ci_upper", None),
     "employment_16plus": ("employment_16plus", "employment_16plus_ci_lower", "employment_16plus_ci_upper", None),
     "utility_shutoff_threat": ("utility_shutoff_threat_pct", "utility_shutoff_threat_ci_lower", "utility_shutoff_threat_ci_upper", None),
+    "housing_insecurity": ("housing_insecurity_pct", "housing_insecurity_ci_lower", "housing_insecurity_ci_upper", None),
     "occupation_dist": ("occupation_distribution", "occupation_distribution_ci_lower", "occupation_distribution_ci_upper", None),
     "gini": ("gini_index", "gini_ci_lower", "gini_ci_upper", None),
     "redlined_pct": ("redlined_pct", "redlined_ci_lower", "redlined_ci_upper", None),
@@ -1208,7 +1044,7 @@ CI_DISPLAY_OPTION_TO_TOKENS = {
     "access_comm_county_survey_ci": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
     "community_basic_ci": {"pop_total", "sex_distribution", "median_age", "race_eth"},
     "community_extended_ci": {"age_dist", "marital_status", "educ_attain", "lang_home", "limited_english_pct", "citizenship", "rurality"},
-    "community_economic_ci": {"med_hh_income", "per_capita_income", "poverty_pct", "income_pov_ratio", "snap_pct", "employment_16plus", "utility_shutoff_threat", "occupation_dist", "gini", "redlined_pct", "svi_adi"},
+    "community_economic_ci": {"med_hh_income", "per_capita_income", "poverty_pct", "income_pov_ratio", "snap_pct", "employment_16plus", "utility_shutoff_threat", "housing_insecurity", "occupation_dist", "gini", "redlined_pct", "svi_adi"},
     "community_housing_ci": {"housing_unoccupied", "renting_pct", "median_year_built", "median_housing_costs", "occupants_per_room", "plumbing_complete", "kitchen_complete", "median_home_value"},
     "community_household_ci": {"female_headed", "grandparents_care", "internet_access", "moved_last_year"},
 }
@@ -1314,17 +1150,46 @@ def _quote_identifier(identifier):
     return '"' + str(identifier).replace('"', '""') + '"'
 
 
-@lru_cache(maxsize=64)
+def _split_schema_table(table_name):
+    """Return (schema, table) for either 'table' or 'schema.table'."""
+    raw = str(table_name).strip()
+    if "." in raw:
+        schema, table = raw.split(".", 1)
+        return schema.strip('"'), table.strip('"')
+    return None, raw.strip('"')
+
+
+def _quote_table_identifier(table_name):
+    schema, table = _split_schema_table(table_name)
+    if schema:
+        return f"{_quote_identifier(schema)}.{_quote_identifier(table)}"
+    return _quote_identifier(table)
+
+
+@lru_cache(maxsize=256)
 def _get_table_column_map(table_name):
+    schema, table = _split_schema_table(table_name)
     with connection.cursor() as cur:
-        cur.execute(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = %s
-            """,
-            [table_name],
-        )
+        if schema:
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = %s
+                  AND table_name = %s
+                """,
+                [schema, table],
+            )
+        else:
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = ANY(current_schemas(false))
+                  AND table_name = %s
+                """,
+                [table],
+            )
         rows = cur.fetchall()
     return {str(row[0]).lower(): str(row[0]) for row in rows}
 
@@ -1437,7 +1302,7 @@ def _select_columns_from_table(table_name, columns, where_sql=None, where_params
     if not selected:
         return [], aliases
 
-    sql = f'SELECT {", ".join(_quote_identifier(c) for c in selected)} FROM {_quote_identifier(table_name)}'
+    sql = f'SELECT {", ".join(_quote_identifier(c) for c in selected)} FROM {_quote_table_identifier(table_name)}'
     if where_sql:
         sql += f" WHERE {where_sql}"
 
@@ -2138,7 +2003,7 @@ def _get_tract_race_ethnicity_lookup():
 @lru_cache(maxsize=32)
 def _get_tract_support_lookups_cached(requested_tuple):
     """
-    Returns tract-level lookup dicts for selected non-disease MVP fields.
+    Returns tract-level lookup dicts for selected non-disease fields.
 
     ACS community-characteristic CIs are calculated from ACS MOE columns.
     ACS publishes MOEs at 90%; helpers above convert those MOEs to approximate
@@ -2359,9 +2224,259 @@ def _add_display_option_columns(out, support_measures, display_options, source_v
             out[age_adjusted_key] = source_values.get(age_adjusted_key)
 
 
+
 def _get_tract_support_lookups(requested_support_measures=None):
+    """Backward-compatible tract support lookup wrapper."""
+    return _get_geo_support_lookups("tract", requested_support_measures)
+
+
+CDC_PLACES_MODEL_BY_GEO = {
+    "tract": CDCPlacesTract2024,
+    "county": CDCPlacesCounty2024,
+    "zcta": CDCPlacesZCTA2024,
+    "place": CDCPlacesPlace2024,
+}
+
+CDC_PLACES_GEOID_CANDIDATES_BY_GEO = {
+    "tract": ["TractFIPS", "tract_fips", "tractfips", "tract", "GEOID", "geoid", "GEO_ID", "geo_id", "LOCATIONID", "locationid"],
+    "county": ["CountyFIPS", "county_fips", "countyfips", "FIPS", "fips", "GEOID", "geoid", "GEO_ID", "geo_id", "LOCATIONID", "locationid"],
+    "zcta": ["ZCTA5", "zcta5", "ZCTA", "zcta", "GEOID", "geoid", "GEO_ID", "geo_id", "LOCATIONID", "locationid"],
+    "place": ["PlaceFIPS", "place_fips", "placefips", "GEOID", "geoid", "GEO_ID", "geo_id", "LOCATIONID", "locationid"],
+}
+
+CDC_PLACES_CODE_BY_TOKEN = {
+    "breast_screen": "MAMMOUSE",
+    "routine_checkup": "CHECKUP",
+    "no_transport": "LACKTRPT",
+    "no_insurance": "ACCESS2",
+    "smoking": "CSMOKING",
+    "obesity": "OBESITY",
+    "binge_drinking": "BINGE",
+    "no_leisure_pa": "LPA",
+    "short_sleep": "SLEEP",
+    "crc_screen": "COLON_SCREEN",
+    "cervical_screen": "CERVICAL",
+    "dentist": "DENTAL",
+    "poor_health": "GHLTH",
+    "phys_distress": "PHLTH",
+    "mental_distress": "MHLTH",
+    "food_insecurity": "FOODINSECU",
+    "social_isolation": "ISOLATION",
+    "any_disability": "DISABILITY",
+    "mobility_disability": "MOBILITY",
+    "selfcare_disability": "SELFCARE",
+    "independent_living_disability": "INDEPLIVE",
+    "snap_pct": "FOODSTAMP",
+    "utility_shutoff_threat": "SHUTUTILITY",
+    "housing_insecurity": "HOUSINSECU",
+}
+
+CDC_PLACES_TOKENS = set(CDC_PLACES_CODE_BY_TOKEN)
+
+
+def _normalize_places_geoid(value, geographic_level):
+    if value in (None, ""):
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if "US" in s:
+        s = s.split("US", 1)[1]
+    # ZCTA values can arrive as ZCTA5 44106 or 860Z200US44106.
+    digits = re.sub(r"\D", "", s)
+    if geographic_level == "tract":
+        return digits.zfill(11)[-11:] if digits else None
+    if geographic_level == "county":
+        return digits.zfill(5)[-5:] if digits else None
+    if geographic_level == "zcta":
+        return digits.zfill(5)[-5:] if digits else None
+    if geographic_level == "place":
+        # Ohio place FIPS is state(2)+place(5) = 7 digits.
+        return digits.zfill(7)[-7:] if digits else s
+    return s
+
+
+def _first_existing_column_ci(columns, candidates):
+    lower_map = {str(c).lower(): c for c in columns}
+    for c in candidates:
+        found = lower_map.get(str(c).lower())
+        if found:
+            return found
+    return None
+
+
+def _get_cdc_places_lookup(requested, geographic_level):
+    """Return CDC PLACES estimates for tract, county, ZCTA, or place tables.
+
+    This intentionally uses raw column discovery rather than Django model fields,
+    because the county/ZCTA/place model classes currently define only their
+    geographic ID field while the database tables contain the measure columns.
+    """
+    requested = set(requested or ()) & CDC_PLACES_TOKENS
+    if not requested:
+        return {}
+
+    model = CDC_PLACES_MODEL_BY_GEO.get(geographic_level)
+    if not model:
+        return {}
+
+    table_name = model._meta.db_table
+    columns = _get_model_table_columns(model)
+    if not columns:
+        return {}
+
+    geoid_col = _first_existing_column_ci(
+        columns,
+        CDC_PLACES_GEOID_CANDIDATES_BY_GEO.get(geographic_level, [])
+    )
+    if not geoid_col:
+        return {}
+
+    selected = {"geoid": geoid_col}
+    col_roles = {}
+
+    for token in requested:
+        code = CDC_PLACES_CODE_BY_TOKEN[token]
+        candidates = {
+            "estimate": [f"{code}_CrudePrev", f"{code}_CrudePREV", f"{code}_crude_prev", f"{code}_crudeprev"],
+            "ci_text": [f"{code}_Crude95CI", f"{code}_Crude_95CI", f"{code}_crude95ci", f"{code}_crude_95ci"],
+            "age_adjusted": [f"{code}_AdjPrev", f"{code}_AdjPREV", f"{code}_AgeAdjPrev", f"{code}_AgeAdjPREV", f"{code}_AgeAdjustedPrev", f"{code}_ageadjprev"],
+            "age_ci_text": [f"{code}_Adj95CI", f"{code}_Adj_95CI", f"{code}_AgeAdj95CI", f"{code}_AgeAdj_95CI", f"{code}_ageadj95ci"],
+        }
+        for role, role_candidates in candidates.items():
+            col = _first_existing_column_ci(columns, role_candidates)
+            if col:
+                alias = f"{token}__{role}"
+                selected[alias] = col
+                col_roles[(token, role)] = alias
+
+    select_sql = ", ".join(
+        f"{_quote_ident(col)} AS {_quote_ident(alias)}"
+        for alias, col in selected.items()
+    )
+    sql = f"SELECT {select_sql} FROM {_quote_ident(table_name)}"
+
+    lookup = {}
+    try:
+        with connection.cursor() as cur:
+            cur.execute(sql)
+            colnames = [desc[0] for desc in cur.description]
+            for db_row in cur.fetchall():
+                row = dict(zip(colnames, db_row))
+                geoid = _normalize_places_geoid(row.get("geoid"), geographic_level)
+                if not geoid:
+                    continue
+
+                out = {}
+                for token in requested:
+                    spec = SUPPORT_MEASURE_OUTPUT_SPECS.get(token)
+                    if not spec:
+                        continue
+                    value_key, ci_low_key, ci_high_key, age_adjusted_key = spec
+                    est = row.get(col_roles.get((token, "estimate")))
+                    ci_text = row.get(col_roles.get((token, "ci_text")))
+                    age_est = row.get(col_roles.get((token, "age_adjusted")))
+
+                    out[value_key] = _safe_round_float(est, 2)
+                    lo, hi = _parse_places_ci(ci_text)
+                    out[ci_low_key] = lo
+                    out[ci_high_key] = hi
+                    if age_adjusted_key:
+                        out[age_adjusted_key] = _safe_round_float(age_est, 2)
+
+                if out:
+                    lookup[geoid] = out
+    except Exception:
+        return {}
+
+    return lookup
+
+
+def _get_most_recent_community_lookup(requested, geographic_level):
+    requested = set(_normalize_support_measure_tokens(requested or []))
+    out_by_geo = {}
+
+    acs_requested = requested & COMMUNITY_ACS_TOKENS
+    if acs_requested:
+        for geoid, row in _get_acs_period_community_lookup(
+            acs_requested,
+            geographic_level,
+            COMMUNITY_MOST_RECENT["acs"],
+        ).items():
+            out_by_geo.setdefault(geoid, {}).update(row)
+
+    if "rurality" in requested:
+        if geographic_level == "tract":
+            rural_lookup = _get_generic_community_lookup("ruca", geographic_level, COMMUNITY_MOST_RECENT["ruca"])
+        elif geographic_level == "county":
+            rural_lookup = _get_generic_community_lookup("rucc", geographic_level, COMMUNITY_MOST_RECENT["rucc"])
+        else:
+            rural_lookup = {}
+        for geoid, row in rural_lookup.items():
+            out_by_geo.setdefault(geoid, {}).update(row)
+
+    if "svi_adi" in requested:
+        if geographic_level == "county":
+            svi_lookup = _get_county_adi_lookup()
+        else:
+            svi_lookup = _get_generic_community_lookup("svi", geographic_level, COMMUNITY_MOST_RECENT["svi"])
+        for geoid, row in svi_lookup.items():
+            out_by_geo.setdefault(geoid, {}).update(row)
+
+    return out_by_geo
+
+
+@lru_cache(maxsize=64)
+def _get_geo_support_lookups_cached(geographic_level, requested_tuple):
+    requested = tuple(sorted(_normalize_support_measure_tokens(requested_tuple or [])))
+    requested_set = set(requested)
+    lookups = {}
+
+    community_lookup = _get_most_recent_community_lookup(requested_set, geographic_level)
+    if community_lookup:
+        lookups["community_acs"] = community_lookup
+        if "pop_total" in requested_set:
+            lookups["pop"] = {g: row.get("total_population") for g, row in community_lookup.items()}
+        if "sex_distribution" in requested_set:
+            lookups["sex"] = {g: row for g, row in community_lookup.items()}
+        if "median_age" in requested_set:
+            lookups["median_age"] = {g: row.get("median_age") for g, row in community_lookup.items()}
+        if "med_hh_income" in requested_set:
+            lookups["income"] = {g: row.get("median_household_income") for g, row in community_lookup.items()}
+        if "limited_english_pct" in requested_set:
+            lookups["limited_english_pct"] = {g: row.get("limited_english_pct") for g, row in community_lookup.items()}
+        if "race_eth" in requested_set:
+            lookups["race_eth"] = {g: row for g, row in community_lookup.items()}
+
+    places_lookup = _get_cdc_places_lookup(requested_set, geographic_level)
+    if places_lookup:
+        lookups["places"] = places_lookup
+
+    # Space-based access tables currently exist at tract level only. For other
+    # geographies, keep the selected output columns blank via
+    # _add_display_option_columns rather than failing the results page.
+    if geographic_level == "tract" and "pcp_access_score" in requested_set:
+        try:
+            lookups["pcp_access"] = {
+                str(row["tract_geoid"]).strip(): row["weighted_sa_final"]
+                for row in TravelTimeTract.objects.using("popcase_manual_etl").all().values("tract_geoid", "weighted_sa_final").iterator(chunk_size=5000)
+                if row["tract_geoid"]
+            }
+        except Exception:
+            lookups["pcp_access"] = {}
+
+    if geographic_level == "tract" and "mammo_access" in requested_set:
+        try:
+            lookups["mammo_access"] = _get_tract_mammography_access_lookup(radius_miles=20.0)
+        except Exception:
+            lookups["mammo_access"] = {}
+
+    return lookups
+
+
+def _get_geo_support_lookups(geographic_level, requested_support_measures=None):
     normalized = tuple(sorted(_normalize_support_measure_tokens(requested_support_measures or [])))
-    return _get_tract_support_lookups_cached(normalized)
+    return _get_geo_support_lookups_cached(geographic_level, normalized)
 
 
 
@@ -2385,6 +2500,10 @@ COMMUNITY_MOST_RECENT = {
 COMMUNITY_ACS_TOKENS = {
     "pop_total", "sex_distribution", "median_age", "race_eth",
     "med_hh_income", "limited_english_pct",
+    "per_capita_income", "poverty_pct", "snap_pct", "gini",
+    "employment_16plus", "occupation_dist", "redlined_pct",
+    "housing_unoccupied", "renting_pct", "median_year_built",
+    "median_home_value", "internet_access", "moved_last_year",
 }
 COMMUNITY_RURALITY_TOKENS = {"rurality"}
 COMMUNITY_SVI_TOKENS = {"svi_adi"}
@@ -2396,6 +2515,29 @@ COMMUNITY_BASE_OUTPUT_KEYS = {
     "sex_distribution_ci_lower", "sex_distribution_ci_upper", "median_age", "median_age_ci_lower", "median_age_ci_upper",
     "median_household_income", "median_household_income_ci_lower", "median_household_income_ci_upper",
     "limited_english_pct", "limited_english_ci_lower", "limited_english_ci_upper",
+    "per_capita_income", "per_capita_income_ci_lower", "per_capita_income_ci_upper",
+    "poverty_pct", "poverty_ci_lower", "poverty_ci_upper",
+    "snap_pct", "snap_ci_lower", "snap_ci_upper",
+    "gini_index", "gini_ci_lower", "gini_ci_upper",
+    "housing_unoccupied_pct", "housing_unoccupied_ci_lower", "housing_unoccupied_ci_upper",
+    "renting_pct", "renting_ci_lower", "renting_ci_upper",
+    "median_year_built", "median_year_built_ci_lower", "median_year_built_ci_upper",
+    "median_home_value", "median_home_value_ci_lower", "median_home_value_ci_upper",
+    "internet_access_pct", "internet_access_ci_lower", "internet_access_ci_upper",
+    "moved_last_year_pct", "moved_last_year_ci_lower", "moved_last_year_ci_upper",
+    "employment_16plus",
+    "employment_labor_force_pct", "employment_labor_force_ci_lower", "employment_labor_force_ci_upper",
+    "employment_employed_pct", "employment_employed_ci_lower", "employment_employed_ci_upper",
+    "employment_unemployed_pct", "employment_unemployed_ci_lower", "employment_unemployed_ci_upper",
+    "employment_not_in_labor_force_pct", "employment_not_in_labor_force_ci_lower", "employment_not_in_labor_force_ci_upper",
+    "occupation_distribution",
+    "occupation_management_business_science_arts_pct", "occupation_management_business_science_arts_ci_lower", "occupation_management_business_science_arts_ci_upper",
+    "occupation_service_pct", "occupation_service_ci_lower", "occupation_service_ci_upper",
+    "occupation_sales_office_pct", "occupation_sales_office_ci_lower", "occupation_sales_office_ci_upper",
+    "occupation_natural_resources_construction_maintenance_pct", "occupation_natural_resources_construction_maintenance_ci_lower", "occupation_natural_resources_construction_maintenance_ci_upper",
+    "occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper",
+    "redlined_pct", "ranked_historic_redlining_index",
+    "adi_pct_deciles_9_10", "adi_population_deciles_9_10", "adi_total_population",
     "race_ethnicity", "race_eth_ci_lower", "race_eth_ci_upper",
     "white_alone_pct", "white_alone_ci_lower", "white_alone_ci_upper",
     "black_alone_pct", "black_alone_ci_lower", "black_alone_ci_upper",
@@ -2406,7 +2548,7 @@ COMMUNITY_BASE_OUTPUT_KEYS = {
     "multiracial_pct", "multiracial_ci_lower", "multiracial_ci_upper",
     "nh_white_pct", "nh_white_ci_lower", "nh_white_ci_upper",
     "hispanic_pct", "hispanic_ci_lower", "hispanic_ci_upper",
-    "rurality", "svi_adi", "svi_adi_ci_lower", "svi_adi_ci_upper",
+    "rurality", "rurality_description", "svi_adi", "svi_adi_ci_lower", "svi_adi_ci_upper",
 }
 
 
@@ -2506,17 +2648,30 @@ def _community_geoid_from_geo_id(geo_id, geographic_level):
 
 def _table_exists(table_name):
     try:
+        schema, table = _split_schema_table(table_name)
         with connection.cursor() as cur:
-            cur.execute(
-                """
-                SELECT 1
-                FROM information_schema.tables
-                WHERE table_schema = ANY(current_schemas(false))
-                  AND table_name = %s
-                LIMIT 1
-                """,
-                [table_name],
-            )
+            if schema:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s
+                      AND table_name = %s
+                    LIMIT 1
+                    """,
+                    [schema, table],
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = ANY(current_schemas(false))
+                      AND table_name = %s
+                    LIMIT 1
+                    """,
+                    [table],
+                )
             return cur.fetchone() is not None
     except Exception:
         return False
@@ -2539,7 +2694,7 @@ def _community_where_sql(table_name, geographic_level, source, period):
         clauses.append(f'{_quote_identifier(level_col)} = %s')
         params.append(geographic_level)
 
-    year_col = _first_existing_col(colmap, ["year", "data_year", "acs_year", "svi_year", "rucc_year", "ruca_year"])
+    year_col = _first_existing_col(colmap, ["year", "ACSyear", "acs_year", "data_year", "svi_year", "rucc_year", "ruca_year"])
     candidates = _community_year_candidates(source, period)
     if year_col and candidates:
         placeholders = ",".join(["%s"] * len(candidates))
@@ -2760,21 +2915,663 @@ def _get_race_ethnicity_community_lookup(geographic_level="tract", acs_period="2
     return lookup
 
 
+
+
+def _acs_lookup_value(row, aliases, alias):
+    col = aliases.get(alias)
+    return row.get(col) if col else None
+
+
+def _acs_period_end_year(acs_period):
+    period = str(acs_period)
+    if "-" in period:
+        return period.split("-")[-1]
+    return period
+
+
+def _candidate_acs_tables(base_table, geographic_level="tract", acs_period="2019-2023"):
+    """Return likely physical ACS tables for standard and census_build ETL layouts."""
+    base = str(base_table).replace("acs_5yr_", "").replace("acs_5y_", "")
+    base = base.upper()
+    level = {
+        "county": "county",
+        "tract": "tract",
+        "zcta": "zcta",
+        "place": "place",
+        "state": "state",
+        "block_group": "block_group",
+    }.get(geographic_level, geographic_level)
+    end_year = _acs_period_end_year(acs_period)
+    return [
+        f"census_build.acs_39_{base}_{level}_{end_year}",
+        f"acs_5yr_{base}",
+        f"acs_5y_{base.lower()}",
+        f"acs_5y_{base}",
+    ]
+
+
+def _resolve_acs_table(base_table, geographic_level="tract", acs_period="2019-2023"):
+    for table in _candidate_acs_tables(base_table, geographic_level, acs_period):
+        if _table_exists(table):
+            return table
+    return None
+
+
+def _get_acs_single_estimate_community_lookup(
+    table,
+    estimate_candidates,
+    moe_candidates,
+    out_key,
+    ci_lower_key,
+    ci_upper_key,
+    geographic_level="tract",
+    acs_period="2019-2023",
+    floor_zero=True,
+    ndigits=2,
+):
+    """
+    Generic ACS single-estimate reader, e.g. per-capita income, GINI,
+    median year built, and median home value. Uses ACS MOE columns to derive
+    approximate 95% bounds.
+    """
+    if not _table_exists(table):
+        return {}
+
+    cols = {
+        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
+        "estimate": estimate_candidates,
+        "moe": moe_candidates,
+    }
+    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
+    rows, aliases = _select_columns_from_table(table, cols, where, params)
+
+    lookup = {}
+    for row in rows:
+        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
+        if not geoid:
+            continue
+        est = _acs_lookup_value(row, aliases, "estimate")
+        lo, hi = _acs_estimate_ci(
+            est,
+            _acs_lookup_value(row, aliases, "moe"),
+            floor_zero=floor_zero,
+            ndigits=ndigits,
+        )
+        lookup[geoid] = {
+            out_key: _safe_round_float(est, ndigits),
+            ci_lower_key: lo,
+            ci_upper_key: hi,
+        }
+    return lookup
+
+
+def _get_acs_percentage_community_lookup(
+    table,
+    numerator_candidates,
+    denominator_candidates,
+    numerator_moe_candidates,
+    denominator_moe_candidates,
+    out_key,
+    ci_lower_key,
+    ci_upper_key,
+    geographic_level="tract",
+    acs_period="2019-2023",
+):
+    """
+    Generic ACS percentage reader from numerator/denominator estimates and
+    MOEs. This powers scalar community characteristics such as poverty, SNAP,
+    housing vacancy, renting, internet access, and moved-in-last-year.
+    """
+    if not _table_exists(table):
+        return {}
+
+    cols = {
+        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
+        "num": numerator_candidates,
+        "denom": denominator_candidates,
+        "num_moe": numerator_moe_candidates,
+        "denom_moe": denominator_moe_candidates,
+    }
+    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
+    rows, aliases = _select_columns_from_table(table, cols, where, params)
+
+    lookup = {}
+    for row in rows:
+        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
+        if not geoid:
+            continue
+        num = _acs_lookup_value(row, aliases, "num")
+        denom = _acs_lookup_value(row, aliases, "denom")
+        lo, hi = _acs_pct_ci_from_num_denom(
+            num,
+            _acs_lookup_value(row, aliases, "num_moe"),
+            denom,
+            _acs_lookup_value(row, aliases, "denom_moe"),
+        )
+        lookup[geoid] = {
+            out_key: _safe_pct(num, denom),
+            ci_lower_key: lo,
+            ci_upper_key: hi,
+        }
+    return lookup
+
+
+def _get_acs_complement_percentage_community_lookup(
+    table,
+    complement_candidates,
+    denominator_candidates,
+    complement_moe_candidates,
+    denominator_moe_candidates,
+    out_key,
+    ci_lower_key,
+    ci_upper_key,
+    geographic_level="tract",
+    acs_period="2019-2023",
+):
+    """
+    Generic ACS percentage reader for measures defined as 100% minus a
+    published subgroup, such as % moved in last year = 100% - same-house.
+    The MOE for the complement uses the subgroup MOE as an approximation.
+    """
+    if not _table_exists(table):
+        return {}
+
+    cols = {
+        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
+        "same": complement_candidates,
+        "denom": denominator_candidates,
+        "same_moe": complement_moe_candidates,
+        "denom_moe": denominator_moe_candidates,
+    }
+    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
+    rows, aliases = _select_columns_from_table(table, cols, where, params)
+
+    lookup = {}
+    for row in rows:
+        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
+        if not geoid:
+            continue
+        denom = _safe_num(_acs_lookup_value(row, aliases, "denom"))
+        same = _safe_num(_acs_lookup_value(row, aliases, "same"))
+        if denom is None or same is None:
+            continue
+        moved = max(0.0, denom - same)
+        lo, hi = _acs_pct_ci_from_num_denom(
+            moved,
+            _acs_lookup_value(row, aliases, "same_moe"),
+            denom,
+            _acs_lookup_value(row, aliases, "denom_moe"),
+        )
+        lookup[geoid] = {
+            out_key: _safe_pct(moved, denom),
+            ci_lower_key: lo,
+            ci_upper_key: hi,
+        }
+    return lookup
+
+
+def _get_acs_per_capita_income_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_single_estimate_community_lookup(
+        _resolve_acs_table("B19301", geographic_level, acs_period) or "acs_5yr_B19301",
+        ["B19301_001E"],
+        ["B19301_001M"],
+        "per_capita_income",
+        "per_capita_income_ci_lower",
+        "per_capita_income_ci_upper",
+        geographic_level,
+        acs_period,
+        floor_zero=True,
+        ndigits=0,
+    )
+
+
+def _get_acs_poverty_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    # Prefer household poverty table B17017. Fall back to person-level B17001
+    # when only that table is loaded.
+    primary = _get_acs_percentage_community_lookup(
+        _resolve_acs_table("B17017", geographic_level, acs_period) or "acs_5yr_B17017",
+        ["B17017_002E"],
+        ["B17017_001E"],
+        ["B17017_002M"],
+        ["B17017_001M"],
+        "poverty_pct",
+        "poverty_ci_lower",
+        "poverty_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+    if primary:
+        return primary
+    return _get_acs_percentage_community_lookup(
+        _resolve_acs_table("B17001", geographic_level, acs_period) or "acs_5yr_B17001",
+        ["B17001_002E"],
+        ["B17001_001E"],
+        ["B17001_002M"],
+        ["B17001_001M"],
+        "poverty_pct",
+        "poverty_ci_lower",
+        "poverty_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+
+
+def _get_acs_snap_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_percentage_community_lookup(
+        _resolve_acs_table("B22010", geographic_level, acs_period) or "acs_5yr_B22010",
+        ["B22010_002E"],
+        ["B22010_001E"],
+        ["B22010_002M"],
+        ["B22010_001M"],
+        "snap_pct",
+        "snap_ci_lower",
+        "snap_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+
+
+def _get_acs_gini_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_single_estimate_community_lookup(
+        _resolve_acs_table("B19083", geographic_level, acs_period) or "acs_5yr_B19083",
+        ["B19083_001E"],
+        ["B19083_001M"],
+        "gini_index",
+        "gini_ci_lower",
+        "gini_ci_upper",
+        geographic_level,
+        acs_period,
+        floor_zero=False,
+        ndigits=3,
+    )
+
+
+def _get_acs_housing_unoccupied_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_percentage_community_lookup(
+        _resolve_acs_table("B25002", geographic_level, acs_period) or "acs_5yr_B25002",
+        ["B25002_003E"],
+        ["B25002_001E"],
+        ["B25002_003M"],
+        ["B25002_001M"],
+        "housing_unoccupied_pct",
+        "housing_unoccupied_ci_lower",
+        "housing_unoccupied_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+
+
+def _get_acs_renting_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_percentage_community_lookup(
+        _resolve_acs_table("B25003", geographic_level, acs_period) or "acs_5yr_B25003",
+        ["B25003_003E"],
+        ["B25003_001E"],
+        ["B25003_003M"],
+        ["B25003_001M"],
+        "renting_pct",
+        "renting_ci_lower",
+        "renting_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+
+
+def _get_acs_median_year_built_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_single_estimate_community_lookup(
+        _resolve_acs_table("B25035", geographic_level, acs_period) or "acs_5yr_B25035",
+        ["B25035_001E"],
+        ["B25035_001M"],
+        "median_year_built",
+        "median_year_built_ci_lower",
+        "median_year_built_ci_upper",
+        geographic_level,
+        acs_period,
+        floor_zero=False,
+        ndigits=0,
+    )
+
+
+def _get_acs_median_home_value_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_single_estimate_community_lookup(
+        _resolve_acs_table("B25077", geographic_level, acs_period) or "acs_5yr_B25077",
+        ["B25077_001E"],
+        ["B25077_001M"],
+        "median_home_value",
+        "median_home_value_ci_lower",
+        "median_home_value_ci_upper",
+        geographic_level,
+        acs_period,
+        floor_zero=True,
+        ndigits=0,
+    )
+
+
+def _get_acs_internet_access_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    return _get_acs_percentage_community_lookup(
+        _resolve_acs_table("B28002", geographic_level, acs_period) or "acs_5yr_B28002",
+        ["B28002_002E"],
+        ["B28002_001E"],
+        ["B28002_002M"],
+        ["B28002_001M"],
+        "internet_access_pct",
+        "internet_access_ci_lower",
+        "internet_access_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+
+
+def _get_acs_moved_last_year_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    # In ACS B07003, B07003_002E is commonly "Same house 1 year ago".
+    # Therefore moved in the last year is calculated as total - same-house.
+    return _get_acs_complement_percentage_community_lookup(
+        _resolve_acs_table("B07003", geographic_level, acs_period) or "acs_5yr_B07003",
+        ["B07003_002E"],
+        ["B07003_001E"],
+        ["B07003_002M"],
+        ["B07003_001M"],
+        "moved_last_year_pct",
+        "moved_last_year_ci_lower",
+        "moved_last_year_ci_upper",
+        geographic_level,
+        acs_period,
+    )
+
+
+def _merge_pct_component(row, aliases, denom_alias, num_alias, denom_moe_alias, num_moe_alias, out, value_key, low_key, high_key):
+    denom = _safe_num(_acs_lookup_value(row, aliases, denom_alias))
+    num = _safe_num(_acs_lookup_value(row, aliases, num_alias))
+    out[value_key] = _safe_pct(num, denom)
+    lo, hi = _acs_pct_ci_from_num_denom(
+        num,
+        _acs_lookup_value(row, aliases, num_moe_alias),
+        denom,
+        _acs_lookup_value(row, aliases, denom_moe_alias),
+    )
+    out[low_key] = lo
+    out[high_key] = hi
+
+
+def _get_acs_employment_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    table = _resolve_acs_table("B23025", geographic_level, acs_period)
+    if not table:
+        return {}
+    cols = {
+        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
+        "denom": ["B23025_001E"], "denom_moe": ["B23025_001M"],
+        "labor": ["B23025_002E"], "labor_moe": ["B23025_002M"],
+        "employed": ["B23025_004E"], "employed_moe": ["B23025_004M"],
+        "unemployed": ["B23025_005E"], "unemployed_moe": ["B23025_005M"],
+        "not_labor": ["B23025_007E"], "not_labor_moe": ["B23025_007M"],
+    }
+    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
+    rows, aliases = _select_columns_from_table(table, cols, where, params)
+    lookup = {}
+    for row in rows:
+        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
+        if not geoid:
+            continue
+        out = {"employment_16plus": "Employment status percentages"}
+        _merge_pct_component(row, aliases, "denom", "labor", "denom_moe", "labor_moe", out,
+                             "employment_labor_force_pct", "employment_labor_force_ci_lower", "employment_labor_force_ci_upper")
+        _merge_pct_component(row, aliases, "denom", "employed", "denom_moe", "employed_moe", out,
+                             "employment_employed_pct", "employment_employed_ci_lower", "employment_employed_ci_upper")
+        _merge_pct_component(row, aliases, "denom", "unemployed", "denom_moe", "unemployed_moe", out,
+                             "employment_unemployed_pct", "employment_unemployed_ci_lower", "employment_unemployed_ci_upper")
+        _merge_pct_component(row, aliases, "denom", "not_labor", "denom_moe", "not_labor_moe", out,
+                             "employment_not_in_labor_force_pct", "employment_not_in_labor_force_ci_lower", "employment_not_in_labor_force_ci_upper")
+        lookup[geoid] = out
+    return lookup
+
+
+def _get_acs_occupation_community_lookup(geographic_level="tract", acs_period="2019-2023"):
+    table = _resolve_acs_table("C24010", geographic_level, acs_period)
+    if not table:
+        return {}
+    # C24010 has sex-stratified occupation rows. Aggregate male + female major
+    # categories to keep the PopCASE output compact and stable.
+    cols = {
+        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
+        "denom": ["C24010_001E"], "denom_moe": ["C24010_001M"],
+        "mgmt_m": ["C24010_003E"], "mgmt_m_moe": ["C24010_003M"],
+        "service_m": ["C24010_019E"], "service_m_moe": ["C24010_019M"],
+        "sales_m": ["C24010_027E"], "sales_m_moe": ["C24010_027M"],
+        "nr_m": ["C24010_030E"], "nr_m_moe": ["C24010_030M"],
+        "prod_m": ["C24010_034E"], "prod_m_moe": ["C24010_034M"],
+        "mgmt_f": ["C24010_039E"], "mgmt_f_moe": ["C24010_039M"],
+        "service_f": ["C24010_055E"], "service_f_moe": ["C24010_055M"],
+        "sales_f": ["C24010_063E"], "sales_f_moe": ["C24010_063M"],
+        "nr_f": ["C24010_066E"], "nr_f_moe": ["C24010_066M"],
+        "prod_f": ["C24010_070E"], "prod_f_moe": ["C24010_070M"],
+    }
+    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
+    rows, aliases = _select_columns_from_table(table, cols, where, params)
+
+    def est(row, alias):
+        return _safe_num(_acs_lookup_value(row, aliases, alias)) or 0.0
+
+    def moe90_combined(row, a, b):
+        ma = _safe_num(_acs_lookup_value(row, aliases, a)) or 0.0
+        mb = _safe_num(_acs_lookup_value(row, aliases, b)) or 0.0
+        return math.sqrt((ma ** 2) + (mb ** 2))
+
+    lookup = {}
+    categories = [
+        ("occupation_management_business_science_arts_pct", "occupation_management_business_science_arts_ci_lower", "occupation_management_business_science_arts_ci_upper", "mgmt_m", "mgmt_f", "mgmt_m_moe", "mgmt_f_moe"),
+        ("occupation_service_pct", "occupation_service_ci_lower", "occupation_service_ci_upper", "service_m", "service_f", "service_m_moe", "service_f_moe"),
+        ("occupation_sales_office_pct", "occupation_sales_office_ci_lower", "occupation_sales_office_ci_upper", "sales_m", "sales_f", "sales_m_moe", "sales_f_moe"),
+        ("occupation_natural_resources_construction_maintenance_pct", "occupation_natural_resources_construction_maintenance_ci_lower", "occupation_natural_resources_construction_maintenance_ci_upper", "nr_m", "nr_f", "nr_m_moe", "nr_f_moe"),
+        ("occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper", "prod_m", "prod_f", "prod_m_moe", "prod_f_moe"),
+    ]
+    for row in rows:
+        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
+        if not geoid:
+            continue
+        denom = _safe_num(_acs_lookup_value(row, aliases, "denom"))
+        denom_moe = _acs_lookup_value(row, aliases, "denom_moe")
+        out = {"occupation_distribution": "Occupation percentages"}
+        for value_key, low_key, high_key, am, af, mm, mf in categories:
+            num = est(row, am) + est(row, af)
+            num_moe = moe90_combined(row, mm, mf)
+            out[value_key] = _safe_pct(num, denom)
+            out[low_key], out[high_key] = _acs_pct_ci_from_num_denom(num, num_moe, denom, denom_moe)
+        lookup[geoid] = out
+    return lookup
+
+
+def _get_county_adi_lookup():
+    table = 'popcaseui.county'
+    # This table is in the manual ETL database, not the default popcase DB.
+    try:
+        with connections['popcase_manual_etl'].cursor() as cur:
+            cur.execute('SELECT geoid, pct_adi910, adi_pop, tot_pop FROM popcaseui.county')
+            rows = cur.fetchall()
+    except Exception:
+        return {}
+    lookup = {}
+    for geoid, pct, adi_pop, tot_pop in rows:
+        county = _normalize_plain_fips(geoid, target_len=5)
+        if not county:
+            continue
+        lookup[county] = {
+            'svi_adi': _safe_round_float(pct, 2),
+            'adi_pct_deciles_9_10': _safe_round_float(pct, 2),
+            'adi_population_deciles_9_10': _safe_round_float(adi_pop, 0),
+            'adi_total_population': _safe_round_float(tot_pop, 0),
+        }
+    return lookup
+
+
+def _read_redlining_hri_tract_table(period='2020'):
+    """Return direct tract-level Historic Redlining Index rows for Ohio."""
+    period = str(period)
+    if period == '2010':
+        table = 'redlined_hri2010_shapefiles'
+        geo_col, hri_col, rhri_col = 'geoid10', 'hri2010', 'rhri10'
+    else:
+        table = 'redlined_hri2020_shapefiles'
+        geo_col, hri_col, rhri_col = 'geoid20', 'hri2020', 'rhri2020'
+    if not _table_exists(table):
+        return {}
+
+    sql = (
+        f'SELECT {_quote_identifier(geo_col)}, {_quote_identifier(hri_col)}, {_quote_identifier(rhri_col)} '
+        f'FROM {_quote_table_identifier(table)}'
+    )
+    lookup = {}
+    try:
+        with connection.cursor() as cur:
+            cur.execute(sql)
+            for geoid, hri, rhri in cur.fetchall():
+                tract = _normalize_plain_fips(geoid, target_len=11)
+                if tract and tract.startswith("39"):
+                    lookup[tract] = {
+                        'redlined_pct': _safe_round_float(hri, 3),
+                        'ranked_historic_redlining_index': _safe_round_float(rhri, 3),
+                    }
+    except Exception:
+        return {}
+    return lookup
+
+
+def _get_tract_population_lookup_for_hri(acs_period='2019-2023'):
+    """Return tract population for weighting HRI county aggregation."""
+    table = _resolve_acs_table('B01001', 'tract', acs_period)
+    if not table:
+        return {}
+    cols = {
+        'geo_id': ['GEO_ID', 'geo_id', 'geoid', 'GEOID'],
+        'population': ['B01001_001E'],
+    }
+    where, params = _community_where_sql(table, 'tract', 'acs', acs_period)
+    rows, aliases = _select_columns_from_table(table, cols, where, params)
+
+    lookup = {}
+    for row in rows:
+        tract = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, 'geo_id'), 'tract')
+        pop = _safe_num(_acs_lookup_value(row, aliases, 'population'))
+        if tract and tract.startswith('39') and pop is not None and pop > 0:
+            lookup[tract] = pop
+    return lookup
+
+
+def _aggregate_redlining_hri_to_county(tract_lookup, acs_period='2019-2023'):
+    """Aggregate tract HRI to county using population weights when available."""
+    if not tract_lookup:
+        return {}
+
+    pop_lookup = _get_tract_population_lookup_for_hri(acs_period)
+    county_acc = defaultdict(lambda: {'hri_wsum': 0.0, 'rhri_wsum': 0.0, 'weight_sum': 0.0, 'hri_vals': [], 'rhri_vals': []})
+
+    for tract, row in tract_lookup.items():
+        county = str(tract)[:5]
+        hri = _safe_num(row.get('redlined_pct'))
+        rhri = _safe_num(row.get('ranked_historic_redlining_index'))
+        if hri is None and rhri is None:
+            continue
+
+        weight = pop_lookup.get(tract)
+        acc = county_acc[county]
+        if weight is not None and weight > 0:
+            if hri is not None:
+                acc['hri_wsum'] += hri * weight
+            if rhri is not None:
+                acc['rhri_wsum'] += rhri * weight
+            acc['weight_sum'] += weight
+        if hri is not None:
+            acc['hri_vals'].append(hri)
+        if rhri is not None:
+            acc['rhri_vals'].append(rhri)
+
+    out = {}
+    for county, acc in county_acc.items():
+        if acc['weight_sum'] > 0:
+            hri_val = acc['hri_wsum'] / acc['weight_sum'] if acc['hri_wsum'] else None
+            rhri_val = acc['rhri_wsum'] / acc['weight_sum'] if acc['rhri_wsum'] else None
+        else:
+            hri_val = sum(acc['hri_vals']) / len(acc['hri_vals']) if acc['hri_vals'] else None
+            rhri_val = sum(acc['rhri_vals']) / len(acc['rhri_vals']) if acc['rhri_vals'] else None
+
+        out[county] = {
+            'redlined_pct': _safe_round_float(hri_val, 3),
+            'ranked_historic_redlining_index': _safe_round_float(rhri_val, 3),
+        }
+    return out
+
+
+def _get_redlining_hri_lookup(geographic_level='tract', period='2020', acs_period='2019-2023'):
+    """
+    Return Historic Redlining Index by geography.
+
+    - Tract: direct 2020 HRI lookup, falling back to 2010 for missing tracts.
+    - County: aggregate tract HRI values by county; use ACS tract population
+      weights when available, otherwise a simple mean.
+    - ZCTA/place: left blank until a valid crosswalk or direct table is added.
+    """
+    if geographic_level not in {'tract', 'county'}:
+        return {}
+
+    period = str(period)
+    if period == '2010':
+        tract_lookup = _read_redlining_hri_tract_table('2010')
+    else:
+        tract_lookup = _read_redlining_hri_tract_table('2020')
+        fallback_2010 = _read_redlining_hri_tract_table('2010')
+        for tract, row in fallback_2010.items():
+            tract_lookup.setdefault(tract, row)
+
+    if geographic_level == 'tract':
+        return tract_lookup
+
+    return _aggregate_redlining_hri_to_county(tract_lookup, acs_period)
+
+
 def _get_acs_period_community_lookup(requested, geographic_level, acs_period):
     requested = set(requested or [])
     lookup = {}
+
+    def merge(rows):
+        for geoid, row in rows.items():
+            lookup.setdefault(geoid, {}).update(row)
+
     if requested & {"pop_total", "sex_distribution", "median_age"}:
-        for geoid, row in _get_acs_b01001_community_lookup(requested, geographic_level, acs_period).items():
-            lookup.setdefault(geoid, {}).update(row)
+        merge(_get_acs_b01001_community_lookup(requested, geographic_level, acs_period))
     if "race_eth" in requested:
-        for geoid, row in _get_race_ethnicity_community_lookup(geographic_level, acs_period).items():
-            lookup.setdefault(geoid, {}).update(row)
+        merge(_get_race_ethnicity_community_lookup(geographic_level, acs_period))
     if "med_hh_income" in requested:
-        for geoid, row in _get_acs_income_community_lookup(geographic_level, acs_period).items():
-            lookup.setdefault(geoid, {}).update(row)
+        merge(_get_acs_income_community_lookup(geographic_level, acs_period))
     if "limited_english_pct" in requested:
-        for geoid, row in _get_acs_limited_english_community_lookup(geographic_level, acs_period).items():
-            lookup.setdefault(geoid, {}).update(row)
+        merge(_get_acs_limited_english_community_lookup(geographic_level, acs_period))
+
+    if "per_capita_income" in requested:
+        merge(_get_acs_per_capita_income_community_lookup(geographic_level, acs_period))
+    if "poverty_pct" in requested:
+        merge(_get_acs_poverty_community_lookup(geographic_level, acs_period))
+    if "snap_pct" in requested:
+        merge(_get_acs_snap_community_lookup(geographic_level, acs_period))
+    if "gini" in requested:
+        merge(_get_acs_gini_community_lookup(geographic_level, acs_period))
+    if "employment_16plus" in requested:
+        merge(_get_acs_employment_community_lookup(geographic_level, acs_period))
+    if "occupation_dist" in requested:
+        merge(_get_acs_occupation_community_lookup(geographic_level, acs_period))
+    if "redlined_pct" in requested:
+        # HRI tables are tract-specific and available for 2010/2020. Most recent uses 2020; historical 2010 is handled separately below.
+        hri_period = "2010" if str(acs_period).endswith("2018") or str(acs_period).endswith("2013") else "2020"
+        merge(_get_redlining_hri_lookup(geographic_level, hri_period, acs_period))
+    if "housing_unoccupied" in requested:
+        merge(_get_acs_housing_unoccupied_community_lookup(geographic_level, acs_period))
+    if "renting_pct" in requested:
+        merge(_get_acs_renting_community_lookup(geographic_level, acs_period))
+    if "median_year_built" in requested:
+        merge(_get_acs_median_year_built_community_lookup(geographic_level, acs_period))
+    if "median_home_value" in requested:
+        merge(_get_acs_median_home_value_community_lookup(geographic_level, acs_period))
+    if "internet_access" in requested:
+        merge(_get_acs_internet_access_community_lookup(geographic_level, acs_period))
+    if "moved_last_year" in requested:
+        merge(_get_acs_moved_last_year_community_lookup(geographic_level, acs_period))
+
     return lookup
 
 
@@ -3257,7 +4054,10 @@ def _get_period_community_lookups_cached(geographic_level, dx_start, dx_end, sup
         elif source in {"rucc", "ruca"}:
             lookup = _get_generic_community_lookup(source, geographic_level, period) if "rurality" in requested else {}
         elif source == "svi":
-            lookup = _get_generic_community_lookup(source, geographic_level, period) if "svi_adi" in requested else {}
+            if "svi_adi" in requested and geographic_level == "county":
+                lookup = _get_county_adi_lookup()
+            else:
+                lookup = _get_generic_community_lookup(source, geographic_level, period) if "svi_adi" in requested else {}
         else:
             lookup = {}
         for geoid, row in lookup.items():
@@ -3269,7 +4069,175 @@ def _get_period_community_lookups_cached(geographic_level, dx_start, dx_end, sup
 
     return out_by_geo, has_historical_mode
 
-def _build_mvp_geo_dataset_uncached(
+
+def _parse_yyyymmdd(value):
+    """Parse NAACCR-style YYYYMMDD strings. Returns a date or None."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    digits = re.sub(r"\D", "", text)
+    if len(digits) != 8:
+        return None
+    if digits in {"00000000", "99999999", "88888888"}:
+        return None
+    try:
+        return datetime.strptime(digits, "%Y%m%d").date()
+    except Exception:
+        return None
+
+
+def _parse_gleason_value(value):
+    """Return a valid Gleason score 2-10, or None for unknown/special codes."""
+    if value is None:
+        return None
+    text = str(value).strip().upper()
+    if not text:
+        return None
+    if text in {"X7", "X8", "X9", "88", "98", "99", "998", "999", "UNKNOWN", "NA", "N/A"}:
+        return None
+    if not re.fullmatch(r"\d+", text):
+        return None
+    try:
+        score = int(text)
+    except Exception:
+        return None
+    if 2 <= score <= 10:
+        return score
+    return None
+
+
+def _percentile(values, percentile):
+    """Linear-interpolated percentile for a non-empty numeric list."""
+    if not values:
+        return None
+    ordered = sorted(float(v) for v in values)
+    if len(ordered) == 1:
+        return ordered[0]
+    k = (len(ordered) - 1) * (percentile / 100.0)
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        return ordered[int(k)]
+    return ordered[f] + (ordered[c] - ordered[f]) * (k - f)
+
+
+def _summarize_numeric_values(values):
+    """Return mean, normal 95% CI, median, Q1, Q3 for numeric values."""
+    clean = [float(v) for v in values if v is not None]
+    n = len(clean)
+    if n == 0:
+        return {
+            "n": 0,
+            "mean": None,
+            "ci_lower": None,
+            "ci_upper": None,
+            "median": None,
+            "q1": None,
+            "q3": None,
+        }
+    mean_val = sum(clean) / n
+    ci_lower = ci_upper = None
+    if n >= 2:
+        var = sum((v - mean_val) ** 2 for v in clean) / (n - 1)
+        se = math.sqrt(var) / math.sqrt(n)
+        ci_lower = mean_val - 1.96 * se
+        ci_upper = mean_val + 1.96 * se
+    return {
+        "n": n,
+        "mean": mean_val,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "median": _percentile(clean, 50),
+        "q1": _percentile(clean, 25),
+        "q3": _percentile(clean, 75),
+    }
+
+
+def _get_tti_gleason_details_for_patients(patient_ids):
+    """
+    Pull disease-specific details that are not represented on the minimal
+    NaaccrData Django model. Uses raw SQL so long NAACCR column names can be
+    read without expanding the unmanaged model.
+    """
+    ids = [str(x).strip() for x in patient_ids if str(x).strip()]
+    if not ids:
+        return {}
+
+    sql = """
+        SELECT
+            "Patient ID Number" AS mid,
+            "Date of Diagnosis" AS dx_date,
+            "Date Initial RX SEER" AS initial_rx_date,
+            "Date 1st Crs RX CoC" AS first_course_rx_date,
+            "RX Date Surgery" AS surgery_date,
+            "RX Date Chemo" AS chemo_date,
+            "RX Date Radiation" AS radiation_date,
+            "RX Date Systemic" AS systemic_date,
+            "RX Date Hormone" AS hormone_date,
+            "RX Date BRM" AS brm_date,
+            "RX Date Other" AS other_rx_date,
+            "RX Date Mst Defn Srg" AS mst_defn_surgery_date,
+            "Primary Site" AS primary_site,
+            "Gleason Score Clinical" AS gleason_clinical,
+            "Gleason Score Pathological" AS gleason_pathological
+        FROM "naaccr_data"
+        WHERE "Patient ID Number" = ANY(%s)
+    """
+
+    details = {}
+    chunk_size = 5000
+    with connection.cursor() as cursor:
+        for i in range(0, len(ids), chunk_size):
+            chunk = ids[i:i + chunk_size]
+            cursor.execute(sql, [chunk])
+            cols = [c[0] for c in cursor.description]
+            for raw_row in cursor.fetchall():
+                row = dict(zip(cols, raw_row))
+                mid = str(row.get("mid") or "").strip()
+                if not mid:
+                    continue
+
+                dx = _parse_yyyymmdd(row.get("dx_date"))
+                treatment_candidates = []
+                for key in (
+                    "initial_rx_date",
+                    "first_course_rx_date",
+                    "surgery_date",
+                    "chemo_date",
+                    "radiation_date",
+                    "systemic_date",
+                    "hormone_date",
+                    "brm_date",
+                    "other_rx_date",
+                    "mst_defn_surgery_date",
+                ):
+                    parsed = _parse_yyyymmdd(row.get(key))
+                    if parsed is not None:
+                        treatment_candidates.append(parsed)
+
+                tti_days = None
+                if dx is not None and treatment_candidates:
+                    tx = min(treatment_candidates)
+                    delta = (tx - dx).days
+                    if 0 <= delta <= 365:
+                        tti_days = delta
+
+                primary_site = str(row.get("primary_site") or "").strip().upper()
+                gleason = None
+                if primary_site == "C619":
+                    gleason = _parse_gleason_value(row.get("gleason_pathological"))
+                    if gleason is None:
+                        gleason = _parse_gleason_value(row.get("gleason_clinical"))
+
+                details[mid] = {
+                    "tti_days": tti_days,
+                    "gleason": gleason,
+                }
+    return details
+
+def _build_geo_dataset_uncached(
     geographic_level: str,
     year_range=("2011", "2022"),
     filters=None,
@@ -3282,7 +4250,7 @@ def _build_mvp_geo_dataset_uncached(
     """
     Returns list[dict] with one row per geographic unit.
 
-    For the current MVP patch, tract-level rows can include:
+    Rows can include:
       - disease measures
       - available community / prevention / access measures
 
@@ -3324,6 +4292,14 @@ def _build_mvp_geo_dataset_uncached(
     denom_by_geo = defaultdict(int)
     adv_by_geo = defaultdict(int)
     meta_by_geo = defaultdict(int)
+    tti_by_geo = defaultdict(list)
+    gleason_by_geo = defaultdict(list)
+
+    need_tti = ("median_tti" in disease_measures) or ("median_tti_iqr" in disease_measures)
+    need_gleason = ("gleason" in disease_measures) or ("gleason_ci" in disease_measures)
+    disease_detail_by_mid = {}
+    if (need_tti or need_gleason) and filtered_pat_ids:
+        disease_detail_by_mid = _get_tti_gleason_details_for_patients(filtered_pat_ids)
 
     def _norm_geoid(g):
         g = str(g).strip()
@@ -3338,6 +4314,13 @@ def _build_mvp_geo_dataset_uncached(
 
         if not _geoid_in_scope(geographic_level, geoid, filters):
             continue
+
+        if disease_detail_by_mid:
+            detail = disease_detail_by_mid.get(str(pat_id).strip(), {})
+            if need_tti and detail.get("tti_days") is not None:
+                tti_by_geo[geoid].append(detail["tti_days"])
+            if need_gleason and detail.get("gleason") is not None:
+                gleason_by_geo[geoid].append(detail["gleason"])
 
         stg = stage_by_mid.get(pat_id)
         if stg is None:
@@ -3380,14 +4363,14 @@ def _build_mvp_geo_dataset_uncached(
             incidence_lookup[r["geoid"]] = r
     incidence_lookup = _filter_lookup_to_scope(incidence_lookup, geographic_level, filters)
 
-    tract_support = {}
-    if geographic_level == "tract" and support_measures:
-        tract_support = _get_tract_support_lookups(support_measures)
+    support_lookup = {}
+    if support_measures:
+        support_lookup = _get_geo_support_lookups(geographic_level, support_measures)
 
-    if geographic_level == "tract" and tract_support:
-        tract_support = {
-            name: _filter_lookup_to_scope(lookup, "tract", filters)
-            for name, lookup in tract_support.items()
+    if support_lookup:
+        support_lookup = {
+            name: _filter_lookup_to_scope(lookup, geographic_level, filters)
+            for name, lookup in support_lookup.items()
         }
 
     community_period_lookup, remove_unsuffixed_community = _get_period_community_lookups_cached(
@@ -3400,13 +4383,13 @@ def _build_mvp_geo_dataset_uncached(
     )
     community_period_lookup = _filter_lookup_to_scope(community_period_lookup, geographic_level, filters)
 
-    all_geoids = set(denom_by_geo.keys()) | set(incidence_lookup.keys())
+    all_geoids = set(denom_by_geo.keys()) | set(incidence_lookup.keys()) | set(tti_by_geo.keys()) | set(gleason_by_geo.keys())
 
     if community_period_lookup:
         all_geoids |= set(community_period_lookup.keys())
 
-    if geographic_level == "tract" and tract_support:
-        for lookup in tract_support.values():
+    if support_lookup:
+        for lookup in support_lookup.values():
             all_geoids |= set(lookup.keys())
 
     all_geoids = {
@@ -3419,6 +4402,7 @@ def _build_mvp_geo_dataset_uncached(
     for geoid in all_geoids:
         out = {
             "label": _geo_label(geographic_level, geoid),
+            "geoid": geoid,
         }
 
         if geographic_level == "tract":
@@ -3452,6 +4436,22 @@ def _build_mvp_geo_dataset_uncached(
                 out["meta_ci_lower"] = round(lo * 100, 2) if lo is not None else None
                 out["meta_ci_upper"] = round(hi * 100, 2) if hi is not None else None
 
+        if ("median_tti" in disease_measures) or ("median_tti_iqr" in disease_measures):
+            tti_summary = _summarize_numeric_values(tti_by_geo.get(geoid, []))
+            if "median_tti" in disease_measures:
+                out["median_tti"] = round(tti_summary["median"], 2) if tti_summary["median"] is not None else None
+            if "median_tti_iqr" in disease_measures:
+                out["median_tti_iqr_lower"] = round(tti_summary["q1"], 2) if tti_summary["q1"] is not None else None
+                out["median_tti_iqr_upper"] = round(tti_summary["q3"], 2) if tti_summary["q3"] is not None else None
+
+        if ("gleason" in disease_measures) or ("gleason_ci" in disease_measures):
+            gleason_summary = _summarize_numeric_values(gleason_by_geo.get(geoid, []))
+            if "gleason" in disease_measures:
+                out["mean_gleason_score"] = round(gleason_summary["mean"], 2) if gleason_summary["mean"] is not None else None
+            if "gleason_ci" in disease_measures:
+                out["gleason_ci_lower"] = round(gleason_summary["ci_lower"], 2) if gleason_summary["ci_lower"] is not None else None
+                out["gleason_ci_upper"] = round(gleason_summary["ci_upper"], 2) if gleason_summary["ci_upper"] is not None else None
+
         if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
             ir = incidence_lookup.get(geoid)
             if "crude_inc_rate" in disease_measures:
@@ -3476,27 +4476,27 @@ def _build_mvp_geo_dataset_uncached(
             out["mort_ci_lower_per_100k"] = None
             out["mort_ci_upper_per_100k"] = None
 
-        if geographic_level == "tract" and tract_support:
-            community_row = tract_support.get("community_acs", {}).get(geoid, {})
+        if support_lookup:
+            community_row = support_lookup.get("community_acs", {}).get(geoid, {})
             if community_row:
                 out.update(community_row)
                 out.pop("total_population_moe_90", None)
 
             if "pop_total" in support_measures:
-                out["total_population"] = community_row.get("total_population", tract_support.get("pop", {}).get(geoid))
+                out["total_population"] = community_row.get("total_population", support_lookup.get("pop", {}).get(geoid))
 
             if "med_hh_income" in support_measures:
-                out["median_household_income"] = community_row.get("median_household_income", tract_support.get("income", {}).get(geoid))
+                out["median_household_income"] = community_row.get("median_household_income", support_lookup.get("income", {}).get(geoid))
                 out["median_household_income_ci_lower"] = community_row.get("median_household_income_ci_lower")
                 out["median_household_income_ci_upper"] = community_row.get("median_household_income_ci_upper")
 
             if "limited_english_pct" in support_measures:
-                out["limited_english_pct"] = community_row.get("limited_english_pct", tract_support.get("limited_english_pct", {}).get(geoid))
+                out["limited_english_pct"] = community_row.get("limited_english_pct", support_lookup.get("limited_english_pct", {}).get(geoid))
                 out["limited_english_ci_lower"] = community_row.get("limited_english_ci_lower")
                 out["limited_english_ci_upper"] = community_row.get("limited_english_ci_upper")
 
             if "sex_distribution" in support_measures:
-                sex_row = tract_support.get("sex", {}).get(geoid, {})
+                sex_row = support_lookup.get("sex", {}).get(geoid, {})
                 out["male_population"] = sex_row.get("male_population")
                 out["female_population"] = sex_row.get("female_population")
                 out["male_pct"] = sex_row.get("male_pct")
@@ -3507,11 +4507,13 @@ def _build_mvp_geo_dataset_uncached(
                 out["female_pct_ci_upper"] = sex_row.get("female_pct_ci_upper")
 
             if "median_age" in support_measures:
-                out["median_age"] = community_row.get("median_age", tract_support.get("median_age", {}).get(geoid))
+                out["median_age"] = community_row.get("median_age", support_lookup.get("median_age", {}).get(geoid))
                 out["median_age_ci_lower"] = community_row.get("median_age_ci_lower")
                 out["median_age_ci_upper"] = community_row.get("median_age_ci_upper")
 
-            places_row = tract_support.get("places", {}).get(geoid, {})
+            places_row = support_lookup.get("places", {}).get(geoid, {})
+            if places_row:
+                out.update(places_row)
 
             if "breast_screen" in support_measures:
                 out["mammography_screening_pct"] = places_row.get("mammography_screening_pct", places_row.get("breast_screen"))
@@ -3537,16 +4539,16 @@ def _build_mvp_geo_dataset_uncached(
                 out["uninsured_age_adjusted_pct"] = places_row.get("uninsured_age_adjusted_pct")
 
             if "pcp_access_score" in support_measures:
-                out["primary_care_access_score"] = tract_support["pcp_access"].get(geoid)
+                out["primary_care_access_score"] = support_lookup.get("pcp_access", {}).get(geoid)
 
             if "mammo_access" in support_measures:
-                mammo_row = tract_support.get("mammo_access", {}).get(geoid, {})
+                mammo_row = support_lookup.get("mammo_access", {}).get(geoid, {})
                 out["nearest_mammography_distance_miles"] = mammo_row.get("nearest_miles")
                 out["mammography_facility_count_20mi"] = mammo_row.get("count_20mi")
                 out["mammography_access_score"] = mammo_row.get("access_score")
 
             if "race_eth" in support_measures:
-                race_row = tract_support.get("race_eth", {}).get(geoid, {})
+                race_row = support_lookup.get("race_eth", {}).get(geoid, {})
                 for key in (
                     "race_ethnicity", "race_eth_ci_lower", "race_eth_ci_upper",
                     "white_alone_pct", "white_alone_ci_lower", "white_alone_ci_upper",
@@ -3573,7 +4575,7 @@ def _build_mvp_geo_dataset_uncached(
         # geo-stratified support measures selected on measures.html.
         #
         # results.html builds the table columns dynamically from the keys
-        # present in mvp_rows. Without this call, checkbox-only options such as
+        # present in dataset_rows. Without this call, checkbox-only options such as
         # cancer_screening_ci, noncancer_health_status_ci, access survey CI,
         # and community-characteristics CI are saved in the session but never
         # appear as row keys, so no CI columns can be displayed or exported.
@@ -3616,7 +4618,7 @@ def _deserialize_cache_payload(value):
 
 
 @lru_cache(maxsize=128)
-def _build_mvp_geo_dataset_cached(
+def _build_geo_dataset_cached(
     geographic_level: str,
     dx_start: str,
     dx_end: str,
@@ -3627,7 +4629,7 @@ def _build_mvp_geo_dataset_cached(
     community_timeframes_tuple: tuple,
     incidence_year: str,
 ):
-    return _build_mvp_geo_dataset_uncached(
+    return _build_geo_dataset_uncached(
         geographic_level=geographic_level,
         year_range=(dx_start, dx_end),
         filters=_deserialize_cache_payload(filters_json),
@@ -3639,7 +4641,7 @@ def _build_mvp_geo_dataset_cached(
     )
 
 
-def build_mvp_geo_dataset(
+def build_geo_dataset(
     geographic_level: str,
     year_range=("2011", "2022"),
     filters=None,
@@ -3655,7 +4657,7 @@ def build_mvp_geo_dataset(
     normalized_support = tuple(sorted(_normalize_support_measure_tokens(support_measures)))
     normalized_display_options = tuple(sorted(_as_list(display_options)))
     normalized_community_timeframes = tuple(sorted(_normalize_community_timeframes(community_timeframes)))
-    return _build_mvp_geo_dataset_cached(
+    return _build_geo_dataset_cached(
         geographic_level=geographic_level,
         dx_start=str(dx_start),
         dx_end=str(dx_end),

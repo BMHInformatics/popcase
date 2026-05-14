@@ -20,7 +20,7 @@ from popcase.services import (
     get_incidence_by_geography,
     get_total_incidence,
     get_cancer_type_tree,
-    build_mvp_geo_dataset,
+    build_geo_dataset,
 )
 
 from .models import NaaccrPatientCensusLinking
@@ -332,6 +332,7 @@ SUPPORT_DISPLAY_HEADER_MAP = {
     "citizenship_status_ci_lower": "Citizenship status CI 95% (L)",
     "citizenship_status_ci_upper": "Citizenship status CI 95% (U)",
     "rurality": "Rurality (RUCC / RUCA code)",
+    "rurality_description": "Rurality Description",
     "rurality_ci_lower": "Rurality CI 95% (L)",
     "rurality_ci_upper": "Rurality CI 95% (U)",
     "median_household_income_ci_lower": "Median household income CI 95% (L)",
@@ -345,30 +346,62 @@ SUPPORT_DISPLAY_HEADER_MAP = {
     "income_poverty_ratio": "Income to poverty-level ratio",
     "income_poverty_ratio_ci_lower": "Income to poverty-level ratio CI 95% (L)",
     "income_poverty_ratio_ci_upper": "Income to poverty-level ratio CI 95% (U)",
-    "snap_pct": "% households receiving Food stamps/SNAP",
+    "snap_pct": "Food stamps/SNAP (%) [CDC PLACES]",
     "snap_ci_lower": "Food stamps/SNAP CI 95% (L)",
     "snap_ci_upper": "Food stamps/SNAP CI 95% (U)",
     "employment_16plus": "Employment status for population >=16 years",
-    "employment_16plus_ci_lower": "Employment status CI 95% (L)",
-    "employment_16plus_ci_upper": "Employment status CI 95% (U)",
+    "employment_labor_force_pct": "Labor force (%)",
+    "employment_labor_force_ci_lower": "Labor force CI 95% (L)",
+    "employment_labor_force_ci_upper": "Labor force CI 95% (U)",
+    "employment_employed_pct": "Employed (%)",
+    "employment_employed_ci_lower": "Employed CI 95% (L)",
+    "employment_employed_ci_upper": "Employed CI 95% (U)",
+    "employment_unemployed_pct": "Unemployed (%)",
+    "employment_unemployed_ci_lower": "Unemployed CI 95% (L)",
+    "employment_unemployed_ci_upper": "Unemployed CI 95% (U)",
+    "employment_not_in_labor_force_pct": "Not in labor force (%)",
+    "employment_not_in_labor_force_ci_lower": "Not in labor force CI 95% (L)",
+    "employment_not_in_labor_force_ci_upper": "Not in labor force CI 95% (U)",
     "utility_shutoff_threat_pct": "Utility services shut-off threat (%)",
     "utility_shutoff_threat_ci_lower": "Utility shut-off threat CI 95% (L)",
     "utility_shutoff_threat_ci_upper": "Utility shut-off threat CI 95% (U)",
+    "housing_insecurity_pct": "Housing insecurity (%)",
+    "housing_insecurity_ci_lower": "Housing insecurity CI 95% (L)",
+    "housing_insecurity_ci_upper": "Housing insecurity CI 95% (U)",
     "occupation_distribution": "Occupational category distribution",
-    "occupation_distribution_ci_lower": "Occupational category distribution CI 95% (L)",
-    "occupation_distribution_ci_upper": "Occupational category distribution CI 95% (U)",
+    "occupation_management_business_science_arts_pct": "Occupation: management/business/science/arts (%)",
+    "occupation_management_business_science_arts_ci_lower": "Occupation: management/business/science/arts CI 95% (L)",
+    "occupation_management_business_science_arts_ci_upper": "Occupation: management/business/science/arts CI 95% (U)",
+    "occupation_service_pct": "Occupation: service (%)",
+    "occupation_service_ci_lower": "Occupation: service CI 95% (L)",
+    "occupation_service_ci_upper": "Occupation: service CI 95% (U)",
+    "occupation_sales_office_pct": "Occupation: sales/office (%)",
+    "occupation_sales_office_ci_lower": "Occupation: sales/office CI 95% (L)",
+    "occupation_sales_office_ci_upper": "Occupation: sales/office CI 95% (U)",
+    "occupation_natural_resources_construction_maintenance_pct": "Occupation: natural resources/construction/maintenance (%)",
+    "occupation_natural_resources_construction_maintenance_ci_lower": "Occupation: natural resources/construction/maintenance CI 95% (L)",
+    "occupation_natural_resources_construction_maintenance_ci_upper": "Occupation: natural resources/construction/maintenance CI 95% (U)",
+    "occupation_production_transportation_material_moving_pct": "Occupation: production/transportation/material moving (%)",
+    "occupation_production_transportation_material_moving_ci_lower": "Occupation: production/transportation/material moving CI 95% (L)",
+    "occupation_production_transportation_material_moving_ci_upper": "Occupation: production/transportation/material moving CI 95% (U)",
     "gini_index": "GINI Index",
     "gini_ci_lower": "GINI Index CI 95% (L)",
     "gini_ci_upper": "GINI Index CI 95% (U)",
-    "redlined_ci_lower": "Formerly-redlined neighborhood CI 95% (L)",
-    "redlined_ci_upper": "Formerly-redlined neighborhood CI 95% (U)",
-    "svi_adi": "Social Vulnerability Index",
-    "svi_adi_ci_lower": "Social Vulnerability Index CI 95% (L)",
-    "svi_adi_ci_upper": "Social Vulnerability Index CI 95% (U)",
+    "redlined_pct": "Historic Redlining Index",
+    "ranked_historic_redlining_index": "Ranked Historic Redlining Index",
+    "redlined_ci_lower": "Historic Redlining Index CI 95% (L)",
+    "redlined_ci_upper": "Historic Redlining Index CI 95% (U)",
+    "svi_adi": "% population in ADI deciles 9-10",
+    "adi_pct_deciles_9_10": "% population in ADI deciles 9-10",
+    "adi_population_deciles_9_10": "Population in ADI deciles 9-10",
+    "adi_total_population": "ADI denominator population",
+    "svi_adi_ci_lower": "ADI/SVI CI 95% (L)",
+    "svi_adi_ci_upper": "ADI/SVI CI 95% (U)",
 
     "housing_unoccupied_pct": "% housing units unoccupied",
     "housing_unoccupied_ci_lower": "Housing units unoccupied CI 95% (L)",
     "housing_unoccupied_ci_upper": "Housing units unoccupied CI 95% (U)",
+    "renting_pct": "% Renting",
     "renting_ci_lower": "Renting CI 95% (L)",
     "renting_ci_upper": "Renting CI 95% (U)",
     "median_year_built": "Median Year Structure Built",
@@ -406,6 +439,11 @@ SUPPORT_DISPLAY_HEADER_MAP = {
 TRACT_HEADER_MAP.update(SUPPORT_DISPLAY_HEADER_MAP)
 TRACT_NUMERIC_COLS = list(dict.fromkeys(TRACT_NUMERIC_COLS + list(SUPPORT_DISPLAY_HEADER_MAP.keys())))
 
+# Geography-agnostic aliases used by the results page and CSV exporter.
+# The old TRACT_* names are kept only as backward-compatible aliases.
+DATASET_HEADER_MAP = TRACT_HEADER_MAP
+DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
+
 # These are aggregate placeholder columns created only to trigger display-option logic.
 # They do not represent a single measurable estimate/CI and should not be displayed
 # or exported. The real component columns (male/female %, race-specific %, etc.)
@@ -417,6 +455,8 @@ DATASET_EXCLUDE_COLUMNS = {
     "race_ethnicity",
     "race_eth_ci_lower",
     "race_eth_ci_upper",
+    "employment_16plus",
+    "occupation_distribution",
 }
 
 
@@ -497,13 +537,13 @@ def _build_results_payload_cached(
 
     incidence = []
     total_incidence = None
-    mvp_rows = []
+    dataset_rows = []
     result_mode = "none"
 
     has_dataset_request = bool(SUPPORTED_DISEASE_MEASURES.intersection(disease_measures) or support_measures)
 
     if geographic_level in {"tract", "county", "zcta", "place"} and has_dataset_request:
-        mvp_rows = build_mvp_geo_dataset(
+        dataset_rows = build_geo_dataset(
             geographic_level=geographic_level,
             year_range=(dx_start, dx_end),
             filters=filters,
@@ -528,7 +568,7 @@ def _build_results_payload_cached(
     return {
         "incidence": incidence,
         "total_incidence": total_incidence,
-        "mvp_rows": mvp_rows,
+        "dataset_rows": dataset_rows,
         "result_mode": result_mode,
     }
 
@@ -814,19 +854,19 @@ def results(request):
 
     incidence = payload["incidence"]
     total_incidence = payload["total_incidence"]
-    mvp_rows = payload["mvp_rows"]
+    dataset_rows = payload["dataset_rows"]
     result_mode = payload["result_mode"]
 
-    dataset_total_rows = len(mvp_rows)
+    dataset_total_rows = len(dataset_rows)
     dataset_is_truncated = dataset_total_rows > PREVIEW_ROW_LIMIT
-    mvp_rows_preview = mvp_rows[:PREVIEW_ROW_LIMIT]
+    dataset_rows_preview = dataset_rows[:PREVIEW_ROW_LIMIT]
 
-    dynamic_header_map = _with_dynamic_community_headers(TRACT_HEADER_MAP, mvp_rows)
-    dynamic_numeric_cols = list(dict.fromkeys(TRACT_NUMERIC_COLS + [
+    dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, dataset_rows)
+    dynamic_numeric_cols = list(dict.fromkeys(DATASET_NUMERIC_COLS + [
         key
-        for row in mvp_rows
+        for row in dataset_rows
         for key, val in row.items()
-        if key not in TRACT_NUMERIC_COLS and isinstance(val, (int, float))
+        if key not in DATASET_NUMERIC_COLS and isinstance(val, (int, float))
     ]))
 
     context = {
@@ -836,7 +876,7 @@ def results(request):
         "geographic_level": geographic_level,
         "incidence": incidence,
         "total_incidence": total_incidence,
-        "mvp_rows": mvp_rows_preview,
+        "dataset_rows": dataset_rows_preview,
         "dataset_total_rows": dataset_total_rows,
         "dataset_preview_limit": PREVIEW_ROW_LIMIT,
         "dataset_is_truncated": dataset_is_truncated,
@@ -846,9 +886,12 @@ def results(request):
         "community_timeframes": community_timeframes,
         "cancer_type_labels": cancer_type_labels,
         "dataset_title": f"Selected measures by {geographic_level.title()}",
+        "dataset_header_map": dynamic_header_map,
+        "dataset_numeric_cols": dynamic_numeric_cols,
+        # Backward-compatible context aliases for older templates/custom tags.
         "tract_header_map": dynamic_header_map,
         "tract_numeric_cols": dynamic_numeric_cols,
-        "dataset_columns": _build_dataset_columns(mvp_rows, dynamic_header_map),
+        "dataset_columns": _build_dataset_columns(dataset_rows, dynamic_header_map),
         "dataset_exclude_columns": DATASET_EXCLUDE_COLUMNS,
     }
     return render(request, "popcase/results.html", context)
@@ -887,7 +930,7 @@ def reset_wizard(request):
 
 
 
-def export_mvp_geo_csv(request):
+def export_geo_dataset_csv(request):
     wizard = request.session.get("popcase_wizard", {})
     filters = wizard.get("filters", {}) or {}
     geographic_level = _normalize_geographic_level(wizard.get("geographic_level", "county"))
@@ -916,13 +959,14 @@ def export_mvp_geo_csv(request):
             community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
             latest_year=latest_year,
         )
-        rows = payload["mvp_rows"] or []
+        rows = payload["dataset_rows"] or []
         filename = f"popcase_results_{geographic_level}_{dx_start}_{dx_end}.csv"
 
-    response = HttpResponse(content_type="text/csv")
+    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
     response["Content-Disposition"] = f"attachment; filename={filename}"
+    response.write("\ufeff")
 
-    dynamic_header_map = _with_dynamic_community_headers(TRACT_HEADER_MAP, rows)
+    dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, rows)
     columns = _build_dataset_columns(rows, dynamic_header_map)
     if not columns:
         columns = ["label"]
