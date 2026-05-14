@@ -563,6 +563,18 @@
                 </div>
               </div>
 
+              <div class="fw-semibold" style="color: #4477f8; font-style: italic;">Select timeframe for community characteristics</div>
+              <div class="ms-3 mb-2">
+                <div class="form-check">
+                  {{ form.community_timeframes.0.tag }}
+                  <label class="form-check-label" for="{{ form.community_timeframes.0.id_for_label }}" style="color: #4477f8; font-style: italic">Most recent available</label>
+                </div>
+                <div class="form-check">
+                  {{ form.community_timeframes.1.tag }}
+                  <label class="form-check-label" for="{{ form.community_timeframes.1.id_for_label }}" style="color: #4477f8; font-style: italic">Historical (to align with date range in cancer case query specified in Filters tab)</label>
+                </div>
+              </div>
+
               <div class="fw-semibold">Demographic (Basic)</div>
               <div class="form-check measure-sub-option">
                 {{ form.community_basic_ci }}

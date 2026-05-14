@@ -318,6 +318,11 @@ class MeasuresForm(forms.Form):
         ("moved_last_year", "% who have moved in last year"),
     ]
 
+    COMMUNITY_TIMEFRAME_CHOICES = [
+        ("most_recent", "Most recent available"),
+        ("historical", "Historical (to align with date range in cancer case query specified in Filters tab)"),
+    ]
+
     disease_measures = forms.MultipleChoiceField(
         choices=DISEASE_LEAVES,
         widget=forms.CheckboxSelectMultiple,
@@ -365,6 +370,15 @@ class MeasuresForm(forms.Form):
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Access to care for communities (County)"
+    )
+
+
+    community_timeframes = forms.MultipleChoiceField(
+        choices=COMMUNITY_TIMEFRAME_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        initial=["most_recent"],
+        label="Select timeframe for community characteristics",
     )
 
     community_characteristics = forms.MultipleChoiceField(

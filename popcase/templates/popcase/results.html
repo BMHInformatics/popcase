@@ -29,6 +29,15 @@
             {% if geographic_level == "none" %}All locations{% else %}{{ geographic_level|title }}{% endif %}
           </span>
 
+          {% if community_timeframes %}
+            <span class="badge text-bg-light border">
+              <strong>Community data:</strong>
+              {% for tf in community_timeframes %}
+                {% if tf == "most_recent" %}Most recent available{% elif tf == "historical" %}Historical{% else %}{{ tf }}{% endif %}{% if not forloop.last %}, {% endif %}
+              {% endfor %}
+            </span>
+          {% endif %}
+
           {# Sex #}
           {% if filters.sex and filters.sex != "all" %}
             <span class="badge text-bg-primary">

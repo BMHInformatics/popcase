@@ -2,6 +2,7 @@ from typing import Dict, Any
 from functools import lru_cache
 import csv
 import json
+import re
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
@@ -485,12 +486,14 @@ def _build_results_payload_cached(
     disease_measures_tuple: tuple,
     support_measures_tuple: tuple,
     display_options_tuple: tuple,
+    community_timeframes_tuple: tuple,
     latest_year: str,
 ):
     filters = _deserialize_payload(filters_json)
     disease_measures = list(disease_measures_tuple)
     support_measures = list(support_measures_tuple)
     display_options = list(display_options_tuple)
+    community_timeframes = list(community_timeframes_tuple)
 
     incidence = []
     total_incidence = None
@@ -499,7 +502,7 @@ def _build_results_payload_cached(
 
     has_dataset_request = bool(SUPPORTED_DISEASE_MEASURES.intersection(disease_measures) or support_measures)
 
-    if geographic_level in {"tract", "county", "zcta"} and has_dataset_request:
+    if geographic_level in {"tract", "county", "zcta", "place"} and has_dataset_request:
         mvp_rows = build_mvp_geo_dataset(
             geographic_level=geographic_level,
             year_range=(dx_start, dx_end),
@@ -507,6 +510,7 @@ def _build_results_payload_cached(
             disease_measures=disease_measures,
             support_measures=support_measures,
             display_options=display_options,
+            community_timeframes=community_timeframes,
             incidence_year=latest_year,
         ) or []
         result_mode = "dataset"
@@ -539,6 +543,7 @@ def _get_measure_selections(measures_state: dict, geographic_level: str):
         "tract": "access_comm_tract",
         "county": "access_comm_county",
         "zcta": "access_comm_zcta_place",
+        "place": "access_comm_zcta_place",
     }
     access_measures = _coerce_to_list(measures_state.get(access_field_by_geo.get(geographic_level)))
     support_measures = _unique_in_order(cancer_prevention_measures + community_measures + access_measures)
@@ -552,6 +557,17 @@ def _get_display_options(measures_state: dict):
         if measures_state.get(field):
             display_options.append(field)
     return display_options
+
+
+def _get_community_timeframes(measures_state: dict):
+    """Return selected community-characteristics timeframe modes.
+
+    The Measures page defaults to the most recent community data source.
+    If the field is missing from an older session, preserve that default.
+    """
+    selected = _coerce_to_list((measures_state or {}).get("community_timeframes"))
+    selected = [x for x in selected if x in {"most_recent", "historical"}]
+    return selected or ["most_recent"]
 
 
 def _session_get(request, key: str, default=None):
@@ -777,6 +793,7 @@ def results(request):
 
     disease_measures, support_measures = _get_measure_selections(measures_state, geographic_level)
     display_options = _get_display_options(measures_state)
+    community_timeframes = _get_community_timeframes(measures_state)
     disease_measures = _filter_disease_measures_for_geography(disease_measures, geographic_level)
     year = str(_latest_linking_year())
     dx_start = (filters.get("dx_start") or "2011").strip() or "2011"
@@ -791,6 +808,7 @@ def results(request):
         disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
         support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
         display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
+        community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
         latest_year=year,
     )
 
@@ -802,6 +820,14 @@ def results(request):
     dataset_total_rows = len(mvp_rows)
     dataset_is_truncated = dataset_total_rows > PREVIEW_ROW_LIMIT
     mvp_rows_preview = mvp_rows[:PREVIEW_ROW_LIMIT]
+
+    dynamic_header_map = _with_dynamic_community_headers(TRACT_HEADER_MAP, mvp_rows)
+    dynamic_numeric_cols = list(dict.fromkeys(TRACT_NUMERIC_COLS + [
+        key
+        for row in mvp_rows
+        for key, val in row.items()
+        if key not in TRACT_NUMERIC_COLS and isinstance(val, (int, float))
+    ]))
 
     context = {
         "wizard_state": wizard,
@@ -817,15 +843,42 @@ def results(request):
         "result_mode": result_mode,
         "disease_measures": disease_measures,
         "display_options": display_options,
+        "community_timeframes": community_timeframes,
         "cancer_type_labels": cancer_type_labels,
         "dataset_title": f"Selected measures by {geographic_level.title()}",
-        "tract_header_map": TRACT_HEADER_MAP,
-        "tract_numeric_cols": TRACT_NUMERIC_COLS,
-        "dataset_columns": _build_dataset_columns(mvp_rows, TRACT_HEADER_MAP),
+        "tract_header_map": dynamic_header_map,
+        "tract_numeric_cols": dynamic_numeric_cols,
+        "dataset_columns": _build_dataset_columns(mvp_rows, dynamic_header_map),
         "dataset_exclude_columns": DATASET_EXCLUDE_COLUMNS,
     }
     return render(request, "popcase/results.html", context)
 
+
+
+
+def _with_dynamic_community_headers(base_header_map, rows):
+    """Add readable labels for dynamically suffixed community data columns."""
+    header_map = dict(base_header_map)
+    if not rows:
+        return header_map
+
+    base_labels = dict(base_header_map)
+    suffix_re = re.compile(r"^(?P<base>.+)__(?P<src>acs|svi|rucc|ruca)_(?P<period>[0-9_]+)$")
+    source_labels = {"acs": "ACS-5", "svi": "SVI", "rucc": "RUCC", "ruca": "RUCA"}
+
+    for row in rows:
+        for key in row.keys():
+            if key in header_map:
+                continue
+            m = suffix_re.match(key)
+            if not m:
+                continue
+            base_key = m.group("base")
+            source = m.group("src")
+            period = m.group("period").replace("_", "-")
+            base_label = base_labels.get(base_key, base_key.replace("_", " ").title())
+            header_map[key] = f"{base_label} ({source_labels.get(source, source.upper())} {period})"
+    return header_map
 
 def reset_wizard(request):
     request.session.pop("popcase_wizard", None)
@@ -841,6 +894,7 @@ def export_mvp_geo_csv(request):
     measures_state = wizard.get("measures", {}) or {}
     disease_measures, support_measures = _get_measure_selections(measures_state, geographic_level)
     display_options = _get_display_options(measures_state)
+    community_timeframes = _get_community_timeframes(measures_state)
     disease_measures = _filter_disease_measures_for_geography(disease_measures, geographic_level)
 
     dx_start = (filters.get("dx_start") or "2011").strip() or "2011"
@@ -859,6 +913,7 @@ def export_mvp_geo_csv(request):
             disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
             support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
             display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
+            community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
             latest_year=latest_year,
         )
         rows = payload["mvp_rows"] or []
@@ -867,12 +922,13 @@ def export_mvp_geo_csv(request):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f"attachment; filename={filename}"
 
-    columns = _build_dataset_columns(rows, TRACT_HEADER_MAP)
+    dynamic_header_map = _with_dynamic_community_headers(TRACT_HEADER_MAP, rows)
+    columns = _build_dataset_columns(rows, dynamic_header_map)
     if not columns:
         columns = ["label"]
 
     writer = csv.writer(response)
-    writer.writerow([TRACT_HEADER_MAP.get(col, col) for col in columns])
+    writer.writerow([dynamic_header_map.get(col, col) for col in columns])
 
     for row in rows:
         writer.writerow(["" if row.get(col) is None else row.get(col, "") for col in columns])
