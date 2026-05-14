@@ -1,0 +1,96 @@
+# Environment / secrets
+.env
+*.env
+!*.example.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.*
+credentials.*
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/uploads/
+media/exports/
+media/tmp/
+staticfiles/
+static_collected/
+
+# Uploaded/generated files
+uploads/
+exports/
+downloads/
+tmp/
+temp/
+*.tmp
+
+# Database dumps / backups
+*.sql
+*.dump
+*.bak
+*.backup
+*.sqlite3
+*.db
+*.csv.gz
+*.tsv.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Test/coverage/cache
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Node/frontend, if used
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Deployment/runtime
+*.pid
+gunicorn.pid
+celerybeat-schedule
+celerybeat.pid
