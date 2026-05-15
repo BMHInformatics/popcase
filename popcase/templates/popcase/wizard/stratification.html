@@ -4,7 +4,7 @@
     {% block content %}
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h4 class="mb-0">Stratification</h4>
-        <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset' %}">Reset</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset_wizard_step' step=current_step %}">Reset this page</a>
       </div>
       <ul class="nav nav-tabs mb-3">
   {% for s in steps %}

@@ -5,7 +5,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def _load_dotenv(path: Path) -> None:
-    """Load key=value pairs from a .env file without requiring extra packages."""
     if not path.exists():
         return
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -136,12 +135,19 @@ LOGIN_URL = "popcase:login"
 LOGIN_REDIRECT_URL = "popcase:wizard"
 LOGOUT_REDIRECT_URL = "popcase:login"
 
+# The wizard stores multi-step selections in the session. Database-backed
+# sessions are safer and more reliable in production than client-side signed
+# cookie sessions, especially as selections grow.
 SESSION_ENGINE = os.environ.get(
     "DJANGO_SESSION_ENGINE",
-    "django.contrib.sessions.backends.signed_cookies",
+    "django.contrib.sessions.backends.db",
 )
+SESSION_COOKIE_HTTPONLY = env_bool("DJANGO_SESSION_COOKIE_HTTPONLY", True)
+SESSION_COOKIE_SAMESITE = os.environ.get("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_HTTPONLY = env_bool("DJANGO_CSRF_COOKIE_HTTPONLY", False)
+CSRF_COOKIE_SAMESITE = os.environ.get("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
 
-# Security settings. Keep strict values in production and relax only in local/dev .env files.
+# Security settings
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", not DEBUG)

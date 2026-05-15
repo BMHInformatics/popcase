@@ -6,7 +6,9 @@ import re
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
+from django.urls import reverse_lazy
 from django.contrib.auth import views as auth_views
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 
 from .forms import (
@@ -463,10 +465,14 @@ DATASET_EXCLUDE_COLUMNS = {
 
 class PopcaseLoginView(auth_views.LoginView):
     template_name = "popcase/login.html"
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return self.get_redirect_url() or reverse_lazy("popcase:wizard")
 
 
 class PopcaseLogoutView(auth_views.LogoutView):
-    pass
+    next_page = reverse_lazy("popcase:login")
 
 
 @lru_cache(maxsize=1)
@@ -756,9 +762,12 @@ def _wizard_context(request, current_step: str) -> Dict[str, Any]:
 
 
 def home(request):
-    return redirect("popcase:wizard_step", step="geographic-level")
+    if request.user.is_authenticated:
+        return redirect("popcase:wizard_step", step="geographic-level")
+    return redirect("popcase:login")
 
 
+@login_required(login_url="popcase:login")
 @require_http_methods(["GET", "POST"])
 def wizard_step(request, step: str = "geographic-level"):
     if step not in STEPS:
@@ -825,6 +834,7 @@ def wizard_step(request, step: str = "geographic-level"):
 
 
 
+@login_required(login_url="popcase:login")
 def results(request):
     wizard = request.session.get("popcase_wizard", {})
     filters = wizard.get("filters", {}) or {}
@@ -923,6 +933,33 @@ def _with_dynamic_community_headers(base_header_map, rows):
             header_map[key] = f"{base_label} ({source_labels.get(source, source.upper())} {period})"
     return header_map
 
+
+@login_required(login_url="popcase:login")
+def reset_wizard_step(request, step: str):
+    """Clear only one wizard page from the session and return to that page.
+
+    This intentionally does not remove the rest of popcase_wizard, so users can
+    reset Geography, Filters, Measures, or Stratification independently.
+    """
+    if step not in STEPS:
+        return redirect("popcase:wizard_step", step="geographic-level")
+
+    wizard = request.session.get("popcase_wizard", {}) or {}
+
+    # The geographic-level page stores both the page payload and a convenience
+    # key used throughout the wizard context/results logic. Clear both, but do
+    # not touch filters, measures, or stratification.
+    if step == "geographic-level":
+        wizard.pop("geographic-level", None)
+        wizard.pop("geographic_level", None)
+    else:
+        wizard.pop(step, None)
+
+    request.session["popcase_wizard"] = wizard
+    request.session.modified = True
+    return redirect("popcase:wizard_step", step=step)
+
+@login_required(login_url="popcase:login")
 def reset_wizard(request):
     request.session.pop("popcase_wizard", None)
     request.session.modified = True
@@ -930,6 +967,7 @@ def reset_wizard(request):
 
 
 
+@login_required(login_url="popcase:login")
 def export_geo_dataset_csv(request):
     wizard = request.session.get("popcase_wizard", {})
     filters = wizard.get("filters", {}) or {}
