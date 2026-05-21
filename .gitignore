@@ -17,6 +17,7 @@ service-account*.json
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 *.pyo
 *.pyd
 .Python
@@ -27,6 +28,9 @@ __pycache__/
 venv/
 env/
 ENV/
+
+staticfiles/
+media/
 
 # Django
 *.log
