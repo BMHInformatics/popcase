@@ -125,6 +125,15 @@
         </div>
 
 {% if dataset_rows %}
+  <form method="get" class="d-flex justify-content-end align-items-center gap-2 mt-3">
+    <label class="form-label mb-0 small text-secondary" for="rows">Rows to show</label>
+    <select class="form-select form-select-sm" id="rows" name="rows" style="width: auto;" onchange="this.form.submit()">
+      {% for choice in dataset_preview_limit_choices %}
+        <option value="{{ choice }}" {% if choice == dataset_preview_limit %}selected{% endif %}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm" type="submit">Apply</button>
+  </form>
   {% if dataset_is_truncated %}
     <div class="alert alert-info mt-3 mb-2 py-2">
       Showing the first {{ dataset_preview_limit }} of {{ dataset_total_rows }} rows for faster page rendering. Use <strong>Download Results (CSV)</strong> for the full dataset.

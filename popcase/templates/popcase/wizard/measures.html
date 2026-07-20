@@ -600,7 +600,30 @@
                 <div class="form-check">{{ form.community_characteristics.7.tag }} <label class="form-check-label" for="{{ form.community_characteristics.7.id_for_label }}">Distribution of language spoken at home</label></div>
                 <div class="form-check">{{ form.community_characteristics.8.tag }} <label class="form-check-label" for="{{ form.community_characteristics.8.id_for_label }}">% of residents >= age 5 who speak English less than very well</label></div>
                 <div class="form-check">{{ form.community_characteristics.9.tag }} <label class="form-check-label" for="{{ form.community_characteristics.9.id_for_label }}">Citizenship status</label></div>
-                <div class="form-check">{{ form.community_characteristics.10.tag }} <label class="form-check-label" for="{{ form.community_characteristics.10.id_for_label }}">Rurality (RUCC / RUCA code)</label></div>
+             
+                <!-- If  Place or ZCTA is chosen as a geographic level then grey out SVI -->
+                {% if geographic_level == "place" or geographic_level == "zcta" %}
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="{{ form.community_characteristics.10.id_for_label }}"
+                      disabled
+                    >
+                    <label class="form-check-label text-muted" for="{{ form.community_characteristics.10.id_for_label }}">
+                      Rurality (RUCC / RUCA code)
+                      <span class="small">(not available for Place or ZCTA)</span>
+                    </label>
+                  </div>
+                {% else %}
+                  <div class="form-check">
+                    {{ form.community_characteristics.10.tag }}
+                    <label class="form-check-label" for="{{ form.community_characteristics.10.id_for_label }}">
+                      Rurality (RUCC / RUCA code)
+                    </label>
+                  </div>
+                {% endif %}
+              </div>
               </div>
 
               <div class="mt-3 fw-semibold">Economic</div>

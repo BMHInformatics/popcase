@@ -30,6 +30,7 @@ from .models import NaaccrPatientCensusLinking
 
 STEPS = ["geographic-level", "filters", "measures", "stratification"]
 PREVIEW_ROW_LIMIT = 250
+PREVIEW_ROW_LIMIT_CHOICES = (10, 50, 100, 250)
 SUPPORTED_DISEASE_MEASURES = {
     "case_count",
     "pct_advanced",
@@ -523,6 +524,17 @@ def _filter_disease_measures_for_geography(disease_measures, geographic_level: s
     return [m for m in disease_measures if m not in RATE_ONLY_FOR_COUNTY_TRACT]
 
 
+def _get_preview_row_limit(request):
+    try:
+        requested_limit = int(request.GET.get("rows", PREVIEW_ROW_LIMIT))
+    except (TypeError, ValueError):
+        return PREVIEW_ROW_LIMIT
+
+    if requested_limit in PREVIEW_ROW_LIMIT_CHOICES:
+        return requested_limit
+    return PREVIEW_ROW_LIMIT
+
+
 @lru_cache(maxsize=128)
 def _build_results_payload_cached(
     geographic_level: str,
@@ -808,7 +820,14 @@ def wizard_step(request, step: str = "geographic-level"):
                 cleaned_data["community_characteristics"] = [
                     value
                     for value in cleaned_data.get("community_characteristics", [])
-                    if value != "svi_adi"
+                    if value not in ["svi_adi", "rurality"]
+                ]
+
+            if geographic_level == "zcta":
+                cleaned_data["community_characteristics"] = [
+                    value
+                    for value in cleaned_data.get("community_characteristics", [])
+                    if value != "rurality"
                 ]
 
             cleaned_data["disease_measures"] = _filter_disease_measures_for_geography(
@@ -875,9 +894,10 @@ def results(request):
     dataset_rows = payload["dataset_rows"]
     result_mode = payload["result_mode"]
 
+    dataset_preview_limit = _get_preview_row_limit(request)
     dataset_total_rows = len(dataset_rows)
-    dataset_is_truncated = dataset_total_rows > PREVIEW_ROW_LIMIT
-    dataset_rows_preview = dataset_rows[:PREVIEW_ROW_LIMIT]
+    dataset_is_truncated = dataset_total_rows > dataset_preview_limit
+    dataset_rows_preview = dataset_rows[:dataset_preview_limit]
 
     dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, dataset_rows)
     dynamic_numeric_cols = list(dict.fromkeys(DATASET_NUMERIC_COLS + [
@@ -896,7 +916,8 @@ def results(request):
         "total_incidence": total_incidence,
         "dataset_rows": dataset_rows_preview,
         "dataset_total_rows": dataset_total_rows,
-        "dataset_preview_limit": PREVIEW_ROW_LIMIT,
+        "dataset_preview_limit": dataset_preview_limit,
+        "dataset_preview_limit_choices": PREVIEW_ROW_LIMIT_CHOICES,
         "dataset_is_truncated": dataset_is_truncated,
         "result_mode": result_mode,
         "disease_measures": disease_measures,
