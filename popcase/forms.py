@@ -328,6 +328,7 @@ class MeasuresForm(forms.Form):
         choices=DISEASE_LEAVES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
+        initial=["case_count"],
         label="Disease-focused"
     )
 

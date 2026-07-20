@@ -454,6 +454,7 @@ DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 # or exported. The real component columns (male/female %, race-specific %, etc.)
 # are displayed instead.
 DATASET_EXCLUDE_COLUMNS = {
+    "n_total_staged_unstaged",
     "sex_distribution",
     "sex_distribution_ci_lower",
     "sex_distribution_ci_upper",
