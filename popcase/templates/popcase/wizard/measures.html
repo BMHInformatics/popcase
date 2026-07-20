@@ -620,7 +620,29 @@
                 <div class="form-check">{{ form.community_characteristics.19.tag }} <label class="form-check-label" for="{{ form.community_characteristics.19.id_for_label }}">Occupational category distribution</label></div>
                 <div class="form-check">{{ form.community_characteristics.20.tag }} <label class="form-check-label" for="{{ form.community_characteristics.20.id_for_label }}">GINI Index</label></div>
                 <div class="form-check">{{ form.community_characteristics.21.tag }} <label class="form-check-label" for="{{ form.community_characteristics.21.id_for_label }}">Historic Redlining Index</label></div>
-                <div class="form-check">{{ form.community_characteristics.22.tag }} <label class="form-check-label" for="{{ form.community_characteristics.22.id_for_label }}">Social Vulnerability Index / ADI</label></div>
+                
+                <!-- If  Place is chosen as a geographic level then grey out SVI -->
+                {% if geographic_level == "place" %}
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="{{ form.community_characteristics.22.id_for_label }}"
+                      disabled
+                    >
+                    <label class="form-check-label text-muted" for="{{ form.community_characteristics.22.id_for_label }}">
+                      Social Vulnerability Index / ADI
+                      <span class="small">(not available for Place)</span>
+                    </label>
+                  </div>
+                {% else %}
+                  <div class="form-check">
+                    {{ form.community_characteristics.22.tag }}
+                    <label class="form-check-label" for="{{ form.community_characteristics.22.id_for_label }}">
+                      Social Vulnerability Index / ADI
+                    </label>
+                  </div>
+                {% endif %}
               </div>
 
               <div class="mt-3 fw-semibold">Housing</div>

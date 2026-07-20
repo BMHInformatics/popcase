@@ -803,6 +803,14 @@ def wizard_step(request, step: str = "geographic-level"):
 
         if step == "measures":
             geographic_level = _normalize_geographic_level(_session_get(request, "geographic_level", "county"))
+
+            if geographic_level == "place":
+                cleaned_data["community_characteristics"] = [
+                    value
+                    for value in cleaned_data.get("community_characteristics", [])
+                    if value != "svi_adi"
+                ]
+
             cleaned_data["disease_measures"] = _filter_disease_measures_for_geography(
                 cleaned_data.get("disease_measures", []),
                 geographic_level,
