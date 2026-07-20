@@ -22,6 +22,8 @@ from popcase.services import (
     get_incidence_by_geography,
     get_total_incidence,
     get_cancer_type_tree,
+    get_cancer_type_leaf_label,
+    is_hidden_cancer_type_leaf,
     build_geo_dataset,
 )
 
@@ -663,12 +665,14 @@ def _build_cancer_type_leaf_choices(leaf_meta: dict):
             (m.get("Site_sub_sub") or ""),
         )
 
-    keys = sorted(leaf_meta, key=sort_key)
+    keys = sorted(
+        (k for k, meta in leaf_meta.items() if not is_hidden_cancer_type_leaf(meta)),
+        key=sort_key,
+    )
     return [
-        (k, (leaf_meta.get(k, {}).get("Site_sub_sub") or leaf_meta.get(k, {}).get("Site_sub")))
+        (k, get_cancer_type_leaf_label(leaf_meta.get(k, {})))
         for k in keys
     ]
-
 
 def _build_cancer_type_labels(selected_leaf_keys):
     if not selected_leaf_keys:
@@ -678,15 +682,11 @@ def _build_cancer_type_labels(selected_leaf_keys):
 
     def _pretty_label(k: str) -> str:
         meta = leaf_meta.get(k) or {}
-        return (
-            (meta.get("Site_sub_sub") or "").strip()
-            or (meta.get("Site_sub") or "").strip()
-            or (meta.get("Sites") or "").strip()
-            or k
-        )
+        if not meta:
+            return k
+        return get_cancer_type_leaf_label(meta)
 
     return _unique_in_order(_pretty_label(k) for k in selected_leaf_keys)
-
 
 SEX_SPECIFIC_CANCER_SEX = {
     "cervix uteri": "F",

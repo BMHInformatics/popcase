@@ -133,6 +133,39 @@ NEO_15_COUNTY_GEOIDS = {
 # CANCER TYPE TREE (3-tier UI)
 # ---------------------------------------------------------
 
+HIDDEN_CANCER_TYPE_LEAVES = {
+    ("Digestive System", "Colon and Rectum", "Colon"),
+    ("Digestive System", "Colon and Rectum", "Rectum and Rectosigmoid Junction"),
+    ("Endocrine system", "Thyroid", ""),
+    ("Lymphoma", "Hodgkin Lymphoma", ""),
+    ("Lymphoma", "Non-Hodgkin Lymphoma", ""),
+}
+
+CANCER_TYPE_LABEL_OVERRIDES = {
+    (
+        "Endocrine system",
+        "Thyroid",
+        "Thyroid - Other = All thyroid minus subtypes",
+    ): "Thyroid - Other",
+}
+
+
+def _cancer_type_leaf_identity(meta: dict) -> tuple[str, str, str]:
+    return (
+        (meta.get("Sites") or "").strip(),
+        (meta.get("Site_sub") or "").strip(),
+        (meta.get("Site_sub_sub") or "").strip(),
+    )
+
+
+def is_hidden_cancer_type_leaf(meta: dict) -> bool:
+    return _cancer_type_leaf_identity(meta) in HIDDEN_CANCER_TYPE_LEAVES
+
+
+def get_cancer_type_leaf_label(meta: dict) -> str:
+    sites, sub, subsub = _cancer_type_leaf_identity(meta)
+    return CANCER_TYPE_LABEL_OVERRIDES.get((sites, sub, subsub), subsub or sub)
+
 
 def _is_neo15_scope(filters):
     geo_scope = (filters.get("geography") or "all_ohio").strip().lower()
@@ -500,8 +533,11 @@ def get_cancer_type_tree():
         if not sites or not sub:
             continue
 
+        if is_hidden_cancer_type_leaf(meta):
+            continue
+
         formatted_tree.setdefault(sites, {}).setdefault(sub, {}).setdefault(subsub, []).append(
-            (leaf_key, subsub if subsub else sub)
+            (leaf_key, get_cancer_type_leaf_label(meta))
         )
 
     final_tree = {}
