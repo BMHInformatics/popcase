@@ -455,6 +455,17 @@ DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 # or exported. The real component columns (male/female %, race-specific %, etc.)
 # are displayed instead.
 DATASET_EXCLUDE_COLUMNS = {
+    # FR47: omit deferred redlining/ADI measures from reports, including caches.
+    "redlined_pct",
+    "ranked_historic_redlining_index",
+    "redlined_ci_lower",
+    "redlined_ci_upper",
+    "svi_adi",
+    "svi_adi_ci_lower",
+    "svi_adi_ci_upper",
+    "adi_pct_deciles_9_10",
+    "adi_population_deciles_9_10",
+    "adi_total_population",
     "provider_data_note",  # Also hides this retired column in cached datasets.
     "n_total_staged_unstaged",
     "sex_distribution",
@@ -556,8 +567,9 @@ DISEASE_MEASURE_OUTPUT_COLUMNS = {
 
 SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
     "sex_distribution": [
-        "male_population", "female_population", "male_pct", "female_pct",
-        "male_pct_ci_lower", "male_pct_ci_upper", "female_pct_ci_lower", "female_pct_ci_upper",
+        "male_population", "female_population",
+        "male_pct", "male_pct_ci_lower", "male_pct_ci_upper",
+        "female_pct", "female_pct_ci_lower", "female_pct_ci_upper",
     ],
     "race_eth": [
         "white_alone_pct", "white_alone_ci_lower", "white_alone_ci_upper",
@@ -599,6 +611,41 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS.update(COMPONENT_COLUMNS)
 for _prefix, _label in [("routine_checkup", "Routine checkup"), ("lack_transportation", "Lack reliable transportation"), ("uninsured", "Uninsured age 18-64"), ("dentist", "Dentist visit")]:
     for _suffix, _side in [("lower", "L"), ("upper", "U")]:
         TRACT_HEADER_MAP[f"{_prefix}_age_adjusted_ci_{_suffix}"] = f"{_label} age-adjusted CI 95% ({_side})"
+
+
+# FR43: share scalar measure labels between controls, table headers and CSV.
+# Distribution components retain labels describing their actual ACS universes.
+for _token, _label in (
+    MeasuresForm.CANCER_PREVENTION_LEAVES + MeasuresForm.HEALTH_STATUS_LEAVES
+    + MeasuresForm.SURVEY_ACCESS_LEAVES + MeasuresForm.COMMUNITY_BASIC_LEAVES
+    + MeasuresForm.COMMUNITY_ECON_LEAVES + MeasuresForm.COMMUNITY_HOUSING_LEAVES
+    + MeasuresForm.COMMUNITY_HHCHAR_LEAVES
+):
+    if _token in {"sex_dist", "race_eth", "rurality", "svi_adi", "redlined_pct"}:
+        continue
+    _spec = SUPPORT_MEASURE_OUTPUT_SPECS.get(_token)
+    if not _spec:
+        continue
+    if _token in ACS_MEASURES and len(ACS_MEASURES[_token][2]) > 1:
+        continue
+    _columns = COMPONENT_COLUMNS.get(_token, _spec[:3])
+    TRACT_HEADER_MAP[_columns[0]] = _label
+    for _column, _side in zip(_columns[1:3], ("L", "U")):
+        TRACT_HEADER_MAP[_column] = f"{_label} CI 95% ({_side})"
+    if _spec[3]:
+        _adjusted = _spec[3]
+        TRACT_HEADER_MAP[_adjusted] = f"{_label} (age-adjusted)"
+        for _side, _suffix in (("L", "lower"), ("U", "upper")):
+            TRACT_HEADER_MAP[_adjusted.removesuffix("_pct") + "_ci_" + _suffix] = f"{_label} (age-adjusted) CI 95% ({_side})"
+
+for _token, _label in MeasuresForm.DISEASE_LEAVES:
+    if _token.endswith(("_ci", "_iqr")):
+        continue
+    TRACT_HEADER_MAP[DISEASE_MEASURE_OUTPUT_COLUMNS[_token][0]] = _label
+    _intervals = DISEASE_MEASURE_OUTPUT_COLUMNS.get(_token + "_ci", [])
+    for _column, _side in zip(_intervals, ("L", "U")):
+        TRACT_HEADER_MAP[_column] = f"{_label} CI 95% ({_side})"
+
 
 
 class PopcaseLoginView(auth_views.LoginView):
@@ -1397,7 +1444,10 @@ def _build_dataset_columns(rows, header_map, preferred_columns=None):
     for row in rows:
         present.update(row.keys())
 
-    present -= DATASET_EXCLUDE_COLUMNS
+    present = {
+        col for col in present
+        if col.split("__", 1)[0] not in DATASET_EXCLUDE_COLUMNS
+    }
     ordered = []
 
     def add_column(col):
@@ -1416,8 +1466,24 @@ def _build_dataset_columns(rows, header_map, preferred_columns=None):
     for col in ("label", "geoid", "tract_geoid"):
         add_column(col)
 
+    # Keep each estimate beside its bounds within each source period.
+    groups = []
     for col in preferred_columns or []:
-        add_preferred_column(col)
+        if groups and ("_ci_" in col or "_iqr_" in col):
+            groups[-1].append(col)
+        else:
+            groups.append([col])
+    for group in groups:
+        for col in group:
+            add_column(col)
+        periods = sorted({
+            candidate.split("__", 1)[1]
+            for candidate in present
+            if "__" in candidate and candidate.split("__", 1)[0] in group
+        })
+        for period in periods:
+            for col in group:
+                add_column(f"{col}__{period}")
 
     for col in header_map.keys():
         add_preferred_column(col)

@@ -58,10 +58,10 @@ CANCER_TYPE_CHOICES = [
 
 # Measures (subset for UI scaffold; expand as needed)
 MEASURE_DISEASE_CHOICES = [
-    ("case_count", "Case Count"),
+    ("case_count", "Case count"),
     ("pct_advanced", "% Advanced at diagnosis (Regional or metastatic spread)"),
     ("pct_metastatic", "% Metastatic at diagnosis"),
-    ("median_tti", "Median time to treatment initiation"),
+    ("median_tti", "Median time to treatment"),
     ("inc_rate", "Age-adjusted incidence rate (per 100,000)"),
     ("inc_ci", "95% Confidence Interval (incidence)"),
     ("mort_rate", "Age-adjusted mortality rate (per 100,000)"),
@@ -83,9 +83,9 @@ MEASURE_ACCESS_PATIENT_CHOICES = [
 MEASURE_COMMUNITY_CHOICES = [
     ("pop_total", "Total population"),
     ("sex_dist", "Sex distribution"),
-    ("median_age", "Median age"),
+    ("median_age", "Median age (years)"),
     ("race_eth", "Race/Ethnicity"),
-    ("med_hh_income", "Median household income"),
+    ("med_hh_income", "Median household income ($)"),
     ("poverty_pct", "% of households below poverty level"),
     ("snap_pct", "% of households receiving Food stamps/SNAP"),
     ("gini", "GINI Index"),
@@ -312,7 +312,7 @@ class MeasuresForm(forms.Form):
     # Leaf options only; categories are rendered in the template (not selectable).
 
     DISEASE_LEAVES = [
-        ("case_count", "Case Count"),
+        ("case_count", "Case count"),
 
         ("pct_advanced", "% Advanced at diagnosis"),
         ("pct_advanced_ci", "95% Confidence Interval (% Advanced)"),
@@ -320,7 +320,7 @@ class MeasuresForm(forms.Form):
         ("pct_metastatic", "% Metastatic at diagnosis"),
         ("pct_metastatic_ci", "95% Confidence Interval (% Metastatic)"),
 
-        ("median_tti", "Median time to treatment initiation"),
+        ("median_tti", "Median time to treatment"),
         ("median_tti_iqr", "Interquartile Range (IQR)"),
 
         ("crude_inc_rate", "Crude incidence rate (per 100,000)"),
@@ -349,40 +349,40 @@ class MeasuresForm(forms.Form):
     ]
 
     CANCER_PREVENTION_LEAVES = [
-        ("smoking", "Current cigarette smoking"),
-        ("obesity", "Obesity"),
-        ("binge_drinking", "Binge drinking"),
-        ("no_leisure_pa", "No leisure-time physical activity"),
-        ("short_sleep", "Short sleep duration"),
-        ("crc_screen", "Colorectal cancer screening (age 45-75)"),
-        ("breast_screen", "Breast cancer screening (age 50-74)"),
-        ("cervical_screen", "Cervical cancer screening"),
+        ("smoking", "Current cigarette smoking (% of adults)"),
+        ("obesity", "Obesity (% of adults)"),
+        ("binge_drinking", "Binge drinking (% of adults)"),
+        ("no_leisure_pa", "No leisure-time physical activity (% of adults)"),
+        ("short_sleep", "Short sleep duration (% of adults)"),
+        ("crc_screen", "% Colorectal cancer screening (age 45-75)"),
+        ("breast_screen", "% Breast cancer screening (age 50-74)"),
+        ("cervical_screen", "% Cervical cancer screening (age 21-65)"),
     ]
 
     HEALTH_STATUS_LEAVES = [
-        ("poor_health", "Fair or poor self-rated health status"),
-        ("phys_distress", "Frequent physical distress"),
-        ("mental_distress", "Frequent mental distress"),
-        ("food_insecurity", "Food insecurity in the past 12 months"),
-        ("social_isolation", "Feeling socially isolated"),
-        ("any_disability", "Any disability"),
-        ("mobility_disability", "Mobility disability"),
-        ("selfcare_disability", "Self-care disability"),
-        ("independent_living_disability", "Independent living disability"),
+        ("poor_health", "Fair or poor self-rated health status (% of adults)"),
+        ("phys_distress", "Frequent physical distress (% of adults)"),
+        ("mental_distress", "Frequent mental distress (% of adults)"),
+        ("food_insecurity", "Food insecurity in the past 12 months (% of adults)"),
+        ("social_isolation", "Feeling socially isolated (% of adults)"),
+        ("any_disability", "Any disability (% of adults)"),
+        ("mobility_disability", "Mobility disability (% of adults)"),
+        ("selfcare_disability", "Self-care disability (% of adults)"),
+        ("independent_living_disability", "Independent living disability (% of adults)"),
     ]
 
     SURVEY_ACCESS_LEAVES = [
-        ("routine_checkup", "% who visited doctor for routine checkup within the past year among adults"),
-        ("no_transport", "% with lack of reliable transportation in the past 12 months among adults"),
-        ("no_insurance", "% with current lack of health insurance among adults aged 18-64 years"),
-        ("dentist", "% who visited dentist or dental clinic in the past year among adults"),
+        ("routine_checkup", "Visits to doctor for routine checkup in past year (% of adults)"),
+        ("no_transport", "Lack of reliable transportation in past 12 months (% of adults)"),
+        ("no_insurance", "Current lack of health insurance (% of adults age 18-64)"),
+        ("dentist", "Visited dentist or dental clinic in past year (% of adults)"),
     ]
 
     # Community characteristics (ACS-style) leaf options
     COMMUNITY_BASIC_LEAVES = [
         ("pop_total", "Total population"),
         ("sex_dist", "Sex distribution"),
-        ("median_age", "Median age"),
+        ("median_age", "Median age (years)"),
         ("race_eth", "Race/Ethnicity"),
     ]
     COMMUNITY_EXT_LEAVES = [
@@ -395,8 +395,8 @@ class MeasuresForm(forms.Form):
         ("rurality", "Rurality (RUCC / RUCA code)"),
     ]
     COMMUNITY_ECON_LEAVES = [
-        ("med_hh_income", "Median household income"),
-        ("per_capita_income", "Per capita income"),
+        ("med_hh_income", "Median household income ($)"),
+        ("per_capita_income", "Per capita income ($)"),
         ("poverty_pct", "% of households below poverty level"),
         ("income_pov_ratio", "Family income-to-poverty ratio distribution"),
         ("snap_pct", "% of households receiving Food stamps/SNAP"),
@@ -409,20 +409,20 @@ class MeasuresForm(forms.Form):
         ("svi_adi", "Social Vulnerability Index / ADI"),
     ]
     COMMUNITY_HOUSING_LEAVES = [
-        ("housing_unoccupied", "% of housing units unoccupied"),
-        ("renting_pct", "% Renting"),
-        ("median_year_built", "Median Year Structure Built"),
-        ("median_housing_costs", "Median monthly housing costs (rent or mortgage + fees + utilities + taxes, etc.)"),
+        ("housing_unoccupied", "Vacant housing units (%)"),
+        ("renting_pct", "Renting (%)"),
         ("occupants_per_room", "% of occupied housing units with >1 occupant per room"),
-        ("plumbing_complete", "% with complete plumbing facilities"),
-        ("kitchen_complete", "% with complete kitchen facilities"),
-        ("median_home_value", "Median value of occupied housing units"),
+        ("median_year_built", "Median year built"),
+        ("median_home_value", "Median value of owner-occupied housing units ($)"),
+        ("median_housing_costs", "Median monthly housing costs ($)"),
+        ("plumbing_complete", "Occupied housing units with complete plumbing (%)"),
+        ("kitchen_complete", "Occupied housing units with complete kitchen facilities (%)"),
     ]
     COMMUNITY_HHCHAR_LEAVES = [
         ("female_headed", "% of households with female householder, no spouse present"),
         ("grandparents_care", "% of households with grandparents caring for children"),
         ("internet_access", "Household internet access by type (categories may overlap)"),
-        ("moved_last_year", "% who have moved in last year"),
+        ("moved_last_year", "Moved in past year (% of population age 1+)"),
     ]
 
     COMMUNITY_TIMEFRAME_CHOICES = [

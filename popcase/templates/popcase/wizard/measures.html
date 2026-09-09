@@ -117,12 +117,12 @@
 
               <div class="form-check">
                 {{ form.disease_measures.0.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.0.id_for_label }}">Case Count</label>
+                <label class="form-check-label" for="{{ form.disease_measures.0.id_for_label }}">{{ form.disease_measures.0.choice_label }}</label>
               </div>
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.1.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.1.id_for_label }}">% Advanced at diagnosis</label>
+                <label class="form-check-label" for="{{ form.disease_measures.1.id_for_label }}">{{ form.disease_measures.1.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -133,7 +133,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.3.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.3.id_for_label }}">% Metastatic at diagnosis</label>
+                <label class="form-check-label" for="{{ form.disease_measures.3.id_for_label }}">{{ form.disease_measures.3.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -144,7 +144,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.5.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.5.id_for_label }}">Median time to treatment initiation</label>
+                <label class="form-check-label" for="{{ form.disease_measures.5.id_for_label }}">{{ form.disease_measures.5.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -155,7 +155,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.7.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">Crude incidence rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">{{ form.disease_measures.7.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -166,7 +166,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.9.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">Crude mortality rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">{{ form.disease_measures.9.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -177,7 +177,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.11.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.11.id_for_label }}">Age-adjusted incidence rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.11.id_for_label }}">{{ form.disease_measures.11.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -188,7 +188,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.13.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.13.id_for_label }}">Age-adjusted mortality rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.13.id_for_label }}">{{ form.disease_measures.13.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -200,9 +200,7 @@
             {% if prostate_selected %}
               <div class="form-check mt-2">
                 {{ form.disease_measures.15.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.15.id_for_label }}">
-                  Mean Gleason Score (Prostate cancer only)
-                </label>
+                <label class="form-check-label" for="{{ form.disease_measures.15.id_for_label }}">{{ form.disease_measures.15.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -277,12 +275,12 @@
 
               <div class="form-check">
                 {{ form.disease_measures.0.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.0.id_for_label }}">Case Count</label>
+                <label class="form-check-label" for="{{ form.disease_measures.0.id_for_label }}">{{ form.disease_measures.0.choice_label }}</label>
               </div>
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.1.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.1.id_for_label }}">% Advanced at diagnosis</label>
+                <label class="form-check-label" for="{{ form.disease_measures.1.id_for_label }}">{{ form.disease_measures.1.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -293,7 +291,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.3.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.3.id_for_label }}">% Metastatic at diagnosis</label>
+                <label class="form-check-label" for="{{ form.disease_measures.3.id_for_label }}">{{ form.disease_measures.3.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -304,7 +302,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.5.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.5.id_for_label }}">Median time to treatment initiation</label>
+                <label class="form-check-label" for="{{ form.disease_measures.5.id_for_label }}">{{ form.disease_measures.5.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -315,7 +313,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.7.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">Crude incidence rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.7.id_for_label }}">{{ form.disease_measures.7.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -326,7 +324,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.9.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">Crude mortality rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.9.id_for_label }}">{{ form.disease_measures.9.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -337,7 +335,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.11.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.11.id_for_label }}">Age-adjusted incidence rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.11.id_for_label }}">{{ form.disease_measures.11.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -348,7 +346,7 @@
 
               <div class="form-check mt-2">
                 {{ form.disease_measures.13.tag }}
-                <label class="form-check-label" for="{{ form.disease_measures.13.id_for_label }}">Age-adjusted mortality rate (per 100,000)</label>
+                <label class="form-check-label" for="{{ form.disease_measures.13.id_for_label }}">{{ form.disease_measures.13.choice_label }}</label>
               </div>
               <div class="ms-4">
                 <div class="form-check">
@@ -360,12 +358,14 @@
               {% if prostate_selected %}
                 <div class="form-check mt-2">
                   {{ form.disease_measures.15.tag }}
-                  <label class="form-check-label" for="{{ form.disease_measures.15.id_for_label }}">Mean Gleason Score (Prostate cancer only)</label>
+                  <label class="form-check-label" for="{{ form.disease_measures.15.id_for_label }}">{{ form.disease_measures.15.choice_label }}</label>
                 </div>
                 <div class="ms-4">
                   <div class="form-check">
                     {{ form.disease_measures.16.tag }}
-                    <label class="form-check-label" for="{{ form.disease_measures.16.id_for_label }}">95% Confidence Interval</label>
+                    <label class="form-check-label" for="{{ form.disease_measures.16.id_for_label }}">
+                    95% Confidence Interval
+                  </label>
                   </div>
                 </div>
               {% else %}
@@ -404,11 +404,11 @@
                 <label class="form-check-label" for="{{ form.cancer_risk_factors_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.cancer_prevention.0.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.0.id_for_label }}">Current cigarette smoking (% of adults)</label></div>
-                <div class="form-check">{{ form.cancer_prevention.1.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.1.id_for_label }}">Obesity (% of adults)</label></div>
-                <div class="form-check">{{ form.cancer_prevention.2.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.2.id_for_label }}">Binge drinking (% of adults)</label></div>
-                <div class="form-check">{{ form.cancer_prevention.3.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.3.id_for_label }}">No leisure-time physical activity (% of adults)</label></div>
-                <div class="form-check">{{ form.cancer_prevention.4.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.4.id_for_label }}">Short sleep duration (% of adults)</label></div>
+                <div class="form-check">{{ form.cancer_prevention.0.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.0.id_for_label }}">{{ form.cancer_prevention.0.choice_label }}</label></div>
+                <div class="form-check">{{ form.cancer_prevention.1.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.1.id_for_label }}">{{ form.cancer_prevention.1.choice_label }}</label></div>
+                <div class="form-check">{{ form.cancer_prevention.2.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.2.id_for_label }}">{{ form.cancer_prevention.2.choice_label }}</label></div>
+                <div class="form-check">{{ form.cancer_prevention.3.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.3.id_for_label }}">{{ form.cancer_prevention.3.choice_label }}</label></div>
+                <div class="form-check">{{ form.cancer_prevention.4.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.4.id_for_label }}">{{ form.cancer_prevention.4.choice_label }}</label></div>
               </div>
 
               <div class="mt-3 fw-semibold">Cancer Screening (Community-level)</div>
@@ -417,9 +417,9 @@
                 <label class="form-check-label" for="{{ form.cancer_screening_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.cancer_prevention.5.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.5.id_for_label }}">% Colorectal cancer screening (age 45-75)</label></div>
-                <div class="form-check">{{ form.cancer_prevention.6.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.6.id_for_label }}">% Breast cancer screening (age 50-74)</label></div>
-                <div class="form-check">{{ form.cancer_prevention.7.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.7.id_for_label }}">% Cervical cancer screening (age 21-65)</label></div>
+                <div class="form-check">{{ form.cancer_prevention.5.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.5.id_for_label }}">{{ form.cancer_prevention.5.choice_label }}</label></div>
+                <div class="form-check">{{ form.cancer_prevention.6.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.6.id_for_label }}">{{ form.cancer_prevention.6.choice_label }}</label></div>
+                <div class="form-check">{{ form.cancer_prevention.7.tag }} <label class="form-check-label" for="{{ form.cancer_prevention.7.id_for_label }}">{{ form.cancer_prevention.7.choice_label }}</label></div>
               </div>
             </div>
           </div>
@@ -617,10 +617,10 @@
                 <label class="form-check-label" for="{{ form.community_basic_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.community_characteristics.0.tag }} <label class="form-check-label" for="{{ form.community_characteristics.0.id_for_label }}">Total population</label></div>
-                <div class="form-check">{{ form.community_characteristics.1.tag }} <label class="form-check-label" for="{{ form.community_characteristics.1.id_for_label }}">Sex distribution</label></div>
-                <div class="form-check">{{ form.community_characteristics.2.tag }} <label class="form-check-label" for="{{ form.community_characteristics.2.id_for_label }}">Median age</label></div>
-                <div class="form-check">{{ form.community_characteristics.3.tag }} <label class="form-check-label" for="{{ form.community_characteristics.3.id_for_label }}">Race/Ethnicity</label></div>
+                <div class="form-check">{{ form.community_characteristics.0.tag }} <label class="form-check-label" for="{{ form.community_characteristics.0.id_for_label }}">{{ form.community_characteristics.0.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.1.tag }} <label class="form-check-label" for="{{ form.community_characteristics.1.id_for_label }}">{{ form.community_characteristics.1.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.2.tag }} <label class="form-check-label" for="{{ form.community_characteristics.2.id_for_label }}">{{ form.community_characteristics.2.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.3.tag }} <label class="form-check-label" for="{{ form.community_characteristics.3.id_for_label }}">{{ form.community_characteristics.3.choice_label }}</label></div>
               </div>
 
               <div class="mt-3 fw-semibold">Demographic (Extended)</div>
@@ -632,8 +632,8 @@
                 <div class="form-check">{{ form.community_characteristics.4.tag }} <label class="form-check-label" for="{{ form.community_characteristics.4.id_for_label }}">{{ form.community_characteristics.4.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.5.tag }} <label class="form-check-label" for="{{ form.community_characteristics.5.id_for_label }}">{{ form.community_characteristics.5.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.6.tag }} <label class="form-check-label" for="{{ form.community_characteristics.6.id_for_label }}">{{ form.community_characteristics.6.choice_label }}</label></div>
-                <div class="form-check">{{ form.community_characteristics.7.tag }} <label class="form-check-label" for="{{ form.community_characteristics.7.id_for_label }}">Distribution of language spoken at home</label></div>
-                <div class="form-check">{{ form.community_characteristics.8.tag }} <label class="form-check-label" for="{{ form.community_characteristics.8.id_for_label }}">% of residents >= age 5 who speak English less than very well</label></div>
+                <div class="form-check">{{ form.community_characteristics.7.tag }} <label class="form-check-label" for="{{ form.community_characteristics.7.id_for_label }}">{{ form.community_characteristics.7.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.8.tag }} <label class="form-check-label" for="{{ form.community_characteristics.8.id_for_label }}">{{ form.community_characteristics.8.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.9.tag }} <label class="form-check-label" for="{{ form.community_characteristics.9.id_for_label }}">{{ form.community_characteristics.9.choice_label }}</label></div>
              
                 <!-- If  Place or ZCTA is chosen as a geographic level then grey out SVI -->
@@ -652,9 +652,7 @@
                 {% else %}
                   <div class="form-check">
                     {{ form.community_characteristics.10.tag }}
-                    <label class="form-check-label" for="{{ form.community_characteristics.10.id_for_label }}">
-                      Rurality (RUCC / RUCA code)
-                    </label>
+                    <label class="form-check-label" for="{{ form.community_characteristics.10.id_for_label }}">{{ form.community_characteristics.10.choice_label }}</label>
                   </div>
                 {% endif %}
               </div>
@@ -665,16 +663,16 @@
                 <label class="form-check-label" for="{{ form.community_economic_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.community_characteristics.11.tag }} <label class="form-check-label" for="{{ form.community_characteristics.11.id_for_label }}">Median household income</label></div>
-                <div class="form-check">{{ form.community_characteristics.12.tag }} <label class="form-check-label" for="{{ form.community_characteristics.12.id_for_label }}">Per capita income</label></div>
-                <div class="form-check">{{ form.community_characteristics.13.tag }} <label class="form-check-label" for="{{ form.community_characteristics.13.id_for_label }}">% of households below poverty level</label></div>
+                <div class="form-check">{{ form.community_characteristics.11.tag }} <label class="form-check-label" for="{{ form.community_characteristics.11.id_for_label }}">{{ form.community_characteristics.11.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.12.tag }} <label class="form-check-label" for="{{ form.community_characteristics.12.id_for_label }}">{{ form.community_characteristics.12.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.13.tag }} <label class="form-check-label" for="{{ form.community_characteristics.13.id_for_label }}">{{ form.community_characteristics.13.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.14.tag }} <label class="form-check-label" for="{{ form.community_characteristics.14.id_for_label }}">{{ form.community_characteristics.14.choice_label }}</label></div>
-                <div class="form-check">{{ form.community_characteristics.15.tag }} <label class="form-check-label" for="{{ form.community_characteristics.15.id_for_label }}">% of households receiving Food stamps/SNAP</label></div>
-                <div class="form-check">{{ form.community_characteristics.16.tag }} <label class="form-check-label" for="{{ form.community_characteristics.16.id_for_label }}">Employment status for population >=16 years</label></div>
-                <div class="form-check">{{ form.community_characteristics.17.tag }} <label class="form-check-label" for="{{ form.community_characteristics.17.id_for_label }}">Utility services shut-off threat in the past 12 months among adults</label></div>
-                <div class="form-check">{{ form.community_characteristics.18.tag }} <label class="form-check-label" for="{{ form.community_characteristics.18.id_for_label }}">Housing insecurity in the past 12 months among adults</label></div>
-                <div class="form-check">{{ form.community_characteristics.19.tag }} <label class="form-check-label" for="{{ form.community_characteristics.19.id_for_label }}">Occupational category distribution</label></div>
-                <div class="form-check">{{ form.community_characteristics.20.tag }} <label class="form-check-label" for="{{ form.community_characteristics.20.id_for_label }}">GINI Index</label></div>
+                <div class="form-check">{{ form.community_characteristics.15.tag }} <label class="form-check-label" for="{{ form.community_characteristics.15.id_for_label }}">{{ form.community_characteristics.15.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.16.tag }} <label class="form-check-label" for="{{ form.community_characteristics.16.id_for_label }}">{{ form.community_characteristics.16.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.17.tag }} <label class="form-check-label" for="{{ form.community_characteristics.17.id_for_label }}">{{ form.community_characteristics.17.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.18.tag }} <label class="form-check-label" for="{{ form.community_characteristics.18.id_for_label }}">{{ form.community_characteristics.18.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.19.tag }} <label class="form-check-label" for="{{ form.community_characteristics.19.id_for_label }}">{{ form.community_characteristics.19.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.20.tag }} <label class="form-check-label" for="{{ form.community_characteristics.20.id_for_label }}">{{ form.community_characteristics.20.choice_label }}</label></div>
                 <div class="form-check">
                   <input type="checkbox" name="community_characteristics" value="redlined_pct" id="{{ form.community_characteristics.21.id_for_label }}" disabled>
                   <label class="form-check-label text-muted" for="{{ form.community_characteristics.21.id_for_label }}">
@@ -699,9 +697,7 @@
                 {% else %}
                   <div class="form-check">
                     {{ form.community_characteristics.22.tag }}
-                    <label class="form-check-label" for="{{ form.community_characteristics.22.id_for_label }}">
-                      Social Vulnerability Index / ADI
-                    </label>
+                    <label class="form-check-label" for="{{ form.community_characteristics.22.id_for_label }}">{{ form.community_characteristics.22.choice_label }}</label>
                   </div>
                 {% endif %}
               </div>
@@ -712,14 +708,14 @@
                 <label class="form-check-label" for="{{ form.community_housing_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.community_characteristics.23.tag }} <label class="form-check-label" for="{{ form.community_characteristics.23.id_for_label }}">% of housing units unoccupied</label></div>
-                <div class="form-check">{{ form.community_characteristics.24.tag }} <label class="form-check-label" for="{{ form.community_characteristics.24.id_for_label }}">% Renting</label></div>
-                <div class="form-check">{{ form.community_characteristics.25.tag }} <label class="form-check-label" for="{{ form.community_characteristics.25.id_for_label }}">Median Year Structure Built</label></div>
-                <div class="form-check">{{ form.community_characteristics.26.tag }} <label class="form-check-label" for="{{ form.community_characteristics.26.id_for_label }}">Median monthly housing costs (rent or mortgage + fees + utilities + taxes, etc.)</label></div>
+                <div class="form-check">{{ form.community_characteristics.23.tag }} <label class="form-check-label" for="{{ form.community_characteristics.23.id_for_label }}">{{ form.community_characteristics.23.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.24.tag }} <label class="form-check-label" for="{{ form.community_characteristics.24.id_for_label }}">{{ form.community_characteristics.24.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.25.tag }} <label class="form-check-label" for="{{ form.community_characteristics.25.id_for_label }}">{{ form.community_characteristics.25.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.26.tag }} <label class="form-check-label" for="{{ form.community_characteristics.26.id_for_label }}">{{ form.community_characteristics.26.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.27.tag }} <label class="form-check-label" for="{{ form.community_characteristics.27.id_for_label }}">{{ form.community_characteristics.27.choice_label }}</label></div>
-                <div class="form-check">{{ form.community_characteristics.28.tag }} <label class="form-check-label" for="{{ form.community_characteristics.28.id_for_label }}">% with complete plumbing facilities</label></div>
-                <div class="form-check">{{ form.community_characteristics.29.tag }} <label class="form-check-label" for="{{ form.community_characteristics.29.id_for_label }}">% with complete kitchen facilities</label></div>
-                <div class="form-check">{{ form.community_characteristics.30.tag }} <label class="form-check-label" for="{{ form.community_characteristics.30.id_for_label }}">Median value of occupied housing units</label></div>
+                <div class="form-check">{{ form.community_characteristics.28.tag }} <label class="form-check-label" for="{{ form.community_characteristics.28.id_for_label }}">{{ form.community_characteristics.28.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.29.tag }} <label class="form-check-label" for="{{ form.community_characteristics.29.id_for_label }}">{{ form.community_characteristics.29.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.30.tag }} <label class="form-check-label" for="{{ form.community_characteristics.30.id_for_label }}">{{ form.community_characteristics.30.choice_label }}</label></div>
               </div>
 
               <div class="mt-3 fw-semibold">Household characteristics</div>
@@ -729,9 +725,9 @@
               </div>
               <div class="ms-3">
                 <div class="form-check">{{ form.community_characteristics.31.tag }} <label class="form-check-label" for="{{ form.community_characteristics.31.id_for_label }}">{{ form.community_characteristics.31.choice_label }}</label></div>
-                <div class="form-check">{{ form.community_characteristics.32.tag }} <label class="form-check-label" for="{{ form.community_characteristics.32.id_for_label }}">% of households with grandparents caring for children</label></div>
+                <div class="form-check">{{ form.community_characteristics.32.tag }} <label class="form-check-label" for="{{ form.community_characteristics.32.id_for_label }}">{{ form.community_characteristics.32.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.33.tag }} <label class="form-check-label" for="{{ form.community_characteristics.33.id_for_label }}">{{ form.community_characteristics.33.choice_label }}</label></div>
-                <div class="form-check">{{ form.community_characteristics.34.tag }} <label class="form-check-label" for="{{ form.community_characteristics.34.id_for_label }}">% who have moved in last year</label></div>
+                <div class="form-check">{{ form.community_characteristics.34.tag }} <label class="form-check-label" for="{{ form.community_characteristics.34.id_for_label }}">{{ form.community_characteristics.34.choice_label }}</label></div>
               </div>
             </div>
           </div>
