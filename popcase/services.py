@@ -692,6 +692,8 @@ def load_cancer_logic():
 
             rows.append(row)
 
+    from .cancer_risk_groups import risk_group_metadata
+    leaf_meta.update(risk_group_metadata())
     return tree, leaf_meta
 
 
@@ -844,6 +846,15 @@ def parse_cancer_queryscript(script):
     return _CancerQueryScriptParser(str(script or "")).parse()
 
 def apply_cancer_logic(base_qs, logic_row):
+    if logic_row.get("risk_group"):
+        from django.db.models import Case, When, Value
+        from .cancer_risk_groups import risk_group_query
+        # Unknown/malformed ages must not qualify for the obesity breast exception.
+        base_qs = base_qs.alias(risk_age_at_dx=Case(
+            When(age_at_dx__regex=r"^[0-9]{1,3}$", then=Cast("age_at_dx", IntegerField())),
+            default=Value(None), output_field=IntegerField(),
+        ))
+        return base_qs.filter(risk_group_query(logic_row["risk_group"], parse_cancer_queryscript))
     query_script = (logic_row.get("QueryScript") or "").strip()
     if query_script:
         return base_qs.filter(parse_cancer_queryscript(query_script))
@@ -1030,6 +1041,9 @@ def _apply_ssf16(qs, logic):
 # ---------------------------------------------------------
 
 def apply_naaccr_filters(qs, filters: dict):
+    # FR54 applies to every case-based output, including an unfiltered query.
+    qs = qs.filter(Q(behavior="3") | Q(
+        behavior="2", primary_site__gte="C670", primary_site__lte="C679"))
     if not filters:
         return qs
 

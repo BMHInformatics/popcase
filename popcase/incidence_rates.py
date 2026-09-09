@@ -291,7 +291,6 @@ def load_case_counts(linking_year, geographic_level, filters, bands, sex, races,
             base = base.filter(stg_grp__in=[v for s in stages for v in stage_codes[s]])
     if filters.get('exclude_multiple_primaries'):
         base = base.filter(sequence_number__in=('0', '00'))
-    base = base.filter(Q(behavior='3') | Q(behavior='2', primary_site__startswith='C67'))
     ohio_ids = NaaccrPatientCensusLinking.objects.filter(
         year=str(linking_year), geographic_level='state', geoid='39').values_list('pat_id', flat=True)
     # Filtering a union query is unsupported in Django; restrict before site unions.
