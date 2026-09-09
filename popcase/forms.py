@@ -623,9 +623,9 @@ class MeasuresForm(forms.Form):
         return cleaned
 
 class StratificationForm(forms.Form):
-    row_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, label="Row")
-    col_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, label="Column")
-    table_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, label="Table")
+    row_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, initial="", label="Row")
+    col_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, initial="", label="Column")
+    table_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, initial="", label="Table")
     output_type = forms.ChoiceField(
         choices=[("table", "Table")],
         widget=forms.HiddenInput,
@@ -637,6 +637,13 @@ class StratificationForm(forms.Form):
     def __init__(self, *args, geographic_level="none", **kwargs):
         super().__init__(*args, **kwargs)
         self.geographic_level = geographic_level
+        # Older dropdowns defaulted both axes to their first choice, Sex.
+        # Discard that saved default while preserving intentional valid layouts.
+        if (not self.is_bound
+                and self.initial.get("row_variable") == "sex"
+                and self.initial.get("col_variable") == "sex"
+                and not self.initial.get("table_variable")):
+            self.initial = dict(self.initial, row_variable="", col_variable="", table_variable="")
 
     @property
     def variable_groups(self):
