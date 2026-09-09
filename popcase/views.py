@@ -34,6 +34,10 @@ from popcase.services import (
 )
 
 from .models import NaaccrPatientCensusLinking
+from .acs_measures import (
+    ACS_MEASURES, COMPONENT_COLUMNS, HEADER_MAP as ACS_HEADER_MAP,
+    COLUMN_GROUPS as ACS_COLUMN_GROUPS,
+)
 
 
 STEPS = ["geographic-level", "filters", "measures", "stratification"]
@@ -437,6 +441,7 @@ SUPPORT_DISPLAY_HEADER_MAP = {
     "moved_last_year_ci_lower": "Moved in last year CI 95% (L)",
     "moved_last_year_ci_upper": "Moved in last year CI 95% (U)",
 }
+SUPPORT_DISPLAY_HEADER_MAP.update(ACS_HEADER_MAP)
 TRACT_HEADER_MAP.update(SUPPORT_DISPLAY_HEADER_MAP)
 TRACT_NUMERIC_COLS = list(dict.fromkeys(TRACT_NUMERIC_COLS + list(SUPPORT_DISPLAY_HEADER_MAP.keys())))
 
@@ -460,6 +465,10 @@ DATASET_EXCLUDE_COLUMNS = {
     "employment_16plus",
     "occupation_distribution",
 }
+# Distribution measures expose their real components, never an empty aggregate.
+for _token in ACS_MEASURES:
+    _spec = SUPPORT_MEASURE_OUTPUT_SPECS[_token]
+    DATASET_EXCLUDE_COLUMNS.update(key for key in _spec[:3] if key not in COMPONENT_COLUMNS[_token])
 
 
 
@@ -522,6 +531,8 @@ DATASET_COLUMN_GROUPS = {
     "occupation_production_transportation_material_moving_ci_upper": "Occupational category distribution",
 }
 
+DATASET_COLUMN_GROUPS.update(ACS_COLUMN_GROUPS)
+
 DISEASE_MEASURE_OUTPUT_COLUMNS = {
     "case_count": ["case_count"],
     "pct_advanced": ["pct_advanced"],
@@ -575,6 +586,8 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
     "pcp_access_score": ["primary_care_access_score"],
     "mammo_access": ["nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
 }
+SUPPORT_COMPONENT_OUTPUT_COLUMNS.update(COMPONENT_COLUMNS)
+
 class PopcaseLoginView(auth_views.LoginView):
     template_name = "popcase/login.html"
     redirect_authenticated_user = True

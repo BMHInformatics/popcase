@@ -378,19 +378,19 @@ class MeasuresForm(forms.Form):
         ("race_eth", "Race/Ethnicity"),
     ]
     COMMUNITY_EXT_LEAVES = [
-        ("age_dist", "Age distribution (__ groups)"),
-        ("marital_status", "Marital status"),
-        ("educ_attain", "Educational attainment"),
+        ("age_dist", "Age distribution (0–14, 15–39, 40–49, 50–64, 65–79, 80+)"),
+        ("marital_status", "Marital status (age 15+)"),
+        ("educ_attain", "Educational attainment (age 25+)"),
         ("lang_home", "Distribution of language spoken at home"),
         ("limited_english", "% of residents >= age 5 who speak English less than very well"),
-        ("citizenship", "Citizenship status"),
+        ("citizenship", "Citizenship status (age 1+)"),
         ("rurality", "Rurality (RUCC / RUCA code)"),
     ]
     COMMUNITY_ECON_LEAVES = [
         ("med_hh_income", "Median household income"),
         ("per_capita_income", "Per capita income"),
         ("poverty_pct", "% of households below poverty level"),
-        ("income_pov_ratio", "Income to poverty-level ratio"),
+        ("income_pov_ratio", "Family income-to-poverty ratio distribution"),
         ("snap_pct", "% of households receiving Food stamps/SNAP"),
         ("employment_16plus", "Employment status for population >=16 years"),
         ("utility_shutoff_threat", "Utility services shut-off threat in the past 12 months among adults"),
@@ -405,15 +405,15 @@ class MeasuresForm(forms.Form):
         ("renting_pct", "% Renting"),
         ("median_year_built", "Median Year Structure Built"),
         ("median_housing_costs", "Median monthly housing costs (rent or mortgage + fees + utilities + taxes, etc.)"),
-        ("occupants_per_room", "Occupants per room"),
+        ("occupants_per_room", "% of occupied housing units with >1 occupant per room"),
         ("plumbing_complete", "% with complete plumbing facilities"),
         ("kitchen_complete", "% with complete kitchen facilities"),
         ("median_home_value", "Median value of occupied housing units"),
     ]
     COMMUNITY_HHCHAR_LEAVES = [
-        ("female_headed", "% Female-headed households"),
+        ("female_headed", "% of households with female householder, no spouse present"),
         ("grandparents_care", "% of households with grandparents caring for children"),
-        ("internet_access", "% with internet access by primary type (dialup, high-speed, mobile only)"),
+        ("internet_access", "Household internet access by type (categories may overlap)"),
         ("moved_last_year", "% who have moved in last year"),
     ]
 

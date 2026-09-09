@@ -16,6 +16,7 @@ from django.db.models import IntegerField
 from django.db import connection, connections
 
 from .rate_statistics import RateDataUnavailable, crude_rate as exact_poisson_rate
+from .acs_measures import ACS_MEASURES, COMPONENT_COLUMNS, COMPONENT_CI_KEYS, get_community_lookup
 
 from popcase.models import (
     NaaccrData,
@@ -2632,6 +2633,11 @@ def _remove_output_key_and_period_variants(out, base_key):
             out.pop(key, None)
 
 
+# Register the category-level bounds so the section CI switches control every
+# new output, including the historical variants.
+SUPPORT_COMPONENT_CI_KEYS.update(COMPONENT_CI_KEYS)
+
+
 def _apply_display_option_contract(out, support_measures, display_options):
     """Keep optional CI/age-adjusted columns only when their UI option is selected."""
     display_options = set(display_options or [])
@@ -2661,6 +2667,17 @@ def _add_display_option_columns(out, support_measures, display_options, source_v
     display_options = set(display_options or [])
 
     for token in support_measures:
+        if token in COMPONENT_COLUMNS:
+            columns = COMPONENT_COLUMNS[token]
+            # Historical output already has period-qualified component keys.
+            prefixes = tuple(column + '__' for column in columns)
+            if any(key.startswith(prefixes) for key in out):
+                continue
+            for column in columns:
+                if column in COMPONENT_CI_KEYS[token] and not _ci_requested_for_token(token, display_options):
+                    continue
+                out.setdefault(column, source_values.get(column))
+            continue
         spec = SUPPORT_MEASURE_OUTPUT_SPECS.get(token)
         if not spec:
             continue
@@ -2959,6 +2976,7 @@ COMMUNITY_ACS_TOKENS = {
     "housing_unoccupied", "renting_pct", "median_year_built",
     "median_home_value", "internet_access", "moved_last_year",
 }
+COMMUNITY_ACS_TOKENS.update(ACS_MEASURES)
 COMMUNITY_RURALITY_TOKENS = {"rurality"}
 COMMUNITY_SVI_TOKENS = {"svi_adi"}
 
@@ -3004,6 +3022,7 @@ COMMUNITY_BASE_OUTPUT_KEYS = {
     "hispanic_pct", "hispanic_ci_lower", "hispanic_ci_upper",
     "rurality", "rurality_description", "svi_adi", "svi_adi_ci_lower", "svi_adi_ci_upper",
 }
+COMMUNITY_BASE_OUTPUT_KEYS.update(column for columns in COMPONENT_COLUMNS.values() for column in columns)
 
 
 def _normalize_community_timeframes(value):
@@ -3997,8 +4016,6 @@ def _get_acs_period_community_lookup(requested, geographic_level, acs_period):
         merge(_get_race_ethnicity_community_lookup(geographic_level, acs_period))
     if "med_hh_income" in requested:
         merge(_get_acs_income_community_lookup(geographic_level, acs_period))
-    if "limited_english_pct" in requested:
-        merge(_get_acs_limited_english_community_lookup(geographic_level, acs_period))
 
     if "per_capita_income" in requested:
         merge(_get_acs_per_capita_income_community_lookup(geographic_level, acs_period))
@@ -4024,10 +4041,10 @@ def _get_acs_period_community_lookup(requested, geographic_level, acs_period):
         merge(_get_acs_median_year_built_community_lookup(geographic_level, acs_period))
     if "median_home_value" in requested:
         merge(_get_acs_median_home_value_community_lookup(geographic_level, acs_period))
-    if "internet_access" in requested:
-        merge(_get_acs_internet_access_community_lookup(geographic_level, acs_period))
     if "moved_last_year" in requested:
         merge(_get_acs_moved_last_year_community_lookup(geographic_level, acs_period))
+
+    merge(get_community_lookup(requested, geographic_level, acs_period))
 
     return lookup
 

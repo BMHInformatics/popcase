@@ -598,6 +598,7 @@
                 </div>
               </div>
 
+              <p class="small text-secondary">Community percentages describe the population or households in each area, not the filtered cancer patients. The 95% confidence intervals are approximate and account for ACS sampling error. Missing source values remain unavailable.</p>
               <div class="fw-semibold" style="color: #4477f8; font-style: italic;">Select timeframe for community characteristics</div>
               <div class="ms-3 mb-2">
                 <div class="form-check">
@@ -628,12 +629,12 @@
                 <label class="form-check-label" for="{{ form.community_extended_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.community_characteristics.4.tag }} <label class="form-check-label" for="{{ form.community_characteristics.4.id_for_label }}">Age distribution (__ groups)</label></div>
-                <div class="form-check">{{ form.community_characteristics.5.tag }} <label class="form-check-label" for="{{ form.community_characteristics.5.id_for_label }}">Marital status</label></div>
-                <div class="form-check">{{ form.community_characteristics.6.tag }} <label class="form-check-label" for="{{ form.community_characteristics.6.id_for_label }}">Educational attainment</label></div>
+                <div class="form-check">{{ form.community_characteristics.4.tag }} <label class="form-check-label" for="{{ form.community_characteristics.4.id_for_label }}">{{ form.community_characteristics.4.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.5.tag }} <label class="form-check-label" for="{{ form.community_characteristics.5.id_for_label }}">{{ form.community_characteristics.5.choice_label }}</label></div>
+                <div class="form-check">{{ form.community_characteristics.6.tag }} <label class="form-check-label" for="{{ form.community_characteristics.6.id_for_label }}">{{ form.community_characteristics.6.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.7.tag }} <label class="form-check-label" for="{{ form.community_characteristics.7.id_for_label }}">Distribution of language spoken at home</label></div>
                 <div class="form-check">{{ form.community_characteristics.8.tag }} <label class="form-check-label" for="{{ form.community_characteristics.8.id_for_label }}">% of residents >= age 5 who speak English less than very well</label></div>
-                <div class="form-check">{{ form.community_characteristics.9.tag }} <label class="form-check-label" for="{{ form.community_characteristics.9.id_for_label }}">Citizenship status</label></div>
+                <div class="form-check">{{ form.community_characteristics.9.tag }} <label class="form-check-label" for="{{ form.community_characteristics.9.id_for_label }}">{{ form.community_characteristics.9.choice_label }}</label></div>
              
                 <!-- If  Place or ZCTA is chosen as a geographic level then grey out SVI -->
                 {% if geographic_level == "place" or geographic_level == "zcta" %}
@@ -667,7 +668,7 @@
                 <div class="form-check">{{ form.community_characteristics.11.tag }} <label class="form-check-label" for="{{ form.community_characteristics.11.id_for_label }}">Median household income</label></div>
                 <div class="form-check">{{ form.community_characteristics.12.tag }} <label class="form-check-label" for="{{ form.community_characteristics.12.id_for_label }}">Per capita income</label></div>
                 <div class="form-check">{{ form.community_characteristics.13.tag }} <label class="form-check-label" for="{{ form.community_characteristics.13.id_for_label }}">% of households below poverty level</label></div>
-                <div class="form-check">{{ form.community_characteristics.14.tag }} <label class="form-check-label" for="{{ form.community_characteristics.14.id_for_label }}">Income to poverty-level ratio</label></div>
+                <div class="form-check">{{ form.community_characteristics.14.tag }} <label class="form-check-label" for="{{ form.community_characteristics.14.id_for_label }}">{{ form.community_characteristics.14.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.15.tag }} <label class="form-check-label" for="{{ form.community_characteristics.15.id_for_label }}">% of households receiving Food stamps/SNAP</label></div>
                 <div class="form-check">{{ form.community_characteristics.16.tag }} <label class="form-check-label" for="{{ form.community_characteristics.16.id_for_label }}">Employment status for population >=16 years</label></div>
                 <div class="form-check">{{ form.community_characteristics.17.tag }} <label class="form-check-label" for="{{ form.community_characteristics.17.id_for_label }}">Utility services shut-off threat in the past 12 months among adults</label></div>
@@ -715,7 +716,7 @@
                 <div class="form-check">{{ form.community_characteristics.24.tag }} <label class="form-check-label" for="{{ form.community_characteristics.24.id_for_label }}">% Renting</label></div>
                 <div class="form-check">{{ form.community_characteristics.25.tag }} <label class="form-check-label" for="{{ form.community_characteristics.25.id_for_label }}">Median Year Structure Built</label></div>
                 <div class="form-check">{{ form.community_characteristics.26.tag }} <label class="form-check-label" for="{{ form.community_characteristics.26.id_for_label }}">Median monthly housing costs (rent or mortgage + fees + utilities + taxes, etc.)</label></div>
-                <div class="form-check">{{ form.community_characteristics.27.tag }} <label class="form-check-label" for="{{ form.community_characteristics.27.id_for_label }}">Occupants per room</label></div>
+                <div class="form-check">{{ form.community_characteristics.27.tag }} <label class="form-check-label" for="{{ form.community_characteristics.27.id_for_label }}">{{ form.community_characteristics.27.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.28.tag }} <label class="form-check-label" for="{{ form.community_characteristics.28.id_for_label }}">% with complete plumbing facilities</label></div>
                 <div class="form-check">{{ form.community_characteristics.29.tag }} <label class="form-check-label" for="{{ form.community_characteristics.29.id_for_label }}">% with complete kitchen facilities</label></div>
                 <div class="form-check">{{ form.community_characteristics.30.tag }} <label class="form-check-label" for="{{ form.community_characteristics.30.id_for_label }}">Median value of occupied housing units</label></div>
@@ -727,9 +728,9 @@
                 <label class="form-check-label" for="{{ form.community_household_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
               </div>
               <div class="ms-3">
-                <div class="form-check">{{ form.community_characteristics.31.tag }} <label class="form-check-label" for="{{ form.community_characteristics.31.id_for_label }}">% Female-headed households</label></div>
+                <div class="form-check">{{ form.community_characteristics.31.tag }} <label class="form-check-label" for="{{ form.community_characteristics.31.id_for_label }}">{{ form.community_characteristics.31.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.32.tag }} <label class="form-check-label" for="{{ form.community_characteristics.32.id_for_label }}">% of households with grandparents caring for children</label></div>
-                <div class="form-check">{{ form.community_characteristics.33.tag }} <label class="form-check-label" for="{{ form.community_characteristics.33.id_for_label }}">% with internet access by primary type (dialup, high-speed, mobile only)</label></div>
+                <div class="form-check">{{ form.community_characteristics.33.tag }} <label class="form-check-label" for="{{ form.community_characteristics.33.id_for_label }}">{{ form.community_characteristics.33.choice_label }}</label></div>
                 <div class="form-check">{{ form.community_characteristics.34.tag }} <label class="form-check-label" for="{{ form.community_characteristics.34.id_for_label }}">% who have moved in last year</label></div>
               </div>
             </div>
