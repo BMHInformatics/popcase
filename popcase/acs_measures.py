@@ -34,6 +34,17 @@ def age_cells(first, last):
 # Each entry is (table code, UI group label, output components). Denominators
 # are the published table totals, not NAACCR cases or ACS sample sizes.
 ACS_MEASURES = {
+    'poverty_pct': ('B17017', 'Household poverty', (
+        pct('poverty_pct', '% households below poverty level', 2),
+    )),
+    'renting_pct': ('B25014', 'Housing tenure', (
+        pct('renting_pct', '% Renting', 8),
+    )),
+    'moved_last_year': ('B07001', 'Residential mobility (age 1+)', (
+        # Disjoint totals: within county, other county in state, other state, abroad.
+        # Combine MOEs by root-sum-of-squares, not the same-house MOE.
+        pct('moved_last_year_pct', '% who moved in last year', 33, 49, 65, 81),
+    )),
     'age_dist': ('B01001', 'Age distribution', tuple(
         Component(f'age_{key}_pct', label, age_cells(first, last))
         for key, label, first, last in [
