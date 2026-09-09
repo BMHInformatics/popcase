@@ -15,6 +15,8 @@ from django.db.models.functions import Cast
 from django.db.models import IntegerField
 from django.db import connection, connections
 
+from .provider_access import get_pcp_tract_lookup
+from .county_access import get_county_access_lookup, OUTPUTS as COUNTY_ACCESS_OUTPUTS
 from .rate_statistics import RateDataUnavailable, crude_rate as exact_poisson_rate
 from .acs_measures import ACS_MEASURES, COMPONENT_COLUMNS, COMPONENT_CI_KEYS, get_community_lookup
 
@@ -24,7 +26,6 @@ from popcase.models import (
     Acs5YrB01001,
     AcsB19013,
     AcsC16001,
-    TravelTimeTract,
     CDCPlacesTract2024,
     CDCPlacesCounty2024,
     CDCPlacesZCTA2024,
@@ -1474,6 +1475,8 @@ def _normalize_support_measure_tokens(tokens):
         "no_insurance": "no_insurance",
         "uninsured": "no_insurance",
 
+        "onc": "onc",
+        "ext_care": "ext_care",
         "pcp": "pcp_access_score",
         "primary_care": "pcp_access_score",
         "primary_care_providers": "pcp_access_score",
@@ -2557,14 +2560,7 @@ def _get_tract_support_lookups_cached(requested_tuple):
             lookups["places"] = places_lookup
 
     if "pcp_access_score" in requested:
-        try:
-            lookups["pcp_access"] = {
-                str(row["tract_geoid"]).strip(): row["weighted_sa_final"]
-                for row in TravelTimeTract.objects.using("popcase_manual_etl").all().values("tract_geoid", "weighted_sa_final").iterator(chunk_size=5000)
-                if row["tract_geoid"]
-            }
-        except Exception:
-            lookups["pcp_access"] = {}
+        lookups["pcp_access"] = get_pcp_tract_lookup()
 
     if "mammo_access" in requested:
         try:
@@ -2652,6 +2648,10 @@ def _apply_display_option_contract(out, support_measures, display_options):
             for key in {ci_low_key, ci_high_key} | SUPPORT_COMPONENT_CI_KEYS.get(token, set()):
                 _remove_output_key_and_period_variants(out, key)
 
+        if age_adjusted_key and not (_age_adjusted_requested_for_token(token, display_options)
+                                     and _ci_requested_for_token(token, display_options)):
+            for suffix in ("_ci_lower", "_ci_upper"):
+                _remove_output_key_and_period_variants(out, age_adjusted_key.replace("_pct", suffix))
         if age_adjusted_key and not _age_adjusted_requested_for_token(token, display_options):
             _remove_output_key_and_period_variants(out, age_adjusted_key)
 
@@ -2854,6 +2854,9 @@ def _get_cdc_places_lookup(requested, geographic_level):
                     out[ci_high_key] = hi
                     if age_adjusted_key:
                         out[age_adjusted_key] = _safe_round_float(age_est, 2)
+                        age_lo, age_hi = _parse_places_ci(row.get(col_roles.get((token, "age_ci_text"))))
+                        out[age_adjusted_key.replace("_pct", "_ci_lower")] = age_lo
+                        out[age_adjusted_key.replace("_pct", "_ci_upper")] = age_hi
 
                 if out:
                     lookup[geoid] = out
@@ -2923,18 +2926,14 @@ def _get_geo_support_lookups_cached(geographic_level, requested_tuple):
     if places_lookup:
         lookups["places"] = places_lookup
 
+    if geographic_level == "county" and requested_set & COUNTY_ACCESS_OUTPUTS.keys():
+        lookups["county_access"] = get_county_access_lookup(requested_set)
+
     # Space-based access tables currently exist at tract level only. For other
     # geographies, keep the selected output columns blank via
     # _add_display_option_columns rather than failing the results page.
     if geographic_level == "tract" and "pcp_access_score" in requested_set:
-        try:
-            lookups["pcp_access"] = {
-                str(row["tract_geoid"]).strip(): row["weighted_sa_final"]
-                for row in TravelTimeTract.objects.using("popcase_manual_etl").all().values("tract_geoid", "weighted_sa_final").iterator(chunk_size=5000)
-                if row["tract_geoid"]
-            }
-        except Exception:
-            lookups["pcp_access"] = {}
+        lookups["pcp_access"] = get_pcp_tract_lookup()
 
     if geographic_level == "tract" and "mammo_access" in requested_set:
         try:
@@ -4729,7 +4728,7 @@ def _build_geo_dataset_uncached(
       - available community / prevention / access measures
 
     Option B:
-      - primary_care_access_score comes from weighted_sa_final
+      - primary_care_access_score is SDD-selected count.x * 100,000
       - it is an accessibility score, not minutes
     """
     if filters is None:
@@ -5037,10 +5036,10 @@ def _build_geo_dataset_uncached(
                 out["uninsured_ci_upper"] = places_row.get("uninsured_ci_upper")
                 out["uninsured_age_adjusted_pct"] = places_row.get("uninsured_age_adjusted_pct")
 
-            if "pcp_access_score" in support_measures:
+            if geographic_level == "tract" and "pcp_access_score" in support_measures:
                 out["primary_care_access_score"] = support_lookup.get("pcp_access", {}).get(geoid)
 
-            if "mammo_access" in support_measures:
+            if geographic_level == "tract" and "mammo_access" in support_measures:
                 mammo_row = support_lookup.get("mammo_access", {}).get(geoid, {})
                 out["nearest_mammography_distance_miles"] = mammo_row.get("nearest_miles")
                 out["mammography_facility_count_20mi"] = mammo_row.get("count_20mi")
@@ -5083,6 +5082,8 @@ def _build_geo_dataset_uncached(
         # were already populated above. If a real CI source is not connected
         # yet, _add_display_option_columns intentionally creates the requested
         # columns with None values instead of inventing unsupported estimates.
+        if geographic_level == "county":
+            out.update(support_lookup.get("county_access", {}).get(geoid, {}))
         _add_display_option_columns(
             out,
             support_measures=support_measures,

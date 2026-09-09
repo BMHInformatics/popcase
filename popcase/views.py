@@ -120,7 +120,7 @@ TRACT_HEADER_MAP = {
     "routine_checkup_pct": "Routine checkup (%)",
     "lack_transportation_pct": "Lack reliable transportation (%)",
     "uninsured_pct": "Uninsured age 18-64 (%)",
-    "primary_care_access_score": "Primary care access score",
+    "primary_care_access_score": "Primary care providers per 100,000 (travel time-adjusted)",
     "male_population": "Male population",
     "female_population": "Female population",
     "male_pct": "Male (%)",
@@ -583,10 +583,23 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
         "occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper",
     ],
     "rurality": ["rurality", "rurality_description", "rurality_ci_lower", "rurality_ci_upper"],
-    "pcp_access_score": ["primary_care_access_score"],
-    "mammo_access": ["nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
+    "pcp_access_score": ["primary_care_access_score", "primary_care_providers_per_100k", "provider_data_note"],
+    "onc": ["oncology_providers_per_100k", "provider_data_note"],
+    "ext_care": ["extended_cancer_care_providers_per_100k", "provider_data_note"],
+    "mammo_access": ["mammography_facilities_per_100k", "provider_data_note", "nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
 }
+TRACT_HEADER_MAP.update({
+    "primary_care_providers_per_100k": "Primary care providers per 100,000 in county",
+    "oncology_providers_per_100k": "Oncology providers per 100,000 in county",
+    "extended_cancer_care_providers_per_100k": "Extended cancer care providers per 100,000 in county",
+    "mammography_facilities_per_100k": "Mammogram facilities per 100,000 in county",
+    "provider_data_note": "Provider source data note",
+})
 SUPPORT_COMPONENT_OUTPUT_COLUMNS.update(COMPONENT_COLUMNS)
+for _prefix, _label in [("routine_checkup", "Routine checkup"), ("lack_transportation", "Lack reliable transportation"), ("uninsured", "Uninsured age 18-64"), ("dentist", "Dentist visit")]:
+    for _suffix, _side in [("lower", "L"), ("upper", "U")]:
+        TRACT_HEADER_MAP[f"{_prefix}_age_adjusted_ci_{_suffix}"] = f"{_label} age-adjusted CI 95% ({_side})"
+
 
 class PopcaseLoginView(auth_views.LoginView):
     template_name = "popcase/login.html"
@@ -775,6 +788,7 @@ def _support_columns_for_token(token, display_options):
         columns.extend([ci_low_key, ci_high_key])
         if age_adjusted_key:
             columns.append(age_adjusted_key)
+            columns.extend(age_adjusted_key.replace("_pct", suffix) for suffix in ("_ci_lower", "_ci_upper"))
     return columns
 
 
