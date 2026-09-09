@@ -42,7 +42,7 @@ STAGE_CHOICES = [
     ("in_situ", "In situ"),
     ("localized", "Localized"),
     ("regional", "Regional"),
-    ("metastatic", "Metastatic"),
+    ("metastatic", "Distant"),
     ("unknown", "Stage Unknown"),
 ]
 
@@ -124,7 +124,7 @@ GEOGRAPHY_SCOPE_CHOICES = [
 ]
 
 # Diagnosis quarter choices are populated dynamically in FiltersForm.__init__.
-DX_QUARTER_FALLBACK_CHOICES = [(f"{year}q{quarter}", f"{year}q{quarter}") for year in range(2011, 2023) for quarter in range(1, 5)]
+DX_QUARTER_FALLBACK_CHOICES = [(f"{year}q{quarter}", f"{year}q{quarter}") for year in range(2010, 2023) for quarter in range(1, 5)]
 
 
 class GeographicLevelForm(forms.Form):
@@ -181,6 +181,7 @@ ZCTA_PLACE_AGE_GROUP_CHOICES = [
 ]
 
 class FiltersForm(forms.Form):
+    counties = forms.MultipleChoiceField(required=False, label="Counties", widget=forms.CheckboxSelectMultiple)
     sex = forms.ChoiceField(choices=SEX_CHOICES, widget=forms.RadioSelect, initial="all", label="Sex")
     age_groups = forms.MultipleChoiceField(
         choices=SEER_20_AGE_GROUP_CHOICES,
@@ -214,6 +215,7 @@ class FiltersForm(forms.Form):
     def __init__(self, *args, **kwargs):
         geographic_level = kwargs.pop("geographic_level", "none")
         super().__init__(*args, **kwargs)
+        self.geographic_level = geographic_level
         self.fields["age_groups"].choices = self.get_age_group_choices_for_geography(geographic_level)
         self.fields["race_ethnicity"].choices = self.get_race_choices_for_geography(geographic_level)
 
@@ -240,22 +242,24 @@ class FiltersForm(forms.Form):
 
         self.fields["geography"].choices = (
             GEOGRAPHY_SCOPE_CHOICES
+            + [("counties", "Selected counties")]
             + [("", "---------")]
             + county_choices
         )
+        self.fields["counties"].choices = [(value.split(":", 1)[1], label) for value, label in county_choices]
 
     dx_start = forms.ChoiceField(
         choices=DX_QUARTER_FALLBACK_CHOICES,
         required=False,
         widget=forms.Select(attrs={"class": "form-select"}),
-        label="Diagnosis quarter from"
+        label="From (quarter)"
     )
 
     dx_end = forms.ChoiceField(
         choices=DX_QUARTER_FALLBACK_CHOICES,
         required=False,
         widget=forms.Select(attrs={"class": "form-select"}),
-        label="Diagnosis quarter to"
+        label="To (quarter)"
     )
 
     cancer_types = forms.MultipleChoiceField(
@@ -291,6 +295,10 @@ class FiltersForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("geography") == "counties" and not cleaned.get("counties"):
+            self.add_error("counties", "Select at least one county.")
+        if self.geographic_level in {"place", "zcta"} and cleaned.get("geography") not in ("", None, "all_ohio"):
+            self.add_error("geography", "County restrictions require a Place/ZCTA crosswalk. Select all Ohio or compare counties/tracts.")
         s = cleaned.get("dx_start")
         e = cleaned.get("dx_end")
         if s and e:

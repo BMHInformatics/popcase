@@ -49,12 +49,17 @@
                       </div>
                     {% endfor %}
                   </div>
-                  <div class="form-text">Leave blank for All.</div>
                   {% if form.age_groups.errors %}<div class="text-danger small">{{ form.age_groups.errors }}</div>{% endif %}
                 </div>
                 <div class="mb-3">
                   <label class="form-label d-block">{{ form.race_ethnicity.label }}</label>
                   <div class="row row-cols-1 g-1">
+                    <div class="col">
+                      <div class="form-check">
+                        <input type="checkbox" id="race_all">
+                        <label class="form-check-label" for="race_all">All</label>
+                      </div>
+                    </div>
                     {% for checkbox in form.race_ethnicity %}
                       <div class="col">
                         <div class="form-check">
@@ -64,7 +69,6 @@
                       </div>
                     {% endfor %}
                   </div>
-                  <div class="form-text">Leave blank for All.</div>
                   {% if form.race_ethnicity.errors %}<div class="text-danger small">{{ form.race_ethnicity.errors }}</div>{% endif %}
                 </div>
               </div>
@@ -79,16 +83,24 @@
                 <div class="mb-3">
                   <label class="form-label" for="{{ form.geography.id_for_label }}">{{ form.geography.label }}</label>
                   {{ form.geography }}
+                  {{ form.geography.errors }}
+                  <div id="county-selection" class="mt-2">
+                    <label class="form-label">{{ form.counties.label }}</label>
+                    <div class="border rounded p-2" style="max-height: 200px; overflow: auto;">{{ form.counties }}</div>
+                    {{ form.counties.errors }}
+                  </div>
                 </div>
 
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label class="form-label" for="{{ form.dx_start.id_for_label }}">{{ form.dx_start.label }}</label>
                     {{ form.dx_start }}
+                    {{ form.dx_start.errors }}
                   </div>
                   <div class="col-md-6 mb-3">
                     <label class="form-label" for="{{ form.dx_end.id_for_label }}">{{ form.dx_end.label }}</label>
                     {{ form.dx_end }}
+                    {{ form.dx_end.errors }}
                   </div>
                 </div>
 
@@ -350,6 +362,28 @@ document.addEventListener("DOMContentLoaded", function () {
   updateParent();
 });
 
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const parent = document.getElementById("race_all");
+  const children = Array.from(document.querySelectorAll('input[name="race_ethnicity"]'));
+  function updateRaceParent() {
+    const count = children.filter(child => child.checked).length;
+    parent.checked = count === children.length && count > 0;
+    parent.indeterminate = count > 0 && count < children.length;
+  }
+  parent.addEventListener("change", function () {
+    children.forEach(child => { child.checked = parent.checked; });
+    updateRaceParent();
+  });
+  children.forEach(child => child.addEventListener("change", updateRaceParent));
+  updateRaceParent();
+  const geography = document.getElementById("id_geography");
+  const counties = document.getElementById("county-selection");
+  function updateCounties() { counties.hidden = geography.value !== "counties"; }
+  geography.addEventListener("change", updateCounties);
+  updateCounties();
+});
 </script>
 
 <style>

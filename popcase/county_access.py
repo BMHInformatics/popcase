@@ -150,7 +150,5 @@ def get_county_access_lookup(requested):
         for token in requested:
             count = counts.get(geoid, {}).get(token, 0)
             out[OUTPUTS[token]] = round(count * 100000 / population, 2) if token in available and population and math.isfinite(population) and population > 0 else None
-        if note:
-            out['provider_data_note'] = note
         result[geoid] = out
     return result

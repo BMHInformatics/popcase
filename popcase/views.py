@@ -96,8 +96,8 @@ TRACT_HEADER_MAP = {
     "meta_ci_lower": "% Metastatic CI 95% (L)",
     "meta_ci_upper": "% Metastatic CI 95% (U)",
     "median_tti": "Median time to treatment",
-    "median_tti_iqr_lower": "Median time to treatment' (25th percentile)",
-    "median_tti_iqr_upper": "Median time to treatment' (75th percentile)",
+    "median_tti_iqr_lower": "Median time to treatment (25th percentile)",
+    "median_tti_iqr_upper": "Median time to treatment (75th percentile)",
     "crude_incidence_per_100k": "Crude incidence /100,000",
     "crude_inc_ci_lower_per_100k": "Crude incidence CI 95% (L) /100,000",
     "crude_inc_ci_upper_per_100k": "Crude incidence CI 95% (U) /100,000",
@@ -455,6 +455,7 @@ DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 # or exported. The real component columns (male/female %, race-specific %, etc.)
 # are displayed instead.
 DATASET_EXCLUDE_COLUMNS = {
+    "provider_data_note",  # Also hides this retired column in cached datasets.
     "n_total_staged_unstaged",
     "sex_distribution",
     "sex_distribution_ci_lower",
@@ -583,17 +584,16 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
         "occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper",
     ],
     "rurality": ["rurality", "rurality_description", "rurality_ci_lower", "rurality_ci_upper"],
-    "pcp_access_score": ["primary_care_access_score", "primary_care_providers_per_100k", "provider_data_note"],
-    "onc": ["oncology_providers_per_100k", "provider_data_note"],
-    "ext_care": ["extended_cancer_care_providers_per_100k", "provider_data_note"],
-    "mammo_access": ["mammography_facilities_per_100k", "provider_data_note", "nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
+    "pcp_access_score": ["primary_care_access_score", "primary_care_providers_per_100k"],
+    "onc": ["oncology_providers_per_100k"],
+    "ext_care": ["extended_cancer_care_providers_per_100k"],
+    "mammo_access": ["mammography_facilities_per_100k", "nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
 }
 TRACT_HEADER_MAP.update({
     "primary_care_providers_per_100k": "Primary care providers per 100,000 in county",
     "oncology_providers_per_100k": "Oncology providers per 100,000 in county",
     "extended_cancer_care_providers_per_100k": "Extended cancer care providers per 100,000 in county",
     "mammography_facilities_per_100k": "Mammogram facilities per 100,000 in county",
-    "provider_data_note": "Provider source data note",
 })
 SUPPORT_COMPONENT_OUTPUT_COLUMNS.update(COMPONENT_COLUMNS)
 for _prefix, _label in [("routine_checkup", "Routine checkup"), ("lack_transportation", "Lack reliable transportation"), ("uninsured", "Uninsured age 18-64"), ("dentist", "Dentist visit")]:

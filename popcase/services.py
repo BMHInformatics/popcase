@@ -64,7 +64,7 @@ AGE_GROUP_RANGES = {
 }
 
 
-DIAGNOSIS_QUARTER_FALLBACK_START = "2011q1"
+DIAGNOSIS_QUARTER_FALLBACK_START = "2010q1"
 DIAGNOSIS_QUARTER_FALLBACK_END = "2022q4"
 QUARTER_START_END_DATES = {
     1: ("0101", "0331"),
@@ -175,8 +175,11 @@ def get_diagnosis_quarter_choices():
         except Exception:
             start = end = None
 
-    start = start or DIAGNOSIS_QUARTER_FALLBACK_START
+    # FR56: the selectable reporting period begins at 2010q1.
+    start = DIAGNOSIS_QUARTER_FALLBACK_START
     end = end or DIAGNOSIS_QUARTER_FALLBACK_END
+    if diagnosis_quarter_sort_key(end) < diagnosis_quarter_sort_key(start):
+        end = start
     return tuple(_iter_quarters(start, end))
 
 
@@ -340,16 +343,30 @@ def _selected_county_geoid(filters):
         return geography.split(":", 1)[1]
     return None
 
+
+def _selected_county_geoids(filters):
+    single = _selected_county_geoid(filters)
+    if single:
+        return {single}
+    if filters.get("geography") == "counties":
+        values = filters.get("counties") or []
+        if isinstance(values, str):
+            values = [values]
+        return {str(value) for value in values if str(value) in OHIO_COUNTY_NAMES}
+    if _is_neo15_scope(filters):
+        return set(NEO_15_COUNTY_GEOIDS)
+    return set()
+
 def _geoid_in_scope(geographic_level: str, geoid: str, filters: dict) -> bool:
-    selected_county = _selected_county_geoid(filters)
-    if selected_county:
+    selected_counties = _selected_county_geoids(filters)
+    if selected_counties:
         g = str(geoid or "").strip()
 
         if geographic_level == "county":
-            return g == selected_county
+            return g in selected_counties
 
         if geographic_level == "tract":
-            return len(g) >= 5 and g[:5] == selected_county
+            return len(g) >= 5 and g[:5] in selected_counties
 
         return True
 
@@ -1071,11 +1088,11 @@ def apply_naaccr_filters(qs, filters: dict):
             qs = qs.filter(dx_year__gte=dx_start)
         if dx_end:
             qs = qs.filter(dx_year__lte=dx_end)
-    geo_scope = (filters.get("geography") or "all_ohio").strip().lower()
-    if geo_scope in ("neo15", "neo_15", "catchment15", "catchment_15"):
+    selected_counties = _selected_county_geoids(filters)
+    if selected_counties:
         neo_pat_ids = (
             NaaccrPatientCensusLinking.objects
-            .filter(geographic_level="county", geoid__in=NEO_15_COUNTY_GEOIDS)
+            .filter(geographic_level="county", geoid__in=selected_counties)
             .values_list("pat_id", flat=True)
             .distinct()
         )
