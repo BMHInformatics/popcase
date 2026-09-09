@@ -1,74 +1,105 @@
-    {% extends "popcase/base.html" %}
-    {% block title %}Stratification | PopCASE{% endblock %}
-
-    {% block content %}
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h4 class="mb-0">Stratification</h4>
-        <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset_wizard_step' step=current_step %}">Reset this page</a>
-      </div>
-      <ul class="nav nav-tabs mb-3">
+{% extends "popcase/base.html" %}
+{% block title %}Stratification | PopCASE{% endblock %}
+{% block content %}
+<style>
+  #stratification-form .form-check-input:not(:checked) {
+    border-color: #adb5bd;
+  }
+</style>
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h4 class="mb-0">Stratification</h4>
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset_wizard_step' step=current_step %}">Reset this page</a>
+</div>
+<ul class="nav nav-tabs mb-3">
   {% for s in steps %}
-    {% if s == current_step %}
-      <li class="nav-item"><span class="nav-link active">{{ s|title }}</span></li>
-    {% else %}
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'popcase:wizard_step' step=s %}">{{ s|title }}</a>
-      </li>
-    {% endif %}
+  <li class="nav-item">
+    {% if s == current_step %}<span class="nav-link active">{{ s|title }}</span>
+    {% else %}<a class="nav-link" href="{% url 'popcase:wizard_step' step=s %}">{{ s|title }}</a>{% endif %}
+  </li>
   {% endfor %}
 </ul>
-
-
-      {% if is_patient_level %}
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <div class="alert alert-warning mb-3">
-              <strong>PATIENT-LEVEL STRATIFICATION CHOSEN</strong><br>
-              This workflow is intentionally left as a placeholder in v1 (“need to review item by item”).
-            </div>
-
-            <p class="text-secondary mb-0">
-              In PopCASE, patient-level stratification will allow administrators to compare measures across patient subgroups
-              (e.g., Sex, Race/Ethnicity, HPSA status, formerly redlined neighborhood, insurance, etc.).
-            </p>
-
-            <div class="d-flex justify-content-between mt-3">
-              <a class="btn btn-outline-secondary" href="{% url 'popcase:wizard_step' step='measures' %}">Back</a>
-              <a class="btn btn-primary" href="{% url 'popcase:results' %}">Finish</a>
-            </div>
-          </div>
-        </div>
-      {% else %}
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <p class="text-secondary">
-              Select a row and column variable to compare measures across groups (table output).
-            </p>
-            <form method="post">
-              {% csrf_token %}
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label" for="{{ form.row_variable.id_for_label }}">{{ form.row_variable.label }}</label>
-                  {{ form.row_variable }}
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label" for="{{ form.col_variable.id_for_label }}">{{ form.col_variable.label }}</label>
-                  {{ form.col_variable }}
-                </div>
-              </div>
-
-              <div class="mt-3">
-                <label class="form-label d-block">{{ form.output_type.label }}</label>
-                {{ form.output_type }}
-              </div>
-
-              <div class="d-flex justify-content-between mt-3">
-                <button class="btn btn-outline-secondary" name="prev" value="1" type="submit">Back</button>
-                <button class="btn btn-primary" type="submit">Finish</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      {% endif %}
-    {% endblock %}
+<div class="card shadow-sm"><div class="card-body">
+{% if is_patient_level %}
+  <p class="alert alert-info">Patient-level stratification is not yet available.</p>
+  <div class="d-flex justify-content-between">
+    <a class="btn btn-outline-secondary" href="{% url 'popcase:wizard_step' step='measures' %}">Back</a>
+    <a class="btn btn-primary" href="{% url 'popcase:results' %}">Finish</a>
+  </div>
+{% else %}
+  <h5>Compare measures across groups</h5>
+  <p class="text-secondary">Choose up to one variable for each placement. Leave a placement at None if it is not needed.</p>
+  <p class="small text-secondary">
+    <strong>Row</strong> lists categories down the page.
+    <strong>Column</strong> compares categories side by side.
+    <strong>Table</strong> creates a separate table for each category.
+    For example: age groups in rows, sex in columns, and a separate table for each cancer site.
+  </p>
+  <form method="post" id="stratification-form">
+    {% csrf_token %}{{ form.output_type }}
+    {% if form.errors %}
+    <div class="alert alert-danger" role="alert">
+      {{ form.non_field_errors }}{% for field in form %}{{ field.errors }}{% endfor %}
+    </div>
+    {% endif %}
+    <div class="d-flex flex-wrap align-items-center gap-3 border rounded p-3 mb-4" style="width: 50%">
+      <strong>No grouping:</strong>
+      {% for field in form %}{% if field.name != 'output_type' %}
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="radio" name="{{ field.name }}" value="" id="{{ field.name }}_none" {% if not field.value %}checked{% endif %}>
+        <label class="form-check-label" for="{{ field.name }}_none">{{ field.label }}: None</label>
+      </div>
+      {% endif %}{% endfor %}
+    </div>
+    {% for group in form.variable_groups %}
+    <div class="table-responsive mb-4">
+      <table class="table table-borderless align-middle" style="min-width: 480px">
+        <caption class="caption-top fw-semibold text-dark fs-5">{{ group.title }}</caption>
+        <thead><tr>
+          <th scope="col" class="text-center" style="width: 5rem">Row</th>
+          <th scope="col" class="text-center" style="width: 5rem">Column</th>
+          <th scope="col" class="text-center" style="width: 5rem">Table</th>
+          <th scope="col">Variable</th>
+        </tr></thead>
+        <tbody>{% for variable in group.variables %}
+          <tr>{% for placement in variable.placements %}
+            <td class="text-center">
+              <input class="form-check-input" type="radio" name="{{ placement.name }}" value="{{ variable.token }}"
+                     id="{{ placement.name }}_{{ variable.token }}" aria-label="{{ variable.label }}: {{ placement.label }}"
+                     {% if placement.selected %}checked{% endif %} {% if variable.unavailable %}disabled{% endif %}>
+            </td>{% endfor %}
+            <th scope="row" class="fw-normal {% if variable.unavailable %}text-secondary{% endif %}">
+              {{ variable.label }}
+              {% if variable.unavailable %}<span class="d-block small">County and census tract comparisons only</span>{% endif %}
+            </th>
+          </tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>{% endfor %}
+    <div class="d-flex justify-content-between mt-3">
+      <button class="btn btn-outline-secondary" name="prev" value="1" type="submit">Back</button>
+      <button class="btn btn-primary" type="submit">Finish</button>
+    </div>
+  </form>
+{% endif %}
+</div></div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  const stratificationForm = document.getElementById('stratification-form');
+  if (stratificationForm) {
+    stratificationForm.addEventListener('change', (event) => {
+      const chosen = event.target;
+      if (chosen.type !== 'radio' || !chosen.value) return;
+      const alternatives = {
+        age_broad: 'age_narrow', age_narrow: 'age_broad',
+        receptor3: 'receptor4', receptor4: 'receptor3'
+      };
+      stratificationForm.querySelectorAll('input[type="radio"]:checked').forEach((input) => {
+        if (input !== chosen && (input.value === chosen.value || input.value === alternatives[chosen.value])) {
+          document.getElementById(input.name + '_none').checked = true;
+        }
+      });
+    });
+  }
+</script>
+{% endblock %}

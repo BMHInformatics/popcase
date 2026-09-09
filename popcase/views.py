@@ -1076,7 +1076,7 @@ def wizard_step(request, step: str = "geographic-level"):
     form_kwargs = {"initial": None if request.method == "POST" else initial}
     if step == "filters":
         form_kwargs["geographic_level"] = _normalize_geographic_level(_session_get(request, "geographic_level", "none"))
-    if step == "measures":
+    if step in {"measures", "stratification"}:
         form_kwargs["geographic_level"] = _normalize_geographic_level(_session_get(request, "geographic_level", "none"))
     form = FormClass(request.POST or None, **form_kwargs)
     if step == "filters":

@@ -623,14 +623,53 @@ class MeasuresForm(forms.Form):
         return cleaned
 
 class StratificationForm(forms.Form):
-    row_variable = forms.ChoiceField(choices=STRAT_VAR_CHOICES, required=False, label="Row")
-    col_variable = forms.ChoiceField(choices=STRAT_VAR_CHOICES, required=False, label="Column")
+    row_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, label="Row")
+    col_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, label="Column")
+    table_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, label="Table")
     output_type = forms.ChoiceField(
         choices=[("table", "Table")],
-        widget=forms.RadioSelect,
+        widget=forms.HiddenInput,
         initial="table",
+        required=False,
         label="Compare measures across groups"
     )
+
+    def __init__(self, *args, geographic_level="none", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.geographic_level = geographic_level
+
+    @property
+    def variable_groups(self):
+        axes = [(name, self[name].value() or "") for name in
+                ("row_variable", "col_variable", "table_variable")]
+        groups = []
+        for title, choices in (("Demographics", STRAT_VAR_CHOICES[:8]),
+                               ("Disease Characteristics", STRAT_VAR_CHOICES[8:])):
+            variables = []
+            for token, label in choices:
+                unavailable = token == "metro" and self.geographic_level not in ("county", "tract")
+                variables.append({
+                    "token": token, "label": label, "unavailable": unavailable,
+                    "placements": [{"name": name, "selected": value == token,
+                                    "label": self.fields[name].label} for name, value in axes],
+                })
+            groups.append({"title": title, "variables": variables})
+        return groups
+
+    def clean(self):
+        cleaned = super().clean()
+        selected = [cleaned.get(name) for name in
+                    ("row_variable", "col_variable", "table_variable") if cleaned.get(name)]
+        if len(selected) != len(set(selected)):
+            raise forms.ValidationError("Assign each variable to only one of Row, Column, or Table.")
+        if {"age_broad", "age_narrow"}.issubset(selected):
+            raise forms.ValidationError("Choose either broad or narrow age categories, not both.")
+        if {"receptor3", "receptor4"}.issubset(selected):
+            raise forms.ValidationError("Choose either the 3-category or 4-category receptor grouping, not both.")
+        if "metro" in selected and self.geographic_level not in ("county", "tract"):
+            raise forms.ValidationError("Metro vs. Non-metro is available only for county or census tract comparisons.")
+        cleaned["output_type"] = "table"
+        return cleaned
 
 
 
