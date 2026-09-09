@@ -34,6 +34,20 @@ def age_cells(first, last):
 # Each entry is (table code, UI group label, output components). Denominators
 # are the published table totals, not NAACCR cases or ACS sample sizes.
 ACS_MEASURES = {
+    'median_age': ('B01002', 'Median age', (
+        Component('median_age', 'Median age (years)', (1,), median=True),
+    )),
+    'employment_16plus': ('B23025', 'Employment status (population 16+)', (
+        pct('employment_employed_pct', 'Civilian employed (%)', 4),
+        pct('employment_unemployed_pct', 'Civilian unemployed (%)', 5),
+        pct('employment_armed_forces_pct', 'Armed forces (%)', 6),
+        pct('employment_not_in_labor_force_pct', 'Not in labor force (%)', 7),
+    )),
+    'occupation_dist': ('B08124', 'Occupations (workers 16+)', (
+        pct('occupation_service_pct', 'Service occupations (% workers 16+)', 3),
+        pct('occupation_production_transportation_material_moving_pct',
+            'Production, transportation, and material moving occupations (% workers 16+)', 6),
+    )),
     'poverty_pct': ('B17017', 'Household poverty', (
         pct('poverty_pct', '% households below poverty level', 2),
     )),

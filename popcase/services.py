@@ -2442,7 +2442,7 @@ def _get_tract_support_lookups_cached(requested_tuple):
 
     community_acs = {}
 
-    if requested & {"pop_total", "sex_distribution", "median_age"}:
+    if requested & {"pop_total", "sex_distribution"}:
         basic_lookup = _get_acs_b01001_tract_community_lookup(requested)
         for tract, row in basic_lookup.items():
             community_acs.setdefault(tract, {}).update(row)
@@ -3212,7 +3212,7 @@ def _community_where_sql(table_name, geographic_level, source, period):
 
 def _get_acs_b01001_community_lookup(requested, geographic_level="tract", acs_period="2019-2023"):
     requested = set(requested or ())
-    if not (requested & {"pop_total", "sex_distribution", "median_age"}):
+    if not (requested & {"pop_total", "sex_distribution"}):
         return {}
 
     table = "acs_5yr_B01001"
@@ -3228,37 +3228,7 @@ def _get_acs_b01001_community_lookup(requested, geographic_level="tract", acs_pe
         "female": ["B01001_026E"],
         "female_moe": ["B01001_026M"],
     }
-    age_groups = [
-        ("m_under5", "B01001_003E", "B01001_003M", 0, 5), ("m_5_9", "B01001_004E", "B01001_004M", 5, 10),
-        ("m_10_14", "B01001_005E", "B01001_005M", 10, 15), ("m_15_17", "B01001_006E", "B01001_006M", 15, 18),
-        ("m_18_19", "B01001_007E", "B01001_007M", 18, 20), ("m_20", "B01001_008E", "B01001_008M", 20, 21),
-        ("m_21", "B01001_009E", "B01001_009M", 21, 22), ("m_22_24", "B01001_010E", "B01001_010M", 22, 25),
-        ("m_25_29", "B01001_011E", "B01001_011M", 25, 30), ("m_30_34", "B01001_012E", "B01001_012M", 30, 35),
-        ("m_35_39", "B01001_013E", "B01001_013M", 35, 40), ("m_40_44", "B01001_014E", "B01001_014M", 40, 45),
-        ("m_45_49", "B01001_015E", "B01001_015M", 45, 50), ("m_50_54", "B01001_016E", "B01001_016M", 50, 55),
-        ("m_55_59", "B01001_017E", "B01001_017M", 55, 60), ("m_60_61", "B01001_018E", "B01001_018M", 60, 62),
-        ("m_62_64", "B01001_019E", "B01001_019M", 62, 65), ("m_65_66", "B01001_020E", "B01001_020M", 65, 67),
-        ("m_67_69", "B01001_021E", "B01001_021M", 67, 70), ("m_70_74", "B01001_022E", "B01001_022M", 70, 75),
-        ("m_75_79", "B01001_023E", "B01001_023M", 75, 80), ("m_80_84", "B01001_024E", "B01001_024M", 80, 85),
-        ("m_85_plus", "B01001_025E", "B01001_025M", 85, 90),
-        ("f_under5", "B01001_027E", "B01001_027M", 0, 5), ("f_5_9", "B01001_028E", "B01001_028M", 5, 10),
-        ("f_10_14", "B01001_029E", "B01001_029M", 10, 15), ("f_15_17", "B01001_030E", "B01001_030M", 15, 18),
-        ("f_18_19", "B01001_031E", "B01001_031M", 18, 20), ("f_20", "B01001_032E", "B01001_032M", 20, 21),
-        ("f_21", "B01001_033E", "B01001_033M", 21, 22), ("f_22_24", "B01001_034E", "B01001_034M", 22, 25),
-        ("f_25_29", "B01001_035E", "B01001_035M", 25, 30), ("f_30_34", "B01001_036E", "B01001_036M", 30, 35),
-        ("f_35_39", "B01001_037E", "B01001_037M", 35, 40), ("f_40_44", "B01001_038E", "B01001_038M", 40, 45),
-        ("f_45_49", "B01001_039E", "B01001_039M", 45, 50), ("f_50_54", "B01001_040E", "B01001_040M", 50, 55),
-        ("f_55_59", "B01001_041E", "B01001_041M", 55, 60), ("f_60_61", "B01001_042E", "B01001_042M", 60, 62),
-        ("f_62_64", "B01001_043E", "B01001_043M", 62, 65), ("f_65_66", "B01001_044E", "B01001_044M", 65, 67),
-        ("f_67_69", "B01001_045E", "B01001_045M", 67, 70), ("f_70_74", "B01001_046E", "B01001_046M", 70, 75),
-        ("f_75_79", "B01001_047E", "B01001_047M", 75, 80), ("f_80_84", "B01001_048E", "B01001_048M", 80, 85),
-        ("f_85_plus", "B01001_049E", "B01001_049M", 85, 90),
-    ]
     cols = dict(base_cols)
-    if "median_age" in requested:
-        for alias, e_col, m_col, _, _ in age_groups:
-            cols[alias] = [e_col]
-            cols[f"{alias}_moe"] = [m_col]
 
     where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
     rows, aliases = _select_columns_from_table(table, cols, where, params)
@@ -3295,21 +3265,6 @@ def _get_acs_b01001_community_lookup(requested, geographic_level="tract", acs_pe
             out["sex_distribution"] = "Male/Female"
             out["sex_distribution_ci_lower"] = None
             out["sex_distribution_ci_upper"] = None
-        if "median_age" in requested:
-            bins = defaultdict(lambda: [0.0, 0.0])
-            for alias, _, _, lower, upper in age_groups:
-                est = _safe_num(val(row, alias)) or 0.0
-                moe95 = _acs_moe_95(val(row, f"{alias}_moe")) or 0.0
-                bins[(lower, upper)][0] += est
-                bins[(lower, upper)][1] = math.sqrt((bins[(lower, upper)][1] ** 2) + (moe95 ** 2))
-            counts_est = [(lo, hi, est_moe[0]) for (lo, hi), est_moe in sorted(bins.items())]
-            counts_low = [(lo, hi, max(0.0, est_moe[0] - est_moe[1])) for (lo, hi), est_moe in sorted(bins.items())]
-            counts_high = [(lo, hi, est_moe[0] + est_moe[1]) for (lo, hi), est_moe in sorted(bins.items())]
-            out["median_age"] = _estimate_grouped_median_age(counts_est)
-            low_med = _estimate_grouped_median_age(counts_low)
-            high_med = _estimate_grouped_median_age(counts_high)
-            out["median_age_ci_lower"] = min(low_med, high_med) if low_med is not None and high_med is not None else None
-            out["median_age_ci_upper"] = max(low_med, high_med) if low_med is not None and high_med is not None else None
         if out:
             lookup[geoid] = out
     return lookup
@@ -3632,34 +3587,7 @@ def _get_acs_per_capita_income_community_lookup(geographic_level="tract", acs_pe
 
 
 def _get_acs_poverty_community_lookup(geographic_level="tract", acs_period="2019-2023"):
-    # Prefer household poverty table B17017. Fall back to person-level B17001
-    # when only that table is loaded.
-    primary = _get_acs_percentage_community_lookup(
-        _resolve_acs_table("B17017", geographic_level, acs_period) or "acs_5yr_B17017",
-        ["B17017_002E"],
-        ["B17017_001E"],
-        ["B17017_002M"],
-        ["B17017_001M"],
-        "poverty_pct",
-        "poverty_ci_lower",
-        "poverty_ci_upper",
-        geographic_level,
-        acs_period,
-    )
-    if primary:
-        return primary
-    return _get_acs_percentage_community_lookup(
-        _resolve_acs_table("B17001", geographic_level, acs_period) or "acs_5yr_B17001",
-        ["B17001_002E"],
-        ["B17001_001E"],
-        ["B17001_002M"],
-        ["B17001_001M"],
-        "poverty_pct",
-        "poverty_ci_lower",
-        "poverty_ci_upper",
-        geographic_level,
-        acs_period,
-    )
+    return get_community_lookup(["poverty_pct"], geographic_level, acs_period)
 
 
 def _get_acs_snap_community_lookup(geographic_level="tract", acs_period="2019-2023"):
@@ -3708,18 +3636,7 @@ def _get_acs_housing_unoccupied_community_lookup(geographic_level="tract", acs_p
 
 
 def _get_acs_renting_community_lookup(geographic_level="tract", acs_period="2019-2023"):
-    return _get_acs_percentage_community_lookup(
-        _resolve_acs_table("B25003", geographic_level, acs_period) or "acs_5yr_B25003",
-        ["B25003_003E"],
-        ["B25003_001E"],
-        ["B25003_003M"],
-        ["B25003_001M"],
-        "renting_pct",
-        "renting_ci_lower",
-        "renting_ci_upper",
-        geographic_level,
-        acs_period,
-    )
+    return get_community_lookup(["renting_pct"], geographic_level, acs_period)
 
 
 def _get_acs_median_year_built_community_lookup(geographic_level="tract", acs_period="2019-2023"):
@@ -3768,20 +3685,7 @@ def _get_acs_internet_access_community_lookup(geographic_level="tract", acs_peri
 
 
 def _get_acs_moved_last_year_community_lookup(geographic_level="tract", acs_period="2019-2023"):
-    # In ACS B07003, B07003_002E is commonly "Same house 1 year ago".
-    # Therefore moved in the last year is calculated as total - same-house.
-    return _get_acs_complement_percentage_community_lookup(
-        _resolve_acs_table("B07003", geographic_level, acs_period) or "acs_5yr_B07003",
-        ["B07003_002E"],
-        ["B07003_001E"],
-        ["B07003_002M"],
-        ["B07003_001M"],
-        "moved_last_year_pct",
-        "moved_last_year_ci_lower",
-        "moved_last_year_ci_upper",
-        geographic_level,
-        acs_period,
-    )
+    return get_community_lookup(["moved_last_year"], geographic_level, acs_period)
 
 
 def _merge_pct_component(row, aliases, denom_alias, num_alias, denom_moe_alias, num_moe_alias, out, value_key, low_key, high_key):
@@ -3799,90 +3703,11 @@ def _merge_pct_component(row, aliases, denom_alias, num_alias, denom_moe_alias, 
 
 
 def _get_acs_employment_community_lookup(geographic_level="tract", acs_period="2019-2023"):
-    table = _resolve_acs_table("B23025", geographic_level, acs_period)
-    if not table:
-        return {}
-    cols = {
-        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
-        "denom": ["B23025_001E"], "denom_moe": ["B23025_001M"],
-        "labor": ["B23025_002E"], "labor_moe": ["B23025_002M"],
-        "employed": ["B23025_004E"], "employed_moe": ["B23025_004M"],
-        "unemployed": ["B23025_005E"], "unemployed_moe": ["B23025_005M"],
-        "not_labor": ["B23025_007E"], "not_labor_moe": ["B23025_007M"],
-    }
-    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
-    rows, aliases = _select_columns_from_table(table, cols, where, params)
-    lookup = {}
-    for row in rows:
-        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
-        if not geoid:
-            continue
-        out = {"employment_16plus": "Employment status percentages"}
-        _merge_pct_component(row, aliases, "denom", "labor", "denom_moe", "labor_moe", out,
-                             "employment_labor_force_pct", "employment_labor_force_ci_lower", "employment_labor_force_ci_upper")
-        _merge_pct_component(row, aliases, "denom", "employed", "denom_moe", "employed_moe", out,
-                             "employment_employed_pct", "employment_employed_ci_lower", "employment_employed_ci_upper")
-        _merge_pct_component(row, aliases, "denom", "unemployed", "denom_moe", "unemployed_moe", out,
-                             "employment_unemployed_pct", "employment_unemployed_ci_lower", "employment_unemployed_ci_upper")
-        _merge_pct_component(row, aliases, "denom", "not_labor", "denom_moe", "not_labor_moe", out,
-                             "employment_not_in_labor_force_pct", "employment_not_in_labor_force_ci_lower", "employment_not_in_labor_force_ci_upper")
-        lookup[geoid] = out
-    return lookup
+    return get_community_lookup(["employment_16plus"], geographic_level, acs_period)
 
 
 def _get_acs_occupation_community_lookup(geographic_level="tract", acs_period="2019-2023"):
-    table = _resolve_acs_table("C24010", geographic_level, acs_period)
-    if not table:
-        return {}
-    # C24010 has sex-stratified occupation rows. Aggregate male + female major
-    # categories to keep the PopCASE output compact and stable.
-    cols = {
-        "geo_id": ["GEO_ID", "geo_id", "geoid", "GEOID"],
-        "denom": ["C24010_001E"], "denom_moe": ["C24010_001M"],
-        "mgmt_m": ["C24010_003E"], "mgmt_m_moe": ["C24010_003M"],
-        "service_m": ["C24010_019E"], "service_m_moe": ["C24010_019M"],
-        "sales_m": ["C24010_027E"], "sales_m_moe": ["C24010_027M"],
-        "nr_m": ["C24010_030E"], "nr_m_moe": ["C24010_030M"],
-        "prod_m": ["C24010_034E"], "prod_m_moe": ["C24010_034M"],
-        "mgmt_f": ["C24010_039E"], "mgmt_f_moe": ["C24010_039M"],
-        "service_f": ["C24010_055E"], "service_f_moe": ["C24010_055M"],
-        "sales_f": ["C24010_063E"], "sales_f_moe": ["C24010_063M"],
-        "nr_f": ["C24010_066E"], "nr_f_moe": ["C24010_066M"],
-        "prod_f": ["C24010_070E"], "prod_f_moe": ["C24010_070M"],
-    }
-    where, params = _community_where_sql(table, geographic_level, "acs", acs_period)
-    rows, aliases = _select_columns_from_table(table, cols, where, params)
-
-    def est(row, alias):
-        return _safe_num(_acs_lookup_value(row, aliases, alias)) or 0.0
-
-    def moe90_combined(row, a, b):
-        ma = _safe_num(_acs_lookup_value(row, aliases, a)) or 0.0
-        mb = _safe_num(_acs_lookup_value(row, aliases, b)) or 0.0
-        return math.sqrt((ma ** 2) + (mb ** 2))
-
-    lookup = {}
-    categories = [
-        ("occupation_management_business_science_arts_pct", "occupation_management_business_science_arts_ci_lower", "occupation_management_business_science_arts_ci_upper", "mgmt_m", "mgmt_f", "mgmt_m_moe", "mgmt_f_moe"),
-        ("occupation_service_pct", "occupation_service_ci_lower", "occupation_service_ci_upper", "service_m", "service_f", "service_m_moe", "service_f_moe"),
-        ("occupation_sales_office_pct", "occupation_sales_office_ci_lower", "occupation_sales_office_ci_upper", "sales_m", "sales_f", "sales_m_moe", "sales_f_moe"),
-        ("occupation_natural_resources_construction_maintenance_pct", "occupation_natural_resources_construction_maintenance_ci_lower", "occupation_natural_resources_construction_maintenance_ci_upper", "nr_m", "nr_f", "nr_m_moe", "nr_f_moe"),
-        ("occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper", "prod_m", "prod_f", "prod_m_moe", "prod_f_moe"),
-    ]
-    for row in rows:
-        geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
-        if not geoid:
-            continue
-        denom = _safe_num(_acs_lookup_value(row, aliases, "denom"))
-        denom_moe = _acs_lookup_value(row, aliases, "denom_moe")
-        out = {"occupation_distribution": "Occupation percentages"}
-        for value_key, low_key, high_key, am, af, mm, mf in categories:
-            num = est(row, am) + est(row, af)
-            num_moe = moe90_combined(row, mm, mf)
-            out[value_key] = _safe_pct(num, denom)
-            out[low_key], out[high_key] = _acs_pct_ci_from_num_denom(num, num_moe, denom, denom_moe)
-        lookup[geoid] = out
-    return lookup
+    return get_community_lookup(["occupation_dist"], geographic_level, acs_period)
 
 
 def _get_county_adi_lookup():
@@ -4040,7 +3865,7 @@ def _get_acs_period_community_lookup(requested, geographic_level, acs_period):
         for geoid, row in rows.items():
             lookup.setdefault(geoid, {}).update(row)
 
-    if requested & {"pop_total", "sex_distribution", "median_age"}:
+    if requested & {"pop_total", "sex_distribution"}:
         merge(_get_acs_b01001_community_lookup(requested, geographic_level, acs_period))
     if "race_eth" in requested:
         merge(_get_race_ethnicity_community_lookup(geographic_level, acs_period))
@@ -4049,30 +3874,20 @@ def _get_acs_period_community_lookup(requested, geographic_level, acs_period):
 
     if "per_capita_income" in requested:
         merge(_get_acs_per_capita_income_community_lookup(geographic_level, acs_period))
-    if "poverty_pct" in requested:
-        merge(_get_acs_poverty_community_lookup(geographic_level, acs_period))
     if "snap_pct" in requested:
         merge(_get_acs_snap_community_lookup(geographic_level, acs_period))
     if "gini" in requested:
         merge(_get_acs_gini_community_lookup(geographic_level, acs_period))
-    if "employment_16plus" in requested:
-        merge(_get_acs_employment_community_lookup(geographic_level, acs_period))
-    if "occupation_dist" in requested:
-        merge(_get_acs_occupation_community_lookup(geographic_level, acs_period))
     if "redlined_pct" in requested:
         # HRI tables are tract-specific and available for 2010/2020. Most recent uses 2020; historical 2010 is handled separately below.
         hri_period = "2010" if str(acs_period).endswith("2018") or str(acs_period).endswith("2013") else "2020"
         merge(_get_redlining_hri_lookup(geographic_level, hri_period, acs_period))
     if "housing_unoccupied" in requested:
         merge(_get_acs_housing_unoccupied_community_lookup(geographic_level, acs_period))
-    if "renting_pct" in requested:
-        merge(_get_acs_renting_community_lookup(geographic_level, acs_period))
     if "median_year_built" in requested:
         merge(_get_acs_median_year_built_community_lookup(geographic_level, acs_period))
     if "median_home_value" in requested:
         merge(_get_acs_median_home_value_community_lookup(geographic_level, acs_period))
-    if "moved_last_year" in requested:
-        merge(_get_acs_moved_last_year_community_lookup(geographic_level, acs_period))
 
     merge(get_community_lookup(requested, geographic_level, acs_period))
 
