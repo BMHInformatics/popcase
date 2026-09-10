@@ -298,7 +298,8 @@ def load_case_counts(linking_year, geographic_level, filters, bands, sex, races,
     if mortality:
         from .mortality_rates import death_ages
         cases = death_ages(qs.values_list('mid', 'vital_status', 'last_contact', 'birth_date',
-            'cause_of_death', 'icd_revision', 'primary_site', 'hist_o3'), filters, geographic_level, bands)
+            'cause_of_death', 'icd_revision', 'primary_site', 'hist_o3',
+            'last_contact_year', 'last_contact_month', 'last_contact_day'), filters, geographic_level, bands)
     else:
         cases = dict(qs.values_list('mid', 'age_at_dx'))
     reference = defaultdict(int)

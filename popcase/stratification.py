@@ -233,7 +233,8 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
     fields.extend(detail_fields)
     fields.extend(site_fields)
     if _mortality:
-        fields.extend(['vital_status', 'last_contact', 'birth_date', 'cause_of_death', 'icd_revision', 'hist_o3'])
+        fields.extend(['vital_status', 'last_contact', 'birth_date', 'cause_of_death', 'icd_revision', 'hist_o3',
+                       'last_contact_year', 'last_contact_month', 'last_contact_day'])
     records = list(filtered.values(*fields))
     reference_records = []
     if measures & ADJUSTED_INCIDENCE and geographic_level in ('tract', 'zcta', 'place'):

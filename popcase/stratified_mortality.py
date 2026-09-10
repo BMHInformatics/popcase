@@ -1,5 +1,5 @@
 """Registry-attributed deaths, classified independently of diagnosis-period cases."""
-from .mortality_rates import death_ages
+from .mortality_rates import death_ages, death_date
 from .rate_statistics import selected_age_bands, RateDataUnavailable
 
 MEASURE_MAP = {'crude_mort_rate': 'crude_inc_rate', 'crude_mort_ci': 'crude_inc_ci',
@@ -26,7 +26,8 @@ def prepare_deaths(records, filters, level, variables):
         try:
             ages = death_ages([tuple(record.get(field) for field in (
                 'mid', 'vital_status', 'last_contact', 'birth_date', 'cause_of_death',
-                'icd_revision', 'primary_site', 'hist_o3'))], filters, level, bands)
+                'icd_revision', 'primary_site', 'hist_o3', 'last_contact_year',
+                'last_contact_month', 'last_contact_day'))], filters, level, bands)
         except RateDataUnavailable as exc:
             errors.add(str(exc))
             continue
@@ -42,7 +43,9 @@ def prepare_deaths(records, filters, level, variables):
             errors.add('Mortality unavailable: one death matches multiple tumor strata; tumor-specific death attribution is required.')
         identities[record['mid']] = identity
         signature = (record.get('sex'), record.get('race1'), record.get('hispanic_origin'),
-                     record.get('last_contact'), ages[record['mid']])
+                     death_date(*(record.get(field) for field in (
+                         'last_contact', 'last_contact_year', 'last_contact_month', 'last_contact_day'))),
+                     ages[record['mid']])
         if record['mid'] in deaths and deaths[record['mid']][0] != signature:
             errors.add('Mortality unavailable: conflicting death or demographic records for one person.')
         deaths[record['mid']] = (signature, death)

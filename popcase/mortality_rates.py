@@ -33,22 +33,34 @@ def cancer_death_matches(cause, revision, primary_site, histology):
     return cause[:3] == expected
 
 
+def death_date(last_contact, year=None, month=None, day=None):
+    """Use the combined date when present, otherwise the NAACCR date parts."""
+    value = str(last_contact or '').strip()
+    if not value:
+        parts = [str(part or '').strip() for part in (year, month, day)]
+        if not all(re.fullmatch(pattern, part) for pattern, part in zip(
+                (r'[0-9]{4}', r'[0-9]{1,2}', r'[0-9]{1,2}'), parts)):
+            raise ValueError('Incomplete death date')
+        value = parts[0] + parts[1].zfill(2) + parts[2].zfill(2)
+    if not re.fullmatch(r'[0-9]{8}', value):
+        raise ValueError('Invalid death date')
+    return datetime.strptime(value, '%Y%m%d').date()
+
+
 def death_ages(rows, filters, level, bands):
     from .services import diagnosis_quarter_bounds
     start_text, end_text = filters.get('dx_start') or '', filters.get('dx_end') or ''
     start = diagnosis_quarter_bounds(start_text + 'q1' if len(start_text) == 4 else start_text)
     end = diagnosis_quarter_bounds(end_text + 'q4' if len(end_text) == 4 else end_text)
     cases = {}
-    for mid, status, last_contact, birth, cause, revision, site, histology in rows:
+    for mid, status, last_contact, birth, cause, revision, site, histology, *date_parts in rows:
         status = (status or '').strip()
         if status == '1':
             continue
         if status != '0':
             raise RateDataUnavailable('Mortality unavailable: vital status is missing or unknown.')
         try:
-            if not re.fullmatch(r'[0-9]{8}', (last_contact or '').strip()):
-                raise ValueError()
-            death = datetime.strptime((last_contact or '').strip(), '%Y%m%d').date()
+            death = death_date(last_contact, *date_parts)
         except ValueError:
             raise RateDataUnavailable('Mortality unavailable: a death date is missing or invalid.')
         death_text = death.strftime('%Y%m%d')
