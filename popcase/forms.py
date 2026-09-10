@@ -654,9 +654,14 @@ class StratificationForm(forms.Form):
                                ("Disease Characteristics", STRAT_VAR_CHOICES[8:])):
             variables = []
             for token, label in choices:
-                unavailable = token == "metro" and self.geographic_level not in ("county", "tract")
+                reason = ""
+                if token in {"hpsa", "redlined", "metro"}:
+                    reason = "Stratified calculations are not yet available"
+                if token == "metro" and self.geographic_level not in ("county", "tract"):
+                    reason = "County and census tract comparisons only"
+                unavailable = bool(reason)
                 variables.append({
-                    "token": token, "label": label, "unavailable": unavailable,
+                    "token": token, "label": label, "unavailable": unavailable, "unavailable_reason": reason,
                     "placements": [{"name": name, "selected": value == token,
                                     "label": self.fields[name].label} for name, value in axes],
                 })
@@ -675,6 +680,8 @@ class StratificationForm(forms.Form):
             raise forms.ValidationError("Choose either the 3-category or 4-category receptor grouping, not both.")
         if "metro" in selected and self.geographic_level not in ("county", "tract"):
             raise forms.ValidationError("Metro vs. Non-metro is available only for county or census tract comparisons.")
+        if set(selected) & {"hpsa", "redlined", "metro"}:
+            raise forms.ValidationError("Stratified calculations for HPSA, redlining, and metro status are not yet available.")
         cleaned["output_type"] = "table"
         return cleaned
 

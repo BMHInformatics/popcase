@@ -69,7 +69,7 @@
             </td>{% endfor %}
             <th scope="row" class="fw-normal {% if variable.unavailable %}text-secondary{% endif %}">
               {{ variable.label }}
-              {% if variable.unavailable %}<span class="d-block small">County and census tract comparisons only</span>{% endif %}
+              {% if variable.unavailable %}<span class="d-block small">{{ variable.unavailable_reason }}</span>{% endif %}
             </th>
           </tr>{% endfor %}
         </tbody>

@@ -9,7 +9,7 @@
       overflow: auto;
     }
 
-    .results-table th {
+    .results-table thead th {
       position: sticky;
       top: 0;
       z-index: 3;
@@ -20,7 +20,7 @@
     }
 
     .results-table thead tr:nth-child(2) th {
-      top: 2.5rem;
+      top: var(--results-header-height, 2.5rem);
       z-index: 4;
     }
 
@@ -31,11 +31,34 @@
       z-index: 6;
     }
 
-    .results-table td:first-child {
+    .results-table .results-row-stratum,
+    .results-table thead .results-column-group {
+      --bs-table-bg: #f0f2f5;
+      --bs-table-accent-bg: transparent;
+      --bs-table-bg-type: transparent;
+      --bs-table-bg-state: transparent;
+      background: #f0f2f5;
+    }
+
+    .results-table tbody:not([data-row-group]) td:first-child,
+    .results-table .results-row-stratum {
       position: sticky;
       left: 0;
       z-index: 2;
+    }
+
+    .results-table tbody:not([data-row-group]) td:first-child {
       background: #fff;
+    }
+
+    .results-table .results-row-stratum {
+      vertical-align: top;
+      min-width: 10rem;
+      border-right: 2px solid #adb5bd;
+    }
+
+    .results-table tbody[data-row-group] + tbody tr:first-child > * {
+      border-top: 2px solid #adb5bd;
     }
 
     .results-column-group {
@@ -47,6 +70,11 @@
     .results-group-start {
       border-left: 2px solid #adb5bd !important;
     }
+    .selection-summary .badge { background: var(--selection-bg); color: var(--selection-ink); border: 1px solid var(--selection-border); text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    .selection-geography { --selection-bg: #e0f2ef; --selection-ink: #205a50; --selection-border: #b6dcd5; }
+    .selection-filters { --selection-bg: #e8f0fc; --selection-ink: #244c7d; --selection-border: #c5d7ef; }
+    .selection-measures { --selection-bg: #fff3d6; --selection-ink: #765414; --selection-border: #ecd7a5; }
+    .selection-stratification { --selection-bg: #efe8f8; --selection-ink: #594078; --selection-border: #d7c7e8; }
   </style>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0">Results</h4>
@@ -60,43 +88,28 @@
     <div class="card shadow-sm">
       <div class="card-body">
         <h6 class="text-uppercase text-secondary">Your selections</h6>
+        <div class="selection-summary d-flex flex-wrap gap-2">
 
-        <div class="d-flex flex-wrap gap-2">
-        <span class="badge text-bg-light border">
-          <strong>{% if mortality_requested %}Reporting period (death date for mortality):{% else %}Dx Year:{% endif %}</strong>
-          {{ dx_start }}
-          &ndash;
-          {{ dx_end }}
-        </span>
 
-          <span class="badge text-bg-light border">
+          <span class="badge selection-geography">
             <strong>Geography:</strong>
             {% if geographic_level == "none" %}All locations{% else %}{{ geographic_level|title }}{% endif %}
           </span>
 
-          {% if community_timeframes %}
-            <span class="badge text-bg-light border">
-              <strong>Community data:</strong>
-              {% for tf in community_timeframes %}
-                {% if tf == "most_recent" %}Most recent available{% elif tf == "historical" %}Historical{% else %}{{ tf }}{% endif %}{% if not forloop.last %}, {% endif %}
-              {% endfor %}
-            </span>
-          {% endif %}
-
           {# Sex #}
           {% if filters.sex and filters.sex != "all" %}
-            <span class="badge text-bg-primary">
+            <span class="badge selection-filters">
               Sex: {{ filters.sex|title }}
             </span>
           {% endif %}
 
           {# Age #}
           {% if age_group_labels %}
-            <span class="badge text-bg-primary text-wrap" style="max-width: 100%; overflow-wrap: anywhere;">
+            <span class="badge selection-filters text-wrap" style="max-width: 100%; overflow-wrap: anywhere;">
               Age: {{ age_group_labels|join:", " }}
             </span>
           {% elif filters.age_from or filters.age_to %}
-            <span class="badge text-bg-primary">
+            <span class="badge selection-filters">
               Age:
               {% if filters.age_from %}{{ filters.age_from }}{% else %}Any{% endif %}
               &ndash;
@@ -105,7 +118,7 @@
           {% endif %}
           {# Race/ethnicity #}
           {% if filters.race_ethnicity and filters.race_ethnicity.0 %}
-            <span class="badge text-bg-primary">
+            <span class="badge selection-filters">
               Race:
               {% for r in filters.race_ethnicity %}
                 {% if r == "nh_white" %}NH White{% elif r == "nh_black" %}NH Black{% elif r == "nh_aian" %}NH AI/AN
@@ -117,9 +130,17 @@
             </span>
           {% endif %}
 
+        <span class="badge selection-filters">
+          <strong>{% if mortality_requested %}Reporting period (death date for mortality):{% else %}Dx Year:{% endif %}</strong>
+          {{ dx_start }}
+          &ndash;
+          {{ dx_end }}
+        </span>
+
+
           {# Cancer types (expand/collapse) #}
           {% if cancer_type_labels %}
-            <span class="badge text-bg-secondary text-wrap" style="max-width: 100%; overflow-wrap: anywhere;">
+            <span class="badge selection-filters text-wrap" style="max-width: 100%; overflow-wrap: anywhere;">
               <strong>Cancer types:</strong>
 
               <span id="ct-short">
@@ -129,7 +150,7 @@
               {% if cancer_type_labels|length > 6 %}
                 <a href="#"
                    id="ct-toggle"
-                   class="link-light text-decoration-underline ms-1"
+                   class="link-dark text-decoration-underline ms-1"
                    style="white-space: nowrap;"
                    data-more="(+{{ cancer_type_labels|length|add:'-6' }} more)"
                    data-less="(show less)">
@@ -148,6 +169,22 @@
             <span class="text-muted small">No demographic filters applied.</span>
           {% elif not filters.sex and not age_group_labels and not filters.age_from and not filters.age_to and not filters.race_ethnicity and not filters.race and not filters.cancer_types %}
             <span class="text-muted small">No demographic filters applied.</span>
+          {% endif %}
+          {% if community_timeframes %}
+
+            <span class="badge selection-measures">
+              <strong>Community data:</strong>
+              {% for tf in community_timeframes %}
+                {% if tf == "most_recent" %}Most recent available{% elif tf == "historical" %}Historical{% else %}{{ tf }}{% endif %}{% if not forloop.last %}, {% endif %}
+              {% endfor %}
+            </span>
+          {% endif %}
+
+          {% if stratification_selections %}
+
+          {% for axis, variable in stratification_selections %}
+            <span class="badge selection-stratification"><strong>{{ axis }}:</strong> {{ variable }}</span>
+          {% endfor %}
           {% endif %}
         </div>
       </div>
@@ -174,110 +211,24 @@
         </div>
 
 {% if dataset_rows %}
-  <form method="get" class="d-flex justify-content-end align-items-center gap-2 mt-3">
-    <label class="form-label mb-0 small text-secondary" for="rows">Rows to show</label>
-    <select class="form-select form-select-sm" id="rows" name="rows" style="width: auto;" onchange="this.form.submit()">
-      {% for choice in dataset_preview_limit_choices %}
-        <option value="{{ choice }}" {% if choice == dataset_preview_limit %}selected{% endif %}>{{ choice }}</option>
-      {% endfor %}
-    </select>
-    <button class="btn btn-outline-secondary btn-sm" type="submit">Apply</button>
-  </form>
   {% if dataset_is_truncated %}
     <div class="alert alert-info mt-3 mb-2 py-2">
       Showing the first {{ dataset_preview_limit }} of {{ dataset_total_rows }} rows for faster page rendering. Use <strong>Download Results (CSV)</strong> for the full dataset.
     </div>
   {% endif %}
 
-  <div class="table-responsive mt-3 results-table-wrap">
-    <table class="table table-sm table-striped align-middle mb-0 results-table" style="min-width: 1200px;">
-      <thead class="table-light">
-        <tr>
-          {% for cell in dataset_header_rows.top %}
-            <th{% if cell.key %} data-sort="{{ cell.sort_type }}" data-column-index="{{ cell.col_index }}"{% endif %}
-                colspan="{{ cell.col_span }}"
-                rowspan="{{ cell.row_span }}"
-                class="{{ cell.classes }}"
-                style="{% if cell.key and cell.key != 'label' %}min-width: 8rem;{% endif %}">
-              {{ cell.label }}
-              {% if cell.key %}<span></span>{% endif %}
-            </th>
-          {% endfor %}
-        </tr>
-        {% if dataset_header_rows.has_groups %}
-          <tr>
-            {% for cell in dataset_header_rows.leaf %}
-              <th data-sort="{{ cell.sort_type }}"
-                  data-column-index="{{ cell.col_index }}"
-                  colspan="{{ cell.col_span }}"
-                  rowspan="{{ cell.row_span }}"
-                  class="{{ cell.classes }}"
-                  style="{% if cell.key != 'label' %}min-width: 8rem;{% endif %}">
-                {{ cell.label }}
-                <span></span>
-              </th>
-            {% endfor %}
-          </tr>
-        {% endif %}
-      </thead>
+  {% if comparison_sections %}
+    {% for section in comparison_sections %}
+      {% if section.title %}<h6 class="mt-4 mb-2">{{ section.title }}</h6>{% endif %}
+      {% include "popcase/results_table.html" with dataset_rows=section.rows dataset_columns=section.columns dataset_header_rows=section.header_rows dataset_column_classes=section.column_classes dataset_numeric_cols=section.numeric_columns dataset_row_groups=section.row_groups dataset_row_label=section.row_label %}
+    {% endfor %}
+  {% else %}
+    {% include "popcase/results_table.html" %}
+  {% endif %}
 
-      <tbody>
-        {% for row in dataset_rows %}
-          <tr>
-            {% if dataset_columns %}
-              {% for key in dataset_columns %}
-                {% with val=row|get_item:key column_class=dataset_column_classes|get_item:key %}
-                  {% if key == "label" %}
-                    <td class="bg-white"
-                        style="position: sticky; left: 0; z-index: 2; white-space: nowrap;">
-                      {{ val }}
-                    </td>
-                  {% elif key == "tract_geoid" or key == "geoid" %}
-                    <td class="{{ column_class }}" style="white-space: nowrap;">{{ val }}</td>
-                  {% else %}
-                    <td class="text-end {{ column_class }}" style="white-space: nowrap;">
-                      {% if val is None or val == "" %}
-                        <span class="text-muted">&mdash;</span>
-                      {% elif key == "total_population" or key == "total_population_ci_lower" or key == "total_population_ci_upper" or key == "median_household_income" or key == "median_household_income_ci_lower" or key == "median_household_income_ci_upper" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
-                        {{ val|intcomma }}
-                      {% else %}
-                        {{ val }}
-                      {% endif %}
-                    </td>
-                  {% endif %}
-                {% endwith %}
-              {% endfor %}
-            {% else %}
-              {% for key, val in row.items %}
-                {% if key in dataset_exclude_columns %}
-                {% elif key == "label" %}
-                  <td class="bg-white"
-                      style="position: sticky; left: 0; z-index: 2; white-space: nowrap;">
-                    {{ val }}
-                  </td>
-                {% elif key == "tract_geoid" or key == "geoid" %}
-                  <td style="white-space: nowrap;">{{ val }}</td>
-                {% else %}
-                  <td class="text-end" style="white-space: nowrap;">
-                    {% if val is None %}
-                      <span class="text-muted">&mdash;</span>
-                    {% elif key == "total_population" or key == "total_population_ci_lower" or key == "total_population_ci_upper" or key == "median_household_income" or key == "median_household_income_ci_lower" or key == "median_household_income_ci_upper" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
-                      {{ val|intcomma }}
-                    {% else %}
-                      {{ val }}
-                    {% endif %}
-                  </td>
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
 
   <div class="small text-muted mt-2">
-    Scroll horizontally to view additional measures. Click a column header to sort the preview rows in the browser.
+    Scroll horizontally to view additional measures. Click a column header to sort the preview rows within each row group.
   </div>
 {% else %}
   <p class="text-muted mt-3">
@@ -362,6 +313,11 @@
   <script>
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll("table").forEach((table) => {
+    if (table.classList.contains("results-table") && table.tHead && table.tHead.rows.length > 1) {
+      const updateHeaderHeight = () => table.style.setProperty("--results-header-height", table.tHead.rows[0].getBoundingClientRect().height + "px");
+      updateHeaderHeight();
+      new ResizeObserver(updateHeaderHeight).observe(table.tHead.rows[0]);
+    }
     const headers = Array.from(table.querySelectorAll("th[data-sort]"));
     if (!headers.length) return;
 
@@ -370,16 +326,22 @@ document.addEventListener("DOMContentLoaded", function () {
       header.addEventListener("click", () => {
         const parsedColIndex = Number.parseInt(header.dataset.columnIndex || "", 10);
         const colIndex = Number.isFinite(parsedColIndex) ? parsedColIndex : fallbackColIndex;
-        const tbody = table.querySelector("tbody");
-        if (!tbody) return;
-
-        const rows = Array.from(tbody.querySelectorAll("tr"));
         const type = header.dataset.sort;
         const asc = header.dataset.asc === "true";
-
+        if (colIndex === 0 && table.querySelector('tbody[data-row-group]')) {
+          Array.from(table.tBodies).sort((a, b) => {
+            const order = Number(a.dataset.categoryOrder) - Number(b.dataset.categoryOrder);
+            return asc ? order : -order;
+          }).forEach((tbody) => table.appendChild(tbody));
+        } else {
+        Array.from(table.tBodies).forEach((tbody) => {
+        const groupCell = tbody.querySelector('.results-row-stratum');
+        const cellIndex = groupCell ? colIndex - 1 : colIndex;
+        if (groupCell) groupCell.remove();
+        const rows = Array.from(tbody.rows);
         rows.sort((a, b) => {
-          let A = a.children[colIndex].innerText.replace(/,/g, "").trim();
-          let B = b.children[colIndex].innerText.replace(/,/g, "").trim();
+          let A = a.children[cellIndex].innerText.replace(/,/g, "").trim();
+          let B = b.children[cellIndex].innerText.replace(/,/g, "").trim();
 
           if (type === "number") {
             A = parseFloat(A);
@@ -392,10 +354,13 @@ document.addEventListener("DOMContentLoaded", function () {
           return asc ? (A > B ? 1 : -1) : (A < B ? 1 : -1);
         });
 
+        rows.forEach((row) => tbody.appendChild(row));
+        if (groupCell && rows.length) rows[0].prepend(groupCell);
+        });
+        }
         table.querySelectorAll("th span").forEach((s) => { s.textContent = ""; });
         header.querySelector("span").textContent = asc ? " " + String.fromCharCode(9650) : " " + String.fromCharCode(9660);
         header.dataset.asc = asc ? "false" : "true";
-        rows.forEach((row) => tbody.appendChild(row));
       });
     });
   });

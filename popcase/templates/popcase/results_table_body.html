@@ -1,0 +1,57 @@
+{% load humanize popcase_extras %}
+      <tbody{% if group %} data-row-group="{{ group.label }}" data-category-order="{{ forloop.counter0 }}"{% endif %}>
+        {% for row in dataset_rows %}
+          <tr>
+            {% if dataset_columns %}
+              {% for key in dataset_columns %}
+                {% with val=row|get_item:key column_class=dataset_column_classes|get_item:key %}
+                  {% if group and forloop.first %}
+                    {% if forloop.parentloop.first %}
+                      <th scope="rowgroup" rowspan="{{ dataset_rows|length }}" class="results-row-stratum">{{ group.label }}</th>
+                    {% endif %}
+                  {% elif key == "label" %}
+                    <td class="bg-white"
+                        style="white-space: nowrap;">
+                      {{ val }}
+                    </td>
+                  {% elif key == "tract_geoid" or key == "geoid" %}
+                    <td class="{{ column_class }}" style="white-space: nowrap;">{{ val }}</td>
+                  {% else %}
+                    <td class="{% if key in dataset_numeric_cols %}text-end {% endif %}{{ column_class }}" style="white-space: nowrap;">
+                      {% if val is None or val == "" %}
+                        <span class="text-muted">&mdash;</span>
+                      {% elif key == "total_population" or key == "total_population_ci_lower" or key == "total_population_ci_upper" or key == "median_household_income" or key == "median_household_income_ci_lower" or key == "median_household_income_ci_upper" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
+                        {{ val|intcomma }}
+                      {% else %}
+                        {{ val }}
+                      {% endif %}
+                    </td>
+                  {% endif %}
+                {% endwith %}
+              {% endfor %}
+            {% else %}
+              {% for key, val in row.items %}
+                {% if key in dataset_exclude_columns %}
+                {% elif key == "label" %}
+                  <td class="bg-white"
+                      style="white-space: nowrap;">
+                    {{ val }}
+                  </td>
+                {% elif key == "tract_geoid" or key == "geoid" %}
+                  <td style="white-space: nowrap;">{{ val }}</td>
+                {% else %}
+                  <td class="{% if key in dataset_numeric_cols %}text-end{% endif %}" style="white-space: nowrap;">
+                    {% if val is None %}
+                      <span class="text-muted">&mdash;</span>
+                    {% elif key == "total_population" or key == "total_population_ci_lower" or key == "total_population_ci_upper" or key == "median_household_income" or key == "median_household_income_ci_lower" or key == "median_household_income_ci_upper" or key == "case_count" or key == "n_total_staged_unstaged" or key == "male_population" or key == "female_population" or key == "mammography_facility_count_20mi" %}
+                      {{ val|intcomma }}
+                    {% else %}
+                      {{ val }}
+                    {% endif %}
+                  </td>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>

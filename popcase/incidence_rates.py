@@ -166,9 +166,8 @@ def load_target_populations(geographic_level, year_exposure, bands, sex, selecte
 
 def load_ohio_decennial_population(year_exposure, bands, sex, races):
     if races:
-        raise RateDataUnavailable(
-            'Ohio decennial age-by-race reference populations are not available; '
-            'the available statewide P12 tables contain all races combined.')
+        from .decennial_reference import load_reference
+        return load_reference(year_exposure, bands, sex, races)
     populations, errors = load_decennial_population(year_exposure, bands, sex, 'state')
     if errors or '39' not in populations:
         raise RateDataUnavailable('Ohio decennial reference population is incomplete.')

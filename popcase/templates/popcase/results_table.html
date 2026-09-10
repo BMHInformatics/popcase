@@ -1,0 +1,42 @@
+{% load humanize popcase_extras %}
+  <div class="table-responsive mt-3 results-table-wrap">
+    <table class="table table-sm table-striped align-middle mb-0 results-table" style="min-width: 1200px;">
+      <thead class="table-light">
+        <tr>
+          {% for cell in dataset_header_rows.top %}
+            <th{% if cell.key %} data-sort="{{ cell.sort_type }}" data-column-index="{{ cell.col_index }}"{% endif %}
+                colspan="{{ cell.col_span }}"
+                rowspan="{{ cell.row_span }}"
+                class="{{ cell.classes }}"
+                style="{% if cell.key and cell.key != 'label' %}min-width: 8rem;{% endif %}">
+              {{ cell.label }}
+              {% if cell.key %}<span></span>{% endif %}
+            </th>
+          {% endfor %}
+        </tr>
+        {% if dataset_header_rows.has_groups %}
+          <tr>
+            {% for cell in dataset_header_rows.leaf %}
+              <th data-sort="{{ cell.sort_type }}"
+                  data-column-index="{{ cell.col_index }}"
+                  colspan="{{ cell.col_span }}"
+                  rowspan="{{ cell.row_span }}"
+                  class="{{ cell.classes }}"
+                  style="{% if cell.key != 'label' %}min-width: 8rem;{% endif %}">
+                {{ cell.label }}
+                <span></span>
+              </th>
+            {% endfor %}
+          </tr>
+        {% endif %}
+      </thead>
+
+      {% if dataset_row_groups %}
+        {% for group in dataset_row_groups %}
+          {% include "popcase/results_table_body.html" with dataset_rows=group.rows %}
+        {% endfor %}
+      {% else %}
+        {% include "popcase/results_table_body.html" %}
+      {% endif %}
+    </table>
+  </div>

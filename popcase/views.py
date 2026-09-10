@@ -40,9 +40,10 @@ from .acs_measures import (
 )
 
 
+from .stratification import StratificationUnavailable, LABELS as STRATIFICATION_LABELS
+
 STEPS = ["geographic-level", "filters", "measures", "stratification"]
-PREVIEW_ROW_LIMIT = 250
-PREVIEW_ROW_LIMIT_CHOICES = (10, 50, 100, 250)
+PREVIEW_ROW_LIMIT = 200
 SUPPORTED_DISEASE_MEASURES = {
     "case_count",
     "pct_advanced",
@@ -102,6 +103,8 @@ TRACT_HEADER_MAP = {
     "crude_inc_ci_lower_per_100k": "Crude incidence CI 95% (L) /100,000",
     "crude_inc_ci_upper_per_100k": "Crude incidence CI 95% (U) /100,000",
     "crude_mortality_per_100k": "Crude mortality /100,000",
+    "cancer_death_count": "Cancer-attributed death count",
+    "mortality_data_note": "Mortality availability",
     "crude_mort_ci_lower_per_100k": "Crude mortality CI 95% (L) /100,000",
     "crude_mort_ci_upper_per_100k": "Crude mortality CI 95% (U) /100,000",
     "age_adjusted_per_100k": "Age-adjusted incidence /100,000",
@@ -164,6 +167,7 @@ TRACT_HEADER_MAP = {
 
 TRACT_NUMERIC_COLS = [
     "case_count",
+    "cancer_death_count",
     "n_total_staged_unstaged",
     "pct_advanced",
     "adv_ci_lower",
@@ -448,6 +452,8 @@ TRACT_NUMERIC_COLS = list(dict.fromkeys(TRACT_NUMERIC_COLS + list(SUPPORT_DISPLA
 # Geography-agnostic aliases used by the results page and CSV exporter.
 # The old TRACT_* names are kept only as backward-compatible aliases.
 DATASET_HEADER_MAP = TRACT_HEADER_MAP
+DATASET_HEADER_MAP.update({"stratum_" + key: label for key, label in STRATIFICATION_LABELS.items()})
+DATASET_HEADER_MAP["stratification_rate_note"] = "Rate availability"
 DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 
 # These are aggregate placeholder columns created only to trigger display-option logic.
@@ -455,6 +461,8 @@ DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 # or exported. The real component columns (male/female %, race-specific %, etc.)
 # are displayed instead.
 DATASET_EXCLUDE_COLUMNS = {
+    "stratification_rate_note",
+    "mortality_data_note",
     # FR47: omit deferred redlining/ADI measures from reports, including caches.
     "redlined_pct",
     "ranked_historic_redlining_index",
@@ -715,13 +723,6 @@ def _filter_disease_measures_for_geography(disease_measures, geographic_level: s
 
 
 def _get_preview_row_limit(request):
-    try:
-        requested_limit = int(request.GET.get("rows", PREVIEW_ROW_LIMIT))
-    except (TypeError, ValueError):
-        return PREVIEW_ROW_LIMIT
-
-    if requested_limit in PREVIEW_ROW_LIMIT_CHOICES:
-        return requested_limit
     return PREVIEW_ROW_LIMIT
 
 
@@ -736,6 +737,7 @@ def _build_results_payload_cached(
     display_options_tuple: tuple,
     community_timeframes_tuple: tuple,
     latest_year: str,
+    stratification_json: str = "",
 ):
     filters = _deserialize_payload(filters_json)
     disease_measures = list(disease_measures_tuple)
@@ -747,6 +749,24 @@ def _build_results_payload_cached(
     total_incidence = None
     dataset_rows = []
     result_mode = "none"
+
+    stratification = _deserialize_payload(stratification_json)
+    if any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
+        from .stratification import build_stratified_dataset
+        dataset_rows = build_stratified_dataset(
+            geographic_level, (dx_start, dx_end), filters, disease_measures,
+            stratification, latest_year,
+        )
+        if support_measures and geographic_level in {"county", "tract", "zcta", "place"}:
+            community_rows = build_geo_dataset(
+                geographic_level=geographic_level, year_range=(dx_start, dx_end),
+                filters=filters, disease_measures=[], support_measures=support_measures,
+                display_options=display_options, community_timeframes=community_timeframes,
+                incidence_year=latest_year,
+            )
+            community_lookup = {row["geoid"]: row for row in community_rows}
+            dataset_rows = [dict(community_lookup.get(row["geoid"], {}), **row) for row in dataset_rows]
+        return {"incidence": [], "total_incidence": None, "dataset_rows": dataset_rows, "result_mode": "dataset"}
 
     has_dataset_request = bool(SUPPORTED_DISEASE_MEASURES.intersection(disease_measures) or support_measures)
 
@@ -1160,17 +1180,22 @@ def results(request):
             messages.error(request, str(exc))
             return redirect("popcase:wizard_step", step="filters")
 
-    payload = _build_results_payload_cached(
-        geographic_level=geographic_level,
-        dx_start=dx_start,
-        dx_end=dx_end,
-        filters_json=_serialize_payload(filters),
-        disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
-        support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
-        display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
-        community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
-        latest_year=year,
-    )
+    try:
+        payload = _build_results_payload_cached(
+            geographic_level=geographic_level,
+            dx_start=dx_start,
+            dx_end=dx_end,
+            filters_json=_serialize_payload(filters),
+            disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
+            support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
+            display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
+            community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
+            latest_year=year,
+            stratification_json=_serialize_payload(wizard.get("stratification", {})),
+        )
+    except StratificationUnavailable as exc:
+        messages.error(request, str(exc))
+        return redirect("popcase:wizard_step", step="stratification")
 
     incidence = payload["incidence"]
     total_incidence = payload["total_incidence"]
@@ -1203,7 +1228,31 @@ def results(request):
         dynamic_numeric_cols,
     )
 
+    comparison_tables = []
+    stratification = wizard.get("stratification") or {}
+    if any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
+        from .stratification_output import comparison_sections, row_groups
+        all_sections = comparison_sections(dataset_rows, stratification, dataset_columns,
+                                          dynamic_header_map, dynamic_numeric_cols)
+        dataset_total_rows = sum(len(section["rows"]) for section in all_sections)
+        dataset_is_truncated = dataset_total_rows > dataset_preview_limit
+        remaining = dataset_preview_limit
+        for section in all_sections:
+            if remaining <= 0:
+                break
+            section["rows"] = section["rows"][:remaining]
+            section["row_groups"] = row_groups(section["rows"], section["row_key"])
+            remaining -= len(section["rows"])
+            section["header_rows"], section["column_classes"] = _build_dataset_header_rows(
+                section["columns"], section["header_map"], section["numeric_columns"], section["column_groups"] or None)
+            comparison_tables.append(section)
+
     context = {
+        "comparison_sections": comparison_tables,
+        "stratification_selections": [(label, STRATIFICATION_LABELS.get((wizard.get("stratification") or {}).get(axis), "None"))
+                                     for axis, label in (("row_variable", "Row"), ("col_variable", "Column"), ("table_variable", "Table"))],
+        "stratification_active": any((wizard.get("stratification") or {}).get(axis) for axis in ("row_variable", "col_variable", "table_variable")),
+        "stratification_has_community": bool(support_measures),
         "wizard_state": wizard,
         "filters": filters,
         "year": year,
@@ -1215,7 +1264,6 @@ def results(request):
         "dataset_rows": dataset_rows_preview,
         "dataset_total_rows": dataset_total_rows,
         "dataset_preview_limit": dataset_preview_limit,
-        "dataset_preview_limit_choices": PREVIEW_ROW_LIMIT_CHOICES,
         "dataset_is_truncated": dataset_is_truncated,
         "result_mode": result_mode,
         "disease_measures": disease_measures,
@@ -1314,21 +1362,26 @@ def export_geo_dataset_csv(request):
     dx_end = (filters.get("dx_end") or default_dx_end).strip() or default_dx_end
     latest_year = str(_latest_linking_year())
 
-    if geographic_level == "total":
+    if geographic_level == "total" and not any((wizard.get("stratification") or {}).get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
         rows = []
         filename = f"popcase_results_total_{dx_start}_{dx_end}.csv"
     else:
-        payload = _build_results_payload_cached(
-            geographic_level=geographic_level,
-            dx_start=dx_start,
-            dx_end=dx_end,
-            filters_json=_serialize_payload(filters),
-            disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
-            support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
-            display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
-            community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
-            latest_year=latest_year,
-        )
+        try:
+            payload = _build_results_payload_cached(
+                geographic_level=geographic_level,
+                dx_start=dx_start,
+                dx_end=dx_end,
+                filters_json=_serialize_payload(filters),
+                disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
+                support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
+                display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
+                community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
+                latest_year=latest_year,
+                stratification_json=_serialize_payload(wizard.get("stratification", {})),
+            )
+        except StratificationUnavailable as exc:
+            messages.error(request, str(exc))
+            return redirect("popcase:wizard_step", step="stratification")
         rows = payload["dataset_rows"] or []
         filename = f"popcase_results_{geographic_level}_{dx_start}_{dx_end}.csv"
 
@@ -1380,8 +1433,9 @@ def _dataset_header_cell(column, header_map, numeric_cols, col_index, row_span=1
     }
 
 
-def _build_dataset_header_rows(columns, header_map, numeric_cols):
-    has_groups = any(column in DATASET_COLUMN_GROUPS for column in columns)
+def _build_dataset_header_rows(columns, header_map, numeric_cols, column_groups=None):
+    group_labels = DATASET_COLUMN_GROUPS if column_groups is None else column_groups
+    has_groups = any(column in group_labels for column in columns)
     column_classes = {}
     header_rows = {"has_groups": has_groups, "top": [], "leaf": []}
     if not columns:
@@ -1397,7 +1451,7 @@ def _build_dataset_header_rows(columns, header_map, numeric_cols):
     index = 0
     while index < len(columns):
         column = columns[index]
-        group_label = DATASET_COLUMN_GROUPS.get(column)
+        group_label = group_labels.get(column)
 
         if not group_label:
             header_rows["top"].append(
@@ -1408,7 +1462,7 @@ def _build_dataset_header_rows(columns, header_map, numeric_cols):
 
         start_index = index
         grouped_columns = []
-        while index < len(columns) and DATASET_COLUMN_GROUPS.get(columns[index]) == group_label:
+        while index < len(columns) and group_labels.get(columns[index]) == group_label:
             grouped_columns.append(columns[index])
             index += 1
 
@@ -1465,6 +1519,12 @@ def _build_dataset_columns(rows, header_map, preferred_columns=None):
 
     for col in ("label", "geoid", "tract_geoid"):
         add_column(col)
+
+    # Group identifiers precede measures in table and CSV output.
+    for row in rows:
+        for col in row:
+            if col.startswith("stratum_"):
+                add_column(col)
 
     # Keep each estimate beside its bounds within each source period.
     groups = []
