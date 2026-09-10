@@ -84,7 +84,7 @@
                   <label class="form-label" for="{{ form.geography.id_for_label }}">{{ form.geography.label }}</label>
                   {{ form.geography }}
                   {{ form.geography.errors }}
-                  <div id="county-selection" class="mt-2">
+                  <div id="county-selection" class="mt-2"{% if form.geography.value != "counties" %} hidden{% endif %}>
                     <label class="form-label">{{ form.counties.label }}</label>
                     <div class="border rounded p-2" style="max-height: 200px; overflow: auto;">{{ form.counties }}</div>
                     {{ form.counties.errors }}

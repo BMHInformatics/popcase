@@ -243,10 +243,23 @@ class FiltersForm(forms.Form):
         self.fields["geography"].choices = (
             GEOGRAPHY_SCOPE_CHOICES
             + [("counties", "Selected counties")]
-            + [("", "---------")]
-            + county_choices
         )
         self.fields["counties"].choices = [(value.split(":", 1)[1], label) for value, label in county_choices]
+        # Preserve saved selections from the former single-county dropdown.
+        scope_key = self.add_prefix("geography")
+        scope = self.data.get(scope_key) if self.is_bound else self.initial.get("geography")
+        if isinstance(scope, str) and scope.startswith("county:"):
+            county = scope.split(":", 1)[1]
+            if self.is_bound:
+                self.data = self.data.copy()
+                self.data[scope_key] = "counties"
+                counties_key = self.add_prefix("counties")
+                if hasattr(self.data, "setlist"):
+                    self.data.setlist(counties_key, [county])
+                else:
+                    self.data[counties_key] = [county]
+            else:
+                self.initial.update(geography="counties", counties=[county])
 
     dx_start = forms.ChoiceField(
         choices=DX_QUARTER_FALLBACK_CHOICES,
