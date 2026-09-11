@@ -10,6 +10,7 @@ from .rate_statistics import (
     AGE_BANDS_20, AGE_BANDS_18, RateDataUnavailable, age_band_for_age,
     crude_rate, indirect_rate_ci, population_year_exposure, query_year_exposure,
     selected_age_bands,
+    round_rate,
 )
 
 
@@ -38,10 +39,6 @@ def _list(value):
 
 def demographic_selection(filters, geographic_level):
     from .services import _normalize_requested_sex, _sex_specific_cancer_sex_from_filters
-    cancer_sexes = {_sex_specific_cancer_sex_from_filters(dict(filters, cancer_types=[site]))
-                   for site in _list(filters.get('cancer_types'))}
-    if len(cancer_sexes) > 1:
-        raise RateDataUnavailable('Rates are unavailable for mixed sex-specific and other cancer selections.')
     sex = _normalize_requested_sex(filters)
     cancer_sex = _sex_specific_cancer_sex_from_filters(filters)
     if sex and cancer_sex and sex != cancer_sex:
@@ -53,10 +50,6 @@ def demographic_selection(filters, geographic_level):
         if race not in RACES or (geographic_level in {'tract', 'county'} and RACES[race][0] is None):
             raise RateDataUnavailable('Population data do not support the selected race/ethnicity category.')
     return sex, races
-
-
-def _population_label(band):
-    return f'{band[0]}+' if band[1] is None else f'{band[0]}-{band[1]}'
 
 
 def _population_exposures(rows, year_weights, bands, sexes, races, sparse_geo_years=None):
@@ -101,74 +94,73 @@ def _population_exposures(rows, year_weights, bands, sexes, races, sparse_geo_ye
 
 
 def load_target_populations(geographic_level, year_exposure, bands, sex, selected_races):
-    if geographic_level in {'zcta', 'place'} and not selected_races:
-        return load_decennial_population(year_exposure, bands, sex, geographic_level)
-    is_tract = geographic_level == 'tract'
-    weights = population_year_exposure(year_exposure, decennial=not is_tract)
-    sexes = ('1', '2') if is_tract else ('Male', 'Female')
-    if sex:
-        sexes = (('1' if sex == 'male' else '2') if is_tract else sex.title(),)
-    race_tokens = selected_races or tuple(k for k in RACES if not is_tract or RACES[k][0])
-    races = tuple(RACES[r][0 if is_tract else 1] for r in race_tokens)
-    if is_tract:
-        table = 'age_adjustment_census_tract'
-        geo = "state_fips || county_fips || tract"
-        source_ages = tuple(f'{AGE_BANDS_20.index(b):02}' for b in bands)
-        age_map = dict(zip(source_ages, bands))
-    else:
-        table = {'zcta': 'age_adjustment_zcta', 'place': 'age_adjustment_place'}[geographic_level]
-        geo = 'RIGHT("GEOID", 5)' if geographic_level == 'zcta' else 'RIGHT("GEOID", 7)'
-        source_ages = tuple(_population_label(b) for b in bands)
-        age_map = dict(zip(source_ages, bands))
+    if geographic_level in ('place', 'zcta'):
+        return selected_decennial_population(year_exposure, bands, sex, selected_races, geographic_level)
+    weights = population_year_exposure(year_exposure, decennial=False)
+    sexes = ('1', '2') if not sex else ('1' if sex == 'male' else '2',)
+    races = tuple(RACES[r][0] for r in (selected_races or tuple(r for r in RACES if RACES[r][0])))
+    table = 'age_adjustment_census_tract'
+    geo = "state_fips || county_fips || tract"
+    source_ages = tuple(f'{AGE_BANDS_20.index(b):02}' for b in bands)
+    age_map = dict(zip(source_ages, bands))
     with connections['popcase_manual_etl'].cursor() as cursor:
-        sparse_geo_years = None
-        if is_tract:
-            cursor.execute(f'SELECT DISTINCT {geo}, year FROM {table} WHERE state_fips = %s AND year IN %s',
-                           ['39', tuple(str(y) for y in weights)])
-            sparse_geo_years = {(g, int(y)) for g, y in cursor.fetchall()}
-            # Aggregate annual person-years in SQL instead of transferring millions of cells.
-            cases = ' '.join('WHEN %s THEN %s' for _ in weights)
-            params = [v for y, duration in weights.items() for v in (str(y), duration)]
-            cursor.execute(f'''
-                SELECT {geo}, age, SUM(population::numeric * (CASE year {cases} END)),
-                       COUNT(*) FILTER (WHERE population IS NULL OR population::numeric < 0)
-                FROM {table} WHERE state_fips = '39' AND year IN %s AND age IN %s
-                    AND sex IN %s AND race IN %s GROUP BY 1, 2
-            ''', params + [tuple(str(y) for y in weights), source_ages, sexes, races])
-            values = {(g, age_map[a]): (p, invalid) for g, a, p, invalid in cursor.fetchall()}
-            populations, errors = {}, {}
-            for g in {g for g, _ in sparse_geo_years}:
-                if any((g, y) not in sparse_geo_years for y in weights):
-                    errors[g] = 'Population years are incomplete.'
-                    continue
-                cells = {b: values.get((g, b), (0, 0)) for b in bands}
-                if any(p is None or invalid for p, invalid in cells.values()):
-                    errors[g] = 'Population cells are invalid.'
-                else:
-                    populations[g] = {b: float(p) for b, (p, _) in cells.items()}
-            return populations, errors
-        # Identifiers above are fixed application constants. All values are bound.
+        cursor.execute(f'SELECT DISTINCT {geo}, year FROM {table} WHERE state_fips = %s AND year IN %s',
+                       ['39', tuple(str(y) for y in weights)])
+        sparse_geo_years = {(g, int(y)) for g, y in cursor.fetchall()}
+        # Aggregate annual person-years in SQL instead of transferring millions of cells.
+        cases = ' '.join('WHEN %s THEN %s' for _ in weights)
+        params = [v for y, duration in weights.items() for v in (str(y), duration)]
         cursor.execute(f'''
-            SELECT {geo}, year, age, sex, race,
-                   CASE WHEN COUNT(*) FILTER (WHERE population IS NULL OR
-                        BTRIM(population::text) !~ '^[0-9]+(\\.[0-9]+)?$') > 0
-                        THEN NULL ELSE SUM(population::numeric) END
-            FROM {table}
-            WHERE state_fips = '39' AND year IN %s AND age IN %s
-                  AND sex IN %s AND race IN %s
-            GROUP BY 1, 2, 3, 4, 5
-        ''', [tuple(str(y) for y in weights), source_ages, sexes, races])
-        rows = [(str(g), y, age_map[a], s, r, p) for g, y, a, s, r, p in cursor.fetchall()]
-    if not rows and not sparse_geo_years:
-        raise RateDataUnavailable('No population records are available for the requested years and demographics.')
-    return _population_exposures(rows, weights, bands, sexes, races, sparse_geo_years)
+            SELECT {geo}, age, SUM(population::numeric * (CASE year {cases} END)),
+                   COUNT(*) FILTER (WHERE population IS NULL OR population::numeric < 0)
+            FROM {table} WHERE state_fips = '39' AND year IN %s AND age IN %s
+                AND sex IN %s AND race IN %s GROUP BY 1, 2
+        ''', params + [tuple(str(y) for y in weights), source_ages, sexes, races])
+        values = {(g, age_map[a]): (p, invalid) for g, a, p, invalid in cursor.fetchall()}
+        populations, errors = {}, {}
+        for g in {g for g, _ in sparse_geo_years}:
+            if any((g, y) not in sparse_geo_years for y in weights):
+                errors[g] = 'Population years are incomplete.'
+                continue
+            cells = {b: values.get((g, b), (0, 0)) for b in bands}
+            if any(p is None or invalid for p, invalid in cells.values()):
+                errors[g] = 'Population cells are invalid.'
+            else:
+                populations[g] = {b: float(p) for b, (p, _) in cells.items()}
+        return populations, errors
+
+
+def selected_decennial_population(year_exposure, bands, sex, races, level):
+    """Use the same population selection for targets and the Ohio reference.
+
+    Census publishes five named race groups. A selection containing Other NH
+    is the total minus the unselected named groups. This handles every subset
+    without recursive loaders or a fallback to differently classified ETL data.
+    """
+    from .decennial_reference import GROUPS, load_reference, load_place_reference, residual_population
+    selected = set(races)
+    complement = not selected or 'nh_other' in selected
+    groups = tuple(r for r in GROUPS if (r not in selected if complement else r in selected))
+    if not selected:
+        groups = ()
+    if complement:
+        total, errors = load_decennial_population(year_exposure, bands, sex, level)
+        if not groups:
+            return total, errors
+    if level == 'state':
+        populations, component_errors = {'39': load_reference(year_exposure, bands, sex, groups)}, {}
+    else:
+        populations, component_errors = load_place_reference(year_exposure, bands, sex, groups, level=level)
+    if not complement:
+        return populations, component_errors
+    populations, residual_errors = residual_population(total, populations)
+    errors.update(component_errors)
+    errors.update(residual_errors)
+    return {g:p for g,p in populations.items() if g not in errors}, errors
 
 
 def load_ohio_decennial_population(year_exposure, bands, sex, races):
-    if races:
-        from .decennial_reference import load_reference
-        return load_reference(year_exposure, bands, sex, races)
-    populations, errors = load_decennial_population(year_exposure, bands, sex, 'state')
+    populations, errors = selected_decennial_population(year_exposure, bands, sex, races, 'state')
     if errors or '39' not in populations:
         raise RateDataUnavailable('Ohio decennial reference population is incomplete.')
     return populations['39']
@@ -268,7 +260,10 @@ def load_case_counts(linking_year, geographic_level, filters, bands, sex, races,
         reference_filters.update(dx_start='', dx_end='', age_groups=[], age_from=None, age_to=None)
     if sex:
         reference_filters['sex'] = sex
-    base = NaaccrData.objects.all()
+    from django.db.models.expressions import RawSQL
+    from django.db.models import TextField
+    # Keep separate tumors distinct when cancer definitions are unioned.
+    base = NaaccrData.objects.all().annotate(record_key=RawSQL('ctid::text', [], output_field=TextField()))
     if races:
         race_q = Q()
         for token in races:
@@ -289,24 +284,31 @@ def load_case_counts(linking_year, geographic_level, filters, bands, sex, races,
         if set(stages) != set(stage_codes):
             base = base.filter(stg_grp__in=[v for s in stages for v in stage_codes[s]])
     if filters.get('exclude_multiple_primaries'):
-        base = base.filter(sequence_number__in=('0', '00'))
+        multiple_ids = NaaccrData.objects.filter(sequence_number__regex=r'^0*[1-9][0-9]*$').values('mid')
+        base = base.exclude(mid__in=multiple_ids)
     ohio_ids = NaaccrPatientCensusLinking.objects.filter(
         year=str(linking_year), geographic_level='state', geoid='39').values_list('pat_id', flat=True)
     # Filtering a union query is unsupported in Django; restrict before site unions.
     base = base.filter(mid__in=ohio_ids)
-    qs = apply_naaccr_filters(base, reference_filters)
+    qs = apply_naaccr_filters(base, reference_filters, mortality=mortality)
     if mortality:
         from .mortality_rates import death_ages
-        cases = death_ages(qs.values_list('mid', 'vital_status', 'last_contact', 'birth_date',
+        deaths = death_ages(qs.values_list('mid', 'vital_status', 'last_contact', 'birth_date',
             'cause_of_death', 'icd_revision', 'primary_site', 'hist_o3',
             'last_contact_year', 'last_contact_month', 'last_contact_day'), filters, geographic_level, bands)
+        cases = {mid: [age] for mid, age in deaths.items()}
     else:
-        cases = dict(qs.values_list('mid', 'age_at_dx'))
+        cases = defaultdict(list)
+        for _, mid, age in qs.values_list('record_key', 'mid', 'age_at_dx'):
+            cases[mid].append(age)
     reference = defaultdict(int)
-    for age in cases.values():
-        band = age_band_for_age(age, geographic_level)
-        if band in bands:
-            reference[band] += 1
+    for ages in cases.values():
+        for age in ages:
+            band = age_band_for_age(age, geographic_level)
+            if band in bands:
+                reference[band] += 1
+            elif band is None:
+                raise RateDataUnavailable('Ohio reference ages are incomplete.')
     target = defaultdict(int)
     target_age_counts = defaultdict(lambda: defaultdict(int))
     unknown = defaultdict(int)
@@ -315,12 +317,13 @@ def load_case_counts(linking_year, geographic_level, filters, bands, sex, races,
         pat_id__in=cases).values_list('pat_id', 'geoid').distinct()
     for patient, raw_geoid in links:
         geoid = _normalize_geoid_for_level_value(raw_geoid, geographic_level)
-        target[geoid] += 1
-        band = age_band_for_age(cases[patient], geographic_level)
-        if band in bands:
-            target_age_counts[geoid][band] += 1
-        elif band is None:
-            unknown[geoid] += 1
+        for age in cases[patient]:
+            target[geoid] += 1
+            band = age_band_for_age(age, geographic_level)
+            if band in bands:
+                target_age_counts[geoid][band] += 1
+            elif band is None:
+                unknown[geoid] += 1
     return dict(target), dict(target_age_counts), dict(reference), dict(unknown)
 
 
@@ -338,14 +341,14 @@ def subcounty_incidence(linking_year, geographic_level, filters, mortality=False
     linking_year = rate_linking_year(linking_year, geographic_level)
     counts, age_counts, reference_cases, unknown = load_case_counts(
         linking_year, geographic_level, filters, bands, sex, races, mortality=mortality)
-    if mortality and geographic_level == 'county':
+    if geographic_level == 'county':
         from .mortality_rates import load_county_population
         populations, population_errors = load_county_population(years, bands, sex, races)
     else:
         populations, population_errors = load_target_populations(geographic_level, years, bands, sex, races)
     reference_error = None
     try:
-        if mortality and geographic_level == 'county':
+        if geographic_level == 'county':
             reference_population = {}
         elif geographic_level == 'tract':
             reference_population = load_ohio_annual_population(years, bands, sex, races)
@@ -368,21 +371,23 @@ def subcounty_incidence(linking_year, geographic_level, filters, mortality=False
             crude = crude_rate(observed, exposure)
             if reference_error:
                 raise RateDataUnavailable(reference_error)
-            if unknown.get(geoid):
-                raise RateDataUnavailable('Cases with unknown age prevent a matched indirect calculation.')
-            if any(n > 0 and population.get(band, 0) <= 0 for band, n in age_counts.get(geoid, {}).items()):
-                raise RateDataUnavailable('Observed cases have a zero population denominator in an age group.')
-            if mortality and geographic_level == 'county':
+            if geographic_level == 'county':
+                if unknown.get(geoid):
+                    raise RateDataUnavailable('Cases with unknown age prevent direct age adjustment.')
+                if any(n > 0 and population.get(band, 0) <= 0 for band, n in age_counts.get(geoid, {}).items()):
+                    raise RateDataUnavailable('Observed cases have a zero population denominator in an age group.')
                 from .mortality_rates import direct_mortality
                 adjusted = direct_mortality(age_counts.get(geoid, {}), population)
             else:
-                if mortality and any(unknown.values()):
-                    raise RateDataUnavailable('Ohio death ages are incomplete.')
+                # Indirect adjustment uses Ohio age-specific rates and the
+                # target's total observed count, not target age-specific rates.
+                if any(unknown.values()):
+                    raise RateDataUnavailable('Ohio reference ages are incomplete.')
                 adjusted = indirect_rate_ci(observed, population, reference_cases, reference_population)
-        except RateDataUnavailable:
-            pass
-        rounded_crude = tuple(round(v, 1) if v is not None else None for v in crude)
-        rounded_adjusted = tuple(round(v, 1) if v is not None else None for v in adjusted)
+        except RateDataUnavailable as exc:
+            message = str(exc)
+        rounded_crude = tuple(round_rate(v) for v in crude)
+        rounded_adjusted = tuple(round_rate(v) for v in adjusted)
         results.append({
             'geoid': geoid, 'label': _geo_label(geographic_level, geoid), 'case_count': observed,
             'population': exposure / sum(years.values()) if exposure is not None else None,
@@ -390,6 +395,9 @@ def subcounty_incidence(linking_year, geographic_level, filters, mortality=False
             'crude_incidence_per_100k': rounded_crude[0],
             'crude_incidence_ci_lower': rounded_crude[1], 'crude_incidence_ci_upper': rounded_crude[2],
             'age_adjusted_per_100k': rounded_adjusted[0],
-            'age_adjusted_ci_lower': rounded_adjusted[1], 'age_adjusted_ci_upper': rounded_adjusted[2],
+            # Tiwari for direct rates; Byar for indirect incidence and mortality.
+            'age_adjusted_ci_lower': rounded_adjusted[1],
+            'age_adjusted_ci_upper': rounded_adjusted[2],
+            'rate_data_note': message,
         })
     return results

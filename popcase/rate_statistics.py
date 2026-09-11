@@ -14,6 +14,60 @@ class RateDataUnavailable(ValueError):
 AGE_BANDS_20 = ((0, 0), (1, 4)) + tuple((n, n + 4) for n in range(5, 90, 5)) + ((90, None),)
 AGE_BANDS_18 = ((0, 4),) + tuple((n, n + 4) for n in range(5, 85, 5)) + ((85, None),)
 
+US_STANDARD_20 = dict(zip(AGE_BANDS_20, (
+    3794901, 15191619, 19919840, 20056779, 19819518, 18257225, 17722067,
+    19511370, 22179956, 22479229, 19805793, 17224359, 13307234, 10654272,
+    9409940, 8725574, 7414559, 4900234, 2678567, 1580606)))
+
+
+def round_rate(value, digits=2):
+    """Keep small positive rates distinguishable from a true zero, also in CSV."""
+    if value is None:
+        return None
+    rounded = round(value, digits)
+    return float(format(value, '.2g')) if value and not rounded else rounded
+
+
+def tiwari_ci(cases, pop, std_pop, alpha=0.05, per=100000):
+    """Linda's supplied tiwari_ci: modified-gamma limits for direct adjustment.
+
+    Adapted from ci_naaccr_linda_direct_adjusted.py (supplied September 10,
+    2026). Retains its mean-weight and 1/J upper-limit correction; validation
+    is added and rounding is deferred to reporting. Populations are person-years.
+    """
+    cases, pop, std_pop = (list(map(float, values)) for values in (cases, pop, std_pop))
+    if not cases or len(cases) != len(pop) or len(cases) != len(std_pop):
+        raise RateDataUnavailable('Matching nonempty age arrays are required for direct adjustment.')
+    if any(not math.isfinite(c) or c < 0 or not c.is_integer() for c in cases):
+        raise RateDataUnavailable('Direct adjustment requires nonnegative integer event counts.')
+    if any(not math.isfinite(p) or p <= 0 for p in pop + std_pop):
+        raise RateDataUnavailable('An age-specific population or standard weight is not positive.')
+    if not 0 < alpha < 1 or not math.isfinite(per) or per <= 0:
+        raise ValueError('Invalid confidence level or rate multiplier.')
+    total = math.fsum(std_pop)
+    wj = [w / total / p for w, p in zip(std_pop, pop)]
+    rate = math.fsum(w * c for w, c in zip(wj, cases))
+    variance = math.fsum(w * w * c for w, c in zip(wj, cases))
+    lower = 0.0 if rate == 0 else variance / (2 * rate) * chi2.ppf(
+        alpha / 2, 2 * rate * rate / variance)
+    j = len(cases)
+    corrected_rate = rate + math.fsum(wj) / j
+    corrected_variance = math.fsum(w * w * (c + 1 / j) for w, c in zip(wj, cases))
+    upper = corrected_variance / (2 * corrected_rate) * chi2.ppf(
+        1 - alpha / 2, 2 * corrected_rate * corrected_rate / corrected_variance)
+    return {'cases': int(sum(cases)), 'rate': rate * per,
+            'lower_ci': float(lower * per), 'upper_ci': float(upper * per)}
+
+
+def direct_adjusted_rate(age_counts, populations):
+    if any(b not in populations for b, n in age_counts.items() if n):
+        raise RateDataUnavailable('An event age is missing from the population denominator.')
+    if any(b not in US_STANDARD_20 for b in populations):
+        raise RateDataUnavailable('Unsupported direct-adjustment age group.')
+    result = tiwari_ci([age_counts.get(b, 0) for b in populations],
+                      list(populations.values()), [US_STANDARD_20[b] for b in populations])
+    return result['rate'], result['lower_ci'], result['upper_ci']
+
 
 def age_bands(geographic_level):
     return AGE_BANDS_18 if geographic_level in {"zcta", "place"} else AGE_BANDS_20
@@ -137,6 +191,9 @@ def indirect_rate(observed, target_person_years, reference_cases, reference_pers
 
 
 def byar_count_limits(observed):
+    observed = float(observed)
+    if not math.isfinite(observed) or observed < 0 or not observed.is_integer():
+        raise RateDataUnavailable('Byar intervals require a nonnegative integer event count.')
     # https://fingertips.phe.org.uk/static-reports/public-health-technical-guidance/Basic_statistics/Rates.html
     lower = 0.0 if observed == 0 else observed * (1 - 1 / (9 * observed) - 1.959963984540054 / (3 * math.sqrt(observed))) ** 3
     upper = (observed + 1) * (1 - 1 / (9 * (observed + 1)) + 1.959963984540054 / (3 * math.sqrt(observed + 1))) ** 3
@@ -144,6 +201,13 @@ def byar_count_limits(observed):
 
 
 def indirect_rate_ci(observed, target_person_years, reference_cases, reference_person_years):
+    """Byar count limits transformed through the SDD's target-crude × SIR.
+
+    This specified point estimate is quadratic in the local event count.
+    Holding the Ohio reference fixed, its monotone transformation therefore
+    squares the count limits as well. This differs from reference-crude × SIR
+    and can produce very large upper limits when expected counts are tiny.
+    """
     lower, upper = byar_count_limits(observed)
     # Apply the same SIR × target-crude formula to the Byar count limits.
     # Both factors depend on the count; Ohio reference rates are held fixed.

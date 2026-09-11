@@ -3,6 +3,7 @@ from functools import lru_cache
 import csv
 import json
 import re
+from collections import Counter
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
@@ -726,6 +727,12 @@ def _get_preview_row_limit(request):
     return PREVIEW_ROW_LIMIT
 
 
+def _rate_availability_summary(rows):
+    counts = Counter(note for row in rows for note in {
+        row.get('stratification_rate_note'), row.get('mortality_data_note')} if note)
+    return [{'note': note, 'count': count} for note, count in sorted(counts.items())]
+
+
 @lru_cache(maxsize=128)
 def _build_results_payload_cached(
     geographic_level: str,
@@ -751,7 +758,7 @@ def _build_results_payload_cached(
     result_mode = "none"
 
     stratification = _deserialize_payload(stratification_json)
-    if any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
+    if geographic_level == "total" or any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
         from .stratification import build_stratified_dataset
         dataset_rows = build_stratified_dataset(
             geographic_level, (dx_start, dx_end), filters, disease_measures,
@@ -1362,28 +1369,24 @@ def export_geo_dataset_csv(request):
     dx_end = (filters.get("dx_end") or default_dx_end).strip() or default_dx_end
     latest_year = str(_latest_linking_year())
 
-    if geographic_level == "total" and not any((wizard.get("stratification") or {}).get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
-        rows = []
-        filename = f"popcase_results_total_{dx_start}_{dx_end}.csv"
-    else:
-        try:
-            payload = _build_results_payload_cached(
-                geographic_level=geographic_level,
-                dx_start=dx_start,
-                dx_end=dx_end,
-                filters_json=_serialize_payload(filters),
-                disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
-                support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
-                display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
-                community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
-                latest_year=latest_year,
-                stratification_json=_serialize_payload(wizard.get("stratification", {})),
-            )
-        except StratificationUnavailable as exc:
-            messages.error(request, str(exc))
-            return redirect("popcase:wizard_step", step="stratification")
-        rows = payload["dataset_rows"] or []
-        filename = f"popcase_results_{geographic_level}_{dx_start}_{dx_end}.csv"
+    try:
+        payload = _build_results_payload_cached(
+            geographic_level=geographic_level,
+            dx_start=dx_start,
+            dx_end=dx_end,
+            filters_json=_serialize_payload(filters),
+            disease_measures_tuple=tuple(sorted(_coerce_to_list(disease_measures))),
+            support_measures_tuple=tuple(sorted(_coerce_to_list(support_measures))),
+            display_options_tuple=tuple(sorted(_coerce_to_list(display_options))),
+            community_timeframes_tuple=tuple(sorted(_coerce_to_list(community_timeframes))),
+            latest_year=latest_year,
+            stratification_json=_serialize_payload(wizard.get("stratification", {})),
+        )
+    except StratificationUnavailable as exc:
+        messages.error(request, str(exc))
+        return redirect("popcase:wizard_step", step="stratification")
+    rows = payload["dataset_rows"] or []
+    filename = f"popcase_results_{geographic_level}_{dx_start}_{dx_end}.csv"
 
     response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
     response["Content-Disposition"] = f"attachment; filename={filename}"
@@ -1501,6 +1504,7 @@ def _build_dataset_columns(rows, header_map, preferred_columns=None):
     present = {
         col for col in present
         if col.split("__", 1)[0] not in DATASET_EXCLUDE_COLUMNS
+        and not col.split("__", 1)[0].endswith(('_note', '_notes'))
     }
     ordered = []
 

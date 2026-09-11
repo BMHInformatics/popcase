@@ -1,6 +1,6 @@
 """Population-matched incidence for registry stratification groups."""
-from math import sqrt
 from collections import Counter
+from .rate_statistics import direct_adjusted_rate, round_rate, US_STANDARD_20
 from .rate_statistics import RateDataUnavailable, selected_age_bands, query_year_exposure, crude_rate, AGE_BANDS_20, age_band_for_age, indirect_rate_ci
 from .incidence_rates import demographic_selection, load_target_populations, load_ohio_annual_population, load_ohio_decennial_population
 from .mortality_rates import load_county_population
@@ -10,25 +10,14 @@ CRUDE_INCIDENCE = {'crude_inc_rate', 'crude_inc_ci'}
 ADJUSTED_INCIDENCE = {'inc_rate', 'inc_ci'}
 INCIDENCE_MEASURES = CRUDE_INCIDENCE | ADJUSTED_INCIDENCE
 # Same US 2000 20-age standard used by the existing county mortality path.
-STANDARD = dict(zip(AGE_BANDS_20, (3794901,15191619,19919840,20056779,19819518,
-    18257225,17722067,19511370,22179956,22479229,19805793,17224359,13307234,
-    10654272,9409940,8725574,7414559,4900234,2678567,1580606)))
+STANDARD = US_STANDARD_20
 
 
 def direct_incidence(records, population):
     counts = Counter(age_band_for_age(r.get('age_at_dx'), 'county') for r in records)
     if None in counts or any(b not in population for b in counts):
         raise RateDataUnavailable('Unknown or unmatched case ages prevent age adjustment.')
-    if not population or any(p <= 0 for p in population.values()):
-        raise RateDataUnavailable('A selected age group has no positive population denominator.')
-    total_weight = sum(STANDARD[b] for b in population)
-    weights = {b: STANDARD[b] / total_weight for b in population}
-    rate = sum(weights[b] * counts[b] / p for b, p in population.items()) * 100000
-    if not records:
-        return 0, None, None
-    se = sqrt(sum(weights[b]**2 * counts[b] / p**2 for b, p in population.items())) * 100000
-    # Preserve the app's direct-rate normal approximation, with a lower bound of zero.
-    return rate, max(0, rate - 1.96 * se), rate + 1.96 * se
+    return direct_adjusted_rate(counts, population)
 
 
 def selected_cancer_sites(filters):
@@ -59,7 +48,7 @@ def group_demographics(variables, values, filters, level):
             raise RateDataUnavailable('No matching population denominator for unknown race/ethnicity.')
         selections['race'] = selections['race_ethnicity'] = [races[label]]
     # Match the denominator to this site's selection, not the union of cancers.
-    site_sex = {'Breast': 'female', 'Female genital system': 'female', 'Male genital system': 'male'}.get(grouped.get('site'))
+    site_sex = {'Female genital system': 'female', 'Male genital system': 'male'}.get(grouped.get('site'))
     if 'site' in grouped:
         if grouped['site'].startswith(('Overlapping', 'Unclassified')):
             raise RateDataUnavailable('Cancer-site classification must be resolved before calculating a rate.')
@@ -67,8 +56,6 @@ def group_demographics(variables, values, filters, level):
         for key, meta in selected_cancer_sites(filters).items():
             if services.get_cancer_type_leaf_label(meta) == grouped['site']:
                 selections['cancer_types'].append(key)
-                if meta.get('Sites') == 'Breast':
-                    site_sex = 'female'
     if site_sex:
         if selections.get('sex') not in (None, '', 'all', site_sex, site_sex.title(), '1' if site_sex == 'male' else '2'):
             raise RateDataUnavailable('The selected sex does not match the sex-specific cancer.')
@@ -109,8 +96,8 @@ class IncidenceCalculator:
         ages = [age_band_for_age(record.get('age_at_dx'), self.level) for record in records]
         if any(age not in bands for age in ages):
             raise RateDataUnavailable('Unknown or unmatched case ages prevent indirect age adjustment.')
-        if any(population.get(age, 0) <= 0 for age in ages):
-            raise RateDataUnavailable('An observed case age group has no positive population denominator.')
+        # Local age-specific case rates are not used by indirect adjustment;
+        # zero local population cells contribute zero expected cases.
         sexes = ('1',) if sex == 'male' else ('2',) if sex == 'female' else None
         counts = Counter()
         for (group, source_sex), source_counts in self.reference_counts.items():
@@ -168,21 +155,18 @@ class IncidenceCalculator:
                 raise RateDataUnavailable(reason)
             exposure = sum(populations[g][band] for g in geoids for band in bands)
             estimate, low, high = crude_rate(len(records), exposure)
-            if 'crude_inc_rate' in measures: out['crude_incidence_per_100k'] = round(estimate, 2)
+            if 'crude_inc_rate' in measures: out['crude_incidence_per_100k'] = round_rate(estimate)
             if 'crude_inc_ci' in measures:
-                out.update(crude_inc_ci_lower_per_100k=round(low, 2), crude_inc_ci_upper_per_100k=round(high, 2))
+                out.update(crude_inc_ci_lower_per_100k=round_rate(low), crude_inc_ci_upper_per_100k=round_rate(high))
             if measures & ADJUSTED_INCIDENCE:
                 grouped_population = {band: sum(populations[g][band] for g in geoids) for band in bands}
                 if self.level in ('county', 'total', 'none'):
                     adjusted, lower, upper = direct_incidence(records, grouped_population)
                 else:
                     adjusted, lower, upper = self.indirect(values, records, grouped_population, sex, races, bands)
-                if 'inc_rate' in measures: out['age_adjusted_per_100k'] = round(adjusted, 2)
+                if 'inc_rate' in measures: out['age_adjusted_per_100k'] = round_rate(adjusted)
                 if 'inc_ci' in measures:
-                    out.update(inc_ci_lower_per_100k=round(lower, 2) if lower is not None else None,
-                               inc_ci_upper_per_100k=round(upper, 2) if upper is not None else None)
-                    if lower is None or upper is None:
-                        out['stratification_rate_note'] = 'The normal-approximation age-adjusted confidence interval is unavailable with zero events; the crude interval remains available.'
+                    out.update(inc_ci_lower_per_100k=round_rate(lower), inc_ci_upper_per_100k=round_rate(upper))
         except RateDataUnavailable as exc:
             out['stratification_rate_note'] = str(exc)
         return out

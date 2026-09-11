@@ -2,35 +2,86 @@
 from datetime import datetime
 import re
 from collections import defaultdict
+from functools import lru_cache
+import json
 
 from django.db import connections
+from django.conf import settings
 from .rate_statistics import AGE_BANDS_20, RateDataUnavailable, age_band_for_age
 
 
-def cancer_death_matches(cause, revision, primary_site, histology):
-    """Strict ICD-10 organ match; unresolved coding requires review, not inference."""
+def synthetic_death_codes(cancer_types, metadata):
+    """Map selected definitions to site codes present in the synthetic fixture.
+
+    Histology-only and site-based definitions use the same registry selector.
+    This is not an ICD-O to ICD-10 mapping for production data.
+    """
+    from .models import NaaccrData
+    from .services import apply_cancer_logic
+    base = NaaccrData.objects.all()
+    selected = base.none().values_list('primary_site', flat=True)
+    for key in cancer_types:
+        selected = selected.union(apply_cancer_logic(base, metadata[key]).values_list('primary_site', flat=True))
+    return frozenset(code.strip().upper().replace('.', '') for code in selected if code)
+
+
+@lru_cache(maxsize=128)
+def selected_death_codes(cancer_types, synthetic):
+    """Production definitions must explicitly provide ICD-10 mortality codes.
+
+    The synthetic adapter reads the already prepared cause column;
+    it never substitutes or writes a patient's primary site at calculation time.
+    """
+    from .services import load_cancer_logic
+    _, metadata = load_cancer_logic()
+    if not cancer_types:
+        return None
+    if any(key not in metadata for key in cancer_types):
+        raise RateDataUnavailable('A selected cancer definition is unavailable.')
+    if synthetic:
+        return synthetic_death_codes(cancer_types, metadata)
+    codes = set()
+    for key in cancer_types:
+        meta = metadata[key]
+        # Separate code system: never treat ICD-O topography as real ICD-10.
+        specification = meta.get('mortality_icd10')
+        if not specification:
+            raise RateDataUnavailable('The selected cancer definition lacks its ICD-10 mortality codes.')
+        try:
+            entries = json.loads(specification)
+            if not isinstance(entries, list) or not entries:
+                raise ValueError()
+            for entry in entries:
+                if not isinstance(entry, str) or not re.fullmatch(r'C[0-9]{2,3}', entry):
+                    raise ValueError()
+                codes.update([entry] if len(entry) == 4 else [entry + str(n) for n in range(10)])
+        except (ValueError, TypeError) as exc:
+            raise RateDataUnavailable('Invalid ICD-10 mortality definition.') from exc
+    return frozenset(codes)
+
+
+def cancer_death_matches(cause, revision, filters):
+    """Match recorded cause against selected causes, independently of the tumor."""
     cause = (cause or '').strip().upper().replace('.', '')
-    site = (primary_site or '').strip().upper().replace('.', '')
     if not cause or cause in {'0000', '7777', '7797'}:
         return None
-    # Alphabetic ICD-10 codes are unambiguous even when the revision field is blank.
-    if (revision or '').strip() not in {'', '1'} or not re.fullmatch(r'[A-Z][0-9]{2,3}', cause):
+    synthetic = settings.MORTALITY_SYNTHETIC_PRIMARY_SITE_CAUSES
+    if not re.fullmatch(r'[A-Z][0-9]{2,3}', cause):
+        return None
+    if not synthetic and (revision or '').strip() not in {'', '1'}:
         return None
     if not cause.startswith('C'):
         return False
-    if cause[:3] >= 'C76':  # Secondary, unknown-primary and haematologic codes need a crosswalk.
-        return None
-    try:
-        histology = int(histology)
-    except (TypeError, ValueError):
-        return None
-    if not re.fullmatch(r'C[0-9]{3}', site) or histology >= 9590 or site[:3] == 'C42':
-        return None
-    # ICD-O uses C44 for skin; ICD-10 distinguishes melanoma (C43).
-    expected = 'C43' if site[:3] == 'C44' and 8720 <= histology <= 8790 else site[:3]
-    # Mesothelioma and Kaposi sarcoma are morphology-defined in ICD-10.
-    expected = 'C45' if 9050 <= histology <= 9055 else 'C46' if histology == 9140 else expected
-    return cause[:3] == expected
+    selection = filters.get('cancer_types') or []
+    selection = [selection] if isinstance(selection, str) else selection
+    codes = selected_death_codes(tuple(sorted(selection)), synthetic)
+    if codes is None:
+        return synthetic or 'C00' <= cause[:3] <= 'C97'
+    if len(cause) == 3:
+        # A category-only cause cannot resolve a narrower selected subcategory.
+        matches = [cause + str(n) in codes for n in range(10)]
+        return True if all(matches) else None if any(matches) else False
+    return cause in codes
 
 
 def death_date(last_contact, year=None, month=None, day=None):
@@ -49,10 +100,13 @@ def death_date(last_contact, year=None, month=None, day=None):
 
 def death_ages(rows, filters, level, bands):
     from .services import diagnosis_quarter_bounds
+    selections = filters.get('cancer_types') or []
+    selections = [selections] if isinstance(selections, str) else selections
+    selected_death_codes(tuple(sorted(selections)), settings.MORTALITY_SYNTHETIC_PRIMARY_SITE_CAUSES)
     start_text, end_text = filters.get('dx_start') or '', filters.get('dx_end') or ''
     start = diagnosis_quarter_bounds(start_text + 'q1' if len(start_text) == 4 else start_text)
     end = diagnosis_quarter_bounds(end_text + 'q4' if len(end_text) == 4 else end_text)
-    cases = {}
+    cases, identities = {}, {}
     for mid, status, last_contact, birth, cause, revision, site, histology, *date_parts in rows:
         status = (status or '').strip()
         if status == '1':
@@ -66,7 +120,7 @@ def death_ages(rows, filters, level, bands):
         death_text = death.strftime('%Y%m%d')
         if (start and death_text < start[0]) or (end and death_text > end[1]):
             continue
-        match = cancer_death_matches(cause, revision, site, histology)
+        match = cancer_death_matches(cause, revision, filters)
         if match is None:
             raise RateDataUnavailable('Mortality unavailable: cause of death or its cancer attribution is missing or unresolved.')
         if not match:
@@ -83,6 +137,12 @@ def death_ages(rows, filters, level, bands):
         if age is None and any(filters.get(k) for k in ('age_groups', 'age_from', 'age_to')):
             raise RateDataUnavailable('Mortality unavailable: age at death cannot be matched to the selected ages.')
         if age is None or age_band_for_age(age, level) in bands:
+            # Attribution has already matched the selected cancer union.
+            # Multiple matching tumor records still represent one death.
+            identity = (death, age)
+            if mid in identities and identities[mid] != identity:
+                raise RateDataUnavailable('Mortality unavailable: conflicting death records for one person.')
+            identities[mid] = identity
             cases[mid] = age
     return cases
 
@@ -121,11 +181,5 @@ def load_county_population(years, bands, sex, races):
 
 
 def direct_mortality(age_counts, populations):
-    # https://seer.cancer.gov/stdpopulations/stdpop.20ages.html
-    standard = dict(zip(AGE_BANDS_20, (3794901,15191619,19919840,20056779,19819518,
-        18257225,17722067,19511370,22179956,22479229,19805793,17224359,13307234,
-        10654272,9409940,8725574,7414559,4900234,2678567,1580606)))
-    if any(p <= 0 for p in populations.values()):
-        raise RateDataUnavailable('An age-specific population denominator is zero.')
-    rate = sum(standard[b] * age_counts.get(b, 0) / p for b,p in populations.items())
-    return rate * 100000 / sum(standard[b] for b in populations), None, None
+    from .rate_statistics import direct_adjusted_rate
+    return direct_adjusted_rate(age_counts, populations)

@@ -461,6 +461,10 @@ def _sex_specific_cancer_sex_from_filters(filters: dict):
             if label in sex_specific_map:
                 found.add(sex_specific_map[label])
                 break
+        else:
+            # A combined cancer outcome needs both sexes if any selected
+            # cancer is not sex-specific.
+            found.add(None)
 
     if len(found) == 1:
         return next(iter(found))
@@ -1040,10 +1044,11 @@ def _apply_ssf16(qs, logic):
 # FILTERS
 # ---------------------------------------------------------
 
-def apply_naaccr_filters(qs, filters: dict):
+def apply_naaccr_filters(qs, filters: dict, *, mortality=False):
     # FR54 applies to every case-based output, including an unfiltered query.
-    qs = qs.filter(Q(behavior="3") | Q(
-        behavior="2", primary_site__gte="C670", primary_site__lte="C679"))
+    if not mortality:
+        qs = qs.filter(Q(behavior="3") | Q(
+            behavior="2", primary_site__gte="C670", primary_site__lte="C679"))
     if not filters:
         return qs
 
@@ -1157,7 +1162,7 @@ def apply_naaccr_filters(qs, filters: dict):
             qs = qs.filter(race1__in=codes)
 
     selected = filters.get("cancer_types") or []
-    if selected:
+    if selected and not mortality:
         _, leaf_meta = load_cancer_logic()
         cancer_qs = qs.none()
 
@@ -1181,7 +1186,7 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
     year = str(year)
     filters = filters or {}
 
-    if geographic_level in {"tract", "zcta", "place"}:
+    if geographic_level in {"county", "tract", "zcta", "place"}:
         from .incidence_rates import subcounty_incidence
         try:
             return subcounty_incidence(year, geographic_level, filters)
@@ -4590,7 +4595,7 @@ def _build_geo_dataset_uncached(
     filters["dx_start"] = str(dx_start)
     filters["dx_end"] = str(dx_end)
 
-    use_subcounty_incidence = geographic_level in {"tract", "zcta", "place"} and bool(
+    use_subcounty_incidence = geographic_level in {"county", "tract", "zcta", "place"} and bool(
         disease_measures & {"crude_inc_rate", "crude_inc_ci", "inc_rate", "inc_ci",
                             "crude_mort_rate", "crude_mort_ci", "mort_rate", "mort_ci"})
     if use_subcounty_incidence:
@@ -4795,7 +4800,9 @@ def _build_geo_dataset_uncached(
 
         if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
             ir = incidence_lookup.get(geoid)
-            if ir and geographic_level in {"tract", "zcta", "place"} and "case_count" in disease_measures:
+            if ir and ir.get('rate_data_note'):
+                out['stratification_rate_note'] = ir['rate_data_note']
+            if ir and "case_count" in disease_measures:
                 out["case_count"] = ir.get("case_count")
             if "crude_inc_rate" in disease_measures:
                 out["crude_incidence_per_100k"] = ir.get("crude_incidence_per_100k") if ir else None
@@ -4809,6 +4816,8 @@ def _build_geo_dataset_uncached(
                 out["inc_ci_upper_per_100k"] = ir.get("age_adjusted_ci_upper") if ir else None
 
         mr = mortality_lookup.get(geoid, {})
+        if mr.get('rate_data_note'):
+            out['mortality_data_note'] = mr['rate_data_note']
         if ("crude_mort_rate" in disease_measures):
             out["crude_mortality_per_100k"] = mr.get("crude_incidence_per_100k")
         if ("crude_mort_ci" in disease_measures):

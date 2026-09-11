@@ -168,6 +168,10 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
         raise StratificationUnavailable('Select a disease measure to calculate within patient subgroups. Community measures describe the whole geographic area.')
     filters = dict(filters, dx_start=year_range[0], dx_end=year_range[1])
     query_filters = dict(filters)
+    if measures & INCIDENCE_MEASURES and not services._normalize_requested_sex(filters):
+        cancer_sex = services._sex_specific_cancer_sex_from_filters(filters)
+        if cancer_sex:
+            query_filters['sex'] = cancer_sex
     if _mortality:
         query_filters.update(dx_start='', dx_end='', age_groups=[], age_from=None, age_to=None)
     rate_calculator = None
@@ -198,7 +202,8 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
     if stages and set(stages) != set(stage_codes):
         base = base.filter(stg_grp__in=[c for s in stages for c in stage_codes.get(s, [])])
     if filters.get('exclude_multiple_primaries'):
-        base = base.filter(sequence_number__in=['0', '00'])
+        multiple_ids = NaaccrData.objects.filter(sequence_number__regex=r'^0*[1-9][0-9]*$').values('mid')
+        base = base.exclude(mid__in=multiple_ids)
     if query_filters.get('age_groups') or any(query_filters.get(key) not in (None, '') for key in ('age_from', 'age_to')):
         base = base.alias(strat_valid_age=Case(
             When(age_at_dx__regex=r'^[0-9]{1,3}$', then=Cast('age_at_dx', IntegerField())),
@@ -227,7 +232,7 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
             site_fields[field] = label
             annotations[field] = Case(When(condition, then=Value(True)), default=Value(False), output_field=BooleanField())
         base = base.annotate(**annotations)
-    filtered = services.apply_naaccr_filters(base, dict(query_filters, race='all', race_ethnicity=[]))
+    filtered = services.apply_naaccr_filters(base, dict(query_filters, race='all', race_ethnicity=[]), mortality=_mortality)
     fields = ['record_key', 'mid', 'dx_date', 'sex', 'race1', 'hispanic_origin', 'age_at_dx', 'primary_site', 'stg_grp', 'er_summ', 'her_summ']
     if 'insurance' in variables: fields.append('insurance_code')
     fields.extend(detail_fields)
@@ -244,7 +249,7 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
             year=str(linking_year), geographic_level='state', geoid='39').values('pat_id')
         reference_query = services.apply_naaccr_filters(
             base.filter(mid__in=Subquery(ohio_ids)),
-            dict(query_filters, geography='all_ohio', counties=[], race='all', race_ethnicity=[]))
+            dict(query_filters, geography='all_ohio', counties=[], race='all', race_ethnicity=[]), mortality=_mortality)
         reference_records = list(reference_query.values(*fields))
     if set(variables) & {'receptor3', 'receptor4'} and any(
             not str(record.get('primary_site') or '').strip().upper().startswith('C50')
@@ -313,6 +318,24 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
             geoid = services._normalize_geoid_for_level_value(raw_geoid, level)
             if geoid and services._geoid_in_scope(level, geoid, filters):
                 geoids.add(geoid)
+        # Population-covered locations with no linked patients must also appear
+        # with zero events, just as they do in the ordinary geography results.
+        if rate_calculator:
+            from .incidence_rates import demographic_selection, load_target_populations
+            from .rate_statistics import selected_age_bands, RateDataUnavailable
+            try:
+                sex, races = demographic_selection(filters, level)
+                bands = selected_age_bands(level, filters)
+                signature = (sex, tuple(races), tuple(bands))
+                population_data = load_target_populations(level, rate_calculator.years, bands, sex, races)
+                rate_calculator.cache[signature] = population_data
+                populations, errors = population_data
+                geoids = {key[0] for key in grouped}
+                geoids.update(g for g in set(populations) | set(errors)
+                              if services._geoid_in_scope(level, g, filters))
+            except RateDataUnavailable:
+                # The per-row calculator supplies the precise unavailability note.
+                pass
     for geoid in geoids:
         for combination in product(*domains):
             grouped.setdefault((geoid,) + combination, {})

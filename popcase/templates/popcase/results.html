@@ -212,8 +212,9 @@
 
 {% if dataset_rows %}
   {% if dataset_is_truncated %}
-    <div class="alert alert-info mt-3 mb-2 py-2">
-      Showing the first {{ dataset_preview_limit }} of {{ dataset_total_rows }} rows for faster page rendering. Use <strong>Download Results (CSV)</strong> for the full dataset.
+    <div class="alert alert-info">
+      Showing the first {{ dataset_preview_limit }} of {{ dataset_total_rows }} rows for faster page rendering.
+      Use <strong>Download Results (CSV)</strong> for the full dataset.
     </div>
   {% endif %}
 
@@ -225,11 +226,10 @@
   {% else %}
     {% include "popcase/results_table.html" %}
   {% endif %}
-
-
   <div class="small text-muted mt-2">
     Scroll horizontally to view additional measures. Click a column header to sort the preview rows within each row group.
   </div>
+
 {% else %}
   <p class="text-muted mt-3">
     No outcomes found for the selected filters
