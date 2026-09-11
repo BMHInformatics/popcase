@@ -3,6 +3,7 @@ import csv
 import math
 import ast
 import json
+import logging
 from math import sqrt
 from datetime import datetime
 from functools import lru_cache
@@ -358,6 +359,13 @@ def _selected_county_geoids(filters):
     return set()
 
 def _geoid_in_scope(geographic_level: str, geoid: str, filters: dict) -> bool:
+    # Community sources can be national. Apply the registry boundary before
+    # narrower county selections, including when the selection is "all Ohio".
+    g = str(geoid or "").strip()
+    if geographic_level in {"county", "tract"} and g[:5] not in OHIO_COUNTY_NAMES:
+        return False
+    if geographic_level == "place" and g[:2] not in {c[:2] for c in OHIO_COUNTY_NAMES}:
+        return False
     selected_counties = _selected_county_geoids(filters)
     if selected_counties:
         g = str(geoid or "").strip()
@@ -4706,8 +4714,8 @@ def _build_geo_dataset_uncached(
         try:
             mortality_lookup = {r['geoid']: r for r in subcounty_incidence(
                 incidence_year, geographic_level, filters, mortality=True)}
-        except RateDataUnavailable:
-            pass  # Unknown death attribution remains unavailable, never zero.
+        except RateDataUnavailable as exc:
+            logging.getLogger(__name__).warning("Mortality calculation unavailable (%s): %s", geographic_level, exc)
 
     support_lookup = {}
     if support_measures:
