@@ -64,9 +64,9 @@
       <div class="small">Select measures to output.</div>
     </div>
   {% else %}
-    <div class="alert alert-warning">
+    <div class="alert alert-info">
       <strong>PATIENT-LEVEL MODE</strong>
-      <div class="small">Select block-group access measures to include with each qualifying cancer registry record.</div>
+      <div class="small">Choose the access-to-care measures to include for each patient. Values are based on the patient's census block group.</div>
     </div>
   {% endif %}
 
@@ -82,7 +82,7 @@
     {% endif %}
 
     <div id="noMeasuresWarning" class="alert alert-warning d-none" role="alert">
-      One or more measures must be chosen in order to proceed.
+      Select at least one measure to continue.
     </div>
 
     {% if has_sex_specific_cancers %}
@@ -745,7 +745,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <h6 class="text-uppercase text-secondary">Access to Care for Cancer Patients</h6>
-          <p>Each qualifying cancer registry record will include the selected measures for the patient's census block group.</p>
+          <p>A census block group is a small geographic area. These measures use its centroid as an approximate patient location.</p>
           <div class="fw-semibold mb-2">Travel time-adjusted providers or facilities per 100,000 population from block group centroid</div>
           {% for choice in form.access_patient_measures %}
             {% if forloop.counter == 5 %}<div class="fw-semibold mt-3 mb-2">Drive time to nearest cancer center from block group centroid</div>{% endif %}

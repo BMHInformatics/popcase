@@ -75,7 +75,7 @@ MEASURE_ACCESS_PATIENT_CHOICES = [
     ("pcp", "Primary care providers"),
     ("onc", "Oncology providers"),
     ("ext_care", "Extended cancer care providers"),
-    ("mammo_fac", "Mammogram facilities"),
+    ("mammo_fac", "Mammography facilities"),
     ("coc", "CoC-accredited Academic Comprehensive Cancer Programs (ACAD)"),
     ("nci", "NCI-designated cancer centers"),
     ("tt_adj_density", "Travel time-adjusted provider/facility density per 100,000 population (from centroid of patient's census block group)"),
@@ -408,7 +408,7 @@ class MeasuresForm(forms.Form):
         ("pcp", "Primary care providers"),
         ("onc", "Oncology providers"),
         ("ext_care", "Extended cancer care providers"),
-        ("mammo_fac", "Mammogram facilities"),
+        ("mammo_fac", "Mammography facilities"),
         ("coc", "CoC-accredited Academic Comprehensive Cancer Programs (ACAD)"),
         ("nci", "NCI-designated cancer centers"),
     ]
@@ -689,7 +689,7 @@ class MeasuresForm(forms.Form):
                     cleaned[field] = []
         has_measure = any(cleaned.get(field) for field in self.MEASURE_SELECTION_FIELDS)
         if not has_measure:
-            raise forms.ValidationError("One or more measures must be chosen in order to proceed.")
+            raise forms.ValidationError("Select at least one measure to continue.")
         return cleaned
 
 class StratificationForm(forms.Form):
