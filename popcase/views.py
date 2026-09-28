@@ -608,11 +608,14 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
     ],
     "rurality": ["rurality", "rurality_description", "rurality_ci_lower", "rurality_ci_upper"],
     "pcp_access_score": ["primary_care_access_score", "primary_care_providers_per_100k"],
-    "onc": ["oncology_providers_per_100k"],
-    "ext_care": ["extended_cancer_care_providers_per_100k"],
-    "mammo_access": ["mammography_facilities_per_100k", "nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
+    "onc": ["oncology_providers_per_100k", "oncology_providers_travel_adjusted_per_100k"],
+    "ext_care": ["extended_cancer_care_providers_per_100k", "extended_cancer_care_providers_travel_adjusted_per_100k"],
+    "mammo_access": ["mammography_facilities_per_100k", "mammography_facilities_travel_adjusted_per_100k"],
 }
 TRACT_HEADER_MAP.update({
+    "oncology_providers_travel_adjusted_per_100k": "Oncology providers per 100,000 (travel time-adjusted)",
+    "extended_cancer_care_providers_travel_adjusted_per_100k": "Extended cancer care providers per 100,000 (travel time-adjusted)",
+    "mammography_facilities_travel_adjusted_per_100k": "Mammography facilities per 100,000 (travel time-adjusted)",
     "nearest_nci_drive_time": "Drive time to nearest NCI-designated cancer center from centroid",
     "nearest_coc_acad_drive_time": "Drive time to nearest CoC-accredited ACAD cancer center from centroid",
     "primary_care_providers_per_100k": "Primary care providers per 100,000 in county",

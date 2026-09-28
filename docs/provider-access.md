@@ -1,5 +1,39 @@
 # Primary care provider measure
 
+## Tract access completion — 2026-09-28
+
+This update supersedes the tract gaps recorded in the historical sections below.
+All four tract access choices now have SDD-based calculations:
+
+- PCP retains its approved `pcp1_1220_tr.xlsx.xlsx` source and existing override.
+- Oncology uses `cnc1_1220_tr.xlsx.xlsx` from `popcase_manual_etl.public.travel_tract_2020`.
+- Extended cancer care uses `cnc2_1220_tr.xlsx.xlsx` from that same table.
+- All three provider measures use numeric `count.x * 100000`. The source stores
+  `count.x` as text; the reader validates/converts it before multiplication.
+- Mammography uses `default.public.fda_mammography_travel_tract.id` as tract GEOID
+  and reads `mammo_per_100k` directly, without multiplying it again.
+
+The tract mammography selection no longer calls the distance/20-mile proxy.
+New oncology, extended-care, and mammography output keys and table/CSV labels
+identify travel-time-adjusted values separately from county provider densities.
+Missing/invalid values remain unavailable; real zeros remain zero. Duplicate
+tract IDs are omitted, and failed sources do not return partial results.
+
+Validation: 31 regression tests passed. Every connected value was compared with
+its live source: 3,150 oncology, 3,150 extended-care, and 3,162 mammography values.
+A live Cuyahoga dataset returned 461 tract rows with matching values and no old
+mammography proxy columns. No database data or schemas were modified. Restart
+application workers when deploying to clear cached reports and lookups.
+
+Block-group/patient reporting remains separate work: connect the patient measure
+selections; load the approved block-group provider sources and mammography rate;
+join patients to block groups using a defined linking vintage and duplicate-link
+policy; implement patient results/export (including the intended administrator
+access restriction); and support the intended patient subgroup summaries. The
+current SDD block-group filenames refer to tract-style XLSX names, whereas the
+loaded block-group provider sources use `bg_2020_familypractice_fixe...1220.RDS`
+names. That source mapping must be reconciled before connecting those measures.
+
 ## Authoritative source
 
 Use the current [Google Drive Software Design Document](https://docs.google.com/document/d/1N--cVxlRRnP5vkEdPGafroTbYUHvEYFbfxnhm2SBC_Y/edit), inspected 2026-09-09 (modified 2026-09-08). It supersedes the local DOCX used for the initial audit.

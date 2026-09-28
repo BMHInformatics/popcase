@@ -16,7 +16,7 @@ from django.db.models.functions import Cast
 from django.db.models import IntegerField
 from django.db import connection, connections
 
-from .provider_access import get_pcp_tract_lookup
+from .provider_access import get_pcp_tract_lookup, get_tract_access_lookup, TRACT_ACCESS_OUTPUTS
 from .county_access import get_county_access_lookup, OUTPUTS as COUNTY_ACCESS_OUTPUTS
 from .cancer_center_access import get_cancer_center_access_lookup, OUTPUTS as CENTER_ACCESS_OUTPUTS
 from .county_crosswalks import county_assignments, geoids_for_counties
@@ -2627,11 +2627,8 @@ def _get_tract_support_lookups_cached(requested_tuple):
     if "pcp_access_score" in requested:
         lookups["pcp_access"] = get_pcp_tract_lookup()
 
-    if "mammo_access" in requested:
-        try:
-            lookups["mammo_access"] = _get_tract_mammography_access_lookup(radius_miles=20.0)
-        except Exception:
-            lookups["mammo_access"] = {}
+    if set(requested) & TRACT_ACCESS_OUTPUTS.keys():
+        lookups["tract_access"] = get_tract_access_lookup(requested)
 
     return lookups
 
@@ -3003,11 +3000,8 @@ def _get_geo_support_lookups_cached(geographic_level, requested_tuple):
     if geographic_level == "tract" and "pcp_access_score" in requested_set:
         lookups["pcp_access"] = get_pcp_tract_lookup()
 
-    if geographic_level == "tract" and "mammo_access" in requested_set:
-        try:
-            lookups["mammo_access"] = _get_tract_mammography_access_lookup(radius_miles=20.0)
-        except Exception:
-            lookups["mammo_access"] = {}
+    if geographic_level == "tract" and requested_set & TRACT_ACCESS_OUTPUTS.keys():
+        lookups["tract_access"] = get_tract_access_lookup(requested_set)
 
     return lookups
 
@@ -4926,11 +4920,12 @@ def _build_geo_dataset_uncached(
             if geographic_level == "tract" and "pcp_access_score" in support_measures:
                 out["primary_care_access_score"] = support_lookup.get("pcp_access", {}).get(geoid)
 
-            if geographic_level == "tract" and "mammo_access" in support_measures:
-                mammo_row = support_lookup.get("mammo_access", {}).get(geoid, {})
-                out["nearest_mammography_distance_miles"] = mammo_row.get("nearest_miles")
-                out["mammography_facility_count_20mi"] = mammo_row.get("count_20mi")
-                out["mammography_access_score"] = mammo_row.get("access_score")
+            if geographic_level == "tract":
+                tract_access = support_lookup.get("tract_access", {}).get(geoid, {})
+                for token in support_measures:
+                    if token in TRACT_ACCESS_OUTPUTS:
+                        key = TRACT_ACCESS_OUTPUTS[token]
+                        out[key] = tract_access.get(key)
 
             if "race_eth" in support_measures:
                 race_row = support_lookup.get("race_eth", {}).get(geoid, {})
