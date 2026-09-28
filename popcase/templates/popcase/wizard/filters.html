@@ -38,18 +38,21 @@
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label d-block">{{ form.age_groups.label }}</label>
-                  <div class="row row-cols-1 row-cols-sm-2 g-1">
-                    {% for checkbox in form.age_groups %}
-                      <div class="col">
-                        <div class="form-check">
-                          {{ checkbox.tag }}
-                          <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
-                        </div>
-                      </div>
-                    {% endfor %}
+                  <div class="form-label">Age (at diagnosis)</div>
+                  <div class="row g-2">
+                    <div class="col-sm-6">
+                      <label class="form-label" for="{{ form.age_group_from.id_for_label }}">{{ form.age_group_from.label }}</label>
+                      {{ form.age_group_from }}
+                      {{ form.age_group_from.errors }}
+                    </div>
+                    <div class="col-sm-6">
+                      <label class="form-label" for="{{ form.age_group_to.id_for_label }}">{{ form.age_group_to.label }}</label>
+                      {{ form.age_group_to }}
+                      {{ form.age_group_to.errors }}
+                    </div>
                   </div>
-                  {% if form.age_groups.errors %}<div class="text-danger small">{{ form.age_groups.errors }}</div>{% endif %}
+                  <div class="small text-secondary mt-1">Includes both selected age groups and all groups between them. The full range includes all ages.</div>
+                  {% if form.age_range_notice %}<div class="small text-secondary mt-1">{{ form.age_range_notice }}</div>{% endif %}
                 </div>
                 <div class="mb-3">
                   <label class="form-label d-block">{{ form.race_ethnicity.label }}</label>
@@ -84,6 +87,9 @@
                   <label class="form-label" for="{{ form.geography.id_for_label }}">{{ form.geography.label }}</label>
                   {{ form.geography }}
                   {{ form.geography.errors }}
+                  {% if form.geographic_level == "zcta" or form.geographic_level == "place" %}
+                    <div class="small text-secondary">County selections use the 2020 county assignment for each ZCTA or Place. Measures describe the entire selected area, including any portion across a county boundary.</div>
+                  {% endif %}
                   <div id="county-selection" class="mt-2"{% if form.geography.value != "counties" %} hidden{% endif %}>
                     <label class="form-label">{{ form.counties.label }}</label>
                     <div class="border rounded p-2" style="max-height: 200px; overflow: auto;">{{ form.counties }}</div>

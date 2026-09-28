@@ -247,7 +247,7 @@
                 <div class="form-check">{{ form.access_patient_measures.0.tag }} <label class="form-check-label" for="{{ form.access_patient_measures.0.id_for_label }}">Primary care providers</label></div>
                 <div class="form-check">{{ form.access_patient_measures.1.tag }} <label class="form-check-label" for="{{ form.access_patient_measures.1.id_for_label }}">Oncology providers</label></div>
                 <div class="form-check">{{ form.access_patient_measures.2.tag }} <label class="form-check-label" for="{{ form.access_patient_measures.2.id_for_label }}">Extended cancer care providers</label></div>
-                <div class="form-check">{{ form.access_patient_measures.3.tag }} <label class="form-check-label" for="{{ form.access_patient_measures.3.id_for_label }}">Mammogram facilities</label></div>
+                <div class="form-check">{{ form.access_patient_measures.3.tag }} <label class="form-check-label" for="{{ form.access_patient_measures.3.id_for_label }}">Mammography facilities</label></div>
               </div>
 
               <div class="mt-3 fw-semibold">Travel time to nearest facility (from centroid of patient's census block group)</div>
@@ -465,10 +465,10 @@
                   <div class="form-check">{{ form.access_comm_tract.0.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.0.id_for_label }}">Primary care providers</label></div>
                   <div class="form-check">{{ form.access_comm_tract.1.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.1.id_for_label }}">Oncology providers</label></div>
                   <div class="form-check">{{ form.access_comm_tract.2.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.2.id_for_label }}">Extended cancer care providers</label></div>
-                  <div class="form-check">{{ form.access_comm_tract.3.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.3.id_for_label }}">Mammogram facilities</label></div>
+                  <div class="form-check">{{ form.access_comm_tract.3.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.3.id_for_label }}">Mammography facilities</label></div>
                 </div>
 
-                <div class="mt-3 fw-semibold">Travel time to nearest facility from census tract centroid</div>
+                <div class="mt-3 fw-semibold">Drive time to nearest cancer center from census tract centroid</div>
                 <div class="ms-3">
                   <div class="form-check">{{ form.access_comm_tract.4.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.4.id_for_label }}">CoC-accredited Academic Comprehensive Cancer Programs (ACAD)</label></div>
                   <div class="form-check">{{ form.access_comm_tract.5.tag }} <label class="form-check-label" for="{{ form.access_comm_tract.5.id_for_label }}">NCI-designated cancer centers</label></div>
@@ -502,14 +502,17 @@
                   </div>
                 </div>
 
-                <div class="fw-semibold">Survey-based community access measures</div>
+                {% include "popcase/wizard/cancer_center_measures.html" with center_field=form.access_comm_zcta_place centroid_label="ZCTA" %}
+                <div class="mt-3 fw-semibold">Survey-based community access measures</div>
                 <div class="form-check measure-sub-option">
                   {{ form.access_comm_zcta_place_survey_ci }}
                   <label class="form-check-label" for="{{ form.access_comm_zcta_place_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
                 </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_zcta_place %}
+                    {% if cb.data.value != "nci" and cb.data.value != "coc" %}
                     <div class="form-check">{{ cb.tag }} <label class="form-check-label" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label></div>
+                    {% endif %}
                   {% endfor %}
                 </div>
               </div>
@@ -528,7 +531,8 @@
                   </div>
                 </div>
 
-                <div class="fw-semibold">Survey-based community access measures</div>
+                {% include "popcase/wizard/cancer_center_measures.html" with center_field=form.access_comm_zcta_place centroid_label="Place" %}
+                <div class="mt-3 fw-semibold">Survey-based community access measures</div>
                 <div class="form-check measure-sub-option">
                   {{ form.access_comm_zcta_place_survey_ci }}
                   <label class="form-check-label" for="{{ form.access_comm_zcta_place_survey_ci.id_for_label }}" style="color: #4477f8; font-style: italic">Display 95% Confidence Intervals</label>
@@ -539,7 +543,9 @@
                 </div>
                 <div class="ms-3">
                   {% for cb in form.access_comm_zcta_place %}
+                    {% if cb.data.value != "nci" and cb.data.value != "coc" %}
                     <div class="form-check">{{ cb.tag }} <label class="form-check-label" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label></div>
+                    {% endif %}
                   {% endfor %}
                 </div>
               </div>
@@ -563,9 +569,10 @@
                   <div class="form-check">{{ form.access_comm_county.0.tag }} <label class="form-check-label" for="{{ form.access_comm_county.0.id_for_label }}">Primary care providers</label></div>
                   <div class="form-check">{{ form.access_comm_county.1.tag }} <label class="form-check-label" for="{{ form.access_comm_county.1.id_for_label }}">Oncology providers</label></div>
                   <div class="form-check">{{ form.access_comm_county.2.tag }} <label class="form-check-label" for="{{ form.access_comm_county.2.id_for_label }}">Extended cancer care providers</label></div>
-                  <div class="form-check">{{ form.access_comm_county.3.tag }} <label class="form-check-label" for="{{ form.access_comm_county.3.id_for_label }}">Mammogram facilities</label></div>
+                  <div class="form-check">{{ form.access_comm_county.3.tag }} <label class="form-check-label" for="{{ form.access_comm_county.3.id_for_label }}">Mammography facilities</label></div>
                 </div>
 
+                {% include "popcase/wizard/cancer_center_measures.html" with center_field=form.access_comm_county centroid_label="County" %}
                 <div class="mt-3 fw-semibold">Survey-based community access measures</div>
                 <div class="form-check measure-sub-option">
                   {{ form.access_comm_county_survey_ci }}

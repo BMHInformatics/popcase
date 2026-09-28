@@ -575,6 +575,8 @@ DISEASE_MEASURE_OUTPUT_COLUMNS = {
 }
 
 SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
+    "nci": ["nearest_nci_drive_time"],
+    "coc": ["nearest_coc_acad_drive_time"],
     "sex_distribution": [
         "male_population", "female_population",
         "male_pct", "male_pct_ci_lower", "male_pct_ci_upper",
@@ -611,6 +613,8 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
     "mammo_access": ["mammography_facilities_per_100k", "nearest_mammography_distance_miles", "mammography_facility_count_20mi", "mammography_access_score"],
 }
 TRACT_HEADER_MAP.update({
+    "nearest_nci_drive_time": "Drive time to nearest NCI-designated cancer center from centroid",
+    "nearest_coc_acad_drive_time": "Drive time to nearest CoC-accredited ACAD cancer center from centroid",
     "primary_care_providers_per_100k": "Primary care providers per 100,000 in county",
     "oncology_providers_per_100k": "Oncology providers per 100,000 in county",
     "extended_cancer_care_providers_per_100k": "Extended cancer care providers per 100,000 in county",
@@ -872,8 +876,8 @@ def _build_preferred_dataset_columns(disease_measures, support_measures, display
     access_choices = {
         "tract": MeasuresForm.ACCESS_PATIENT_LEAVES + MeasuresForm.SURVEY_ACCESS_LEAVES,
         "county": MeasuresForm.ACCESS_PATIENT_LEAVES + MeasuresForm.SURVEY_ACCESS_LEAVES,
-        "zcta": MeasuresForm.SURVEY_ACCESS_LEAVES,
-        "place": MeasuresForm.SURVEY_ACCESS_LEAVES,
+        "zcta": MeasuresForm.ACCESS_PATIENT_LEAVES[4:6] + MeasuresForm.SURVEY_ACCESS_LEAVES,
+        "place": MeasuresForm.ACCESS_PATIENT_LEAVES[4:6] + MeasuresForm.SURVEY_ACCESS_LEAVES,
     }.get(geographic_level, [])
     support_order = _ordered_selected_tokens(
         support_measures,

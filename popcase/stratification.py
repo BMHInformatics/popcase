@@ -232,7 +232,8 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
             site_fields[field] = label
             annotations[field] = Case(When(condition, then=Value(True)), default=Value(False), output_field=BooleanField())
         base = base.annotate(**annotations)
-    filtered = services.apply_naaccr_filters(base, dict(query_filters, race='all', race_ethnicity=[]), mortality=_mortality)
+    filtered = services.apply_naaccr_filters(base, dict(query_filters, race='all', race_ethnicity=[]),
+                                             mortality=_mortality, geographic_level=geographic_level)
     fields = ['record_key', 'mid', 'dx_date', 'sex', 'race1', 'hispanic_origin', 'age_at_dx', 'primary_site', 'stg_grp', 'er_summ', 'her_summ']
     if 'insurance' in variables: fields.append('insurance_code')
     fields.extend(detail_fields)

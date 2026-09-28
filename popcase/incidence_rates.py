@@ -331,10 +331,6 @@ def subcounty_incidence(linking_year, geographic_level, filters, mortality=False
     from .services import _geo_label, _geoid_in_scope
     if geographic_level == 'tract':
         validate_tract_rate_period(filters, linking_year)
-    if geographic_level in {'zcta', 'place'} and filters.get('geography', 'all_ohio') not in ('', 'all_ohio', None):
-        raise RateDataUnavailable(
-            'County/catchment restrictions for ZCTA or Place require a geographic crosswalk. '
-            'Select all Ohio or use tract geography; the restriction cannot be silently ignored.')
     bands = selected_age_bands(geographic_level, filters)
     sex, races = demographic_selection(filters, geographic_level)
     years = query_year_exposure(filters, linking_year)

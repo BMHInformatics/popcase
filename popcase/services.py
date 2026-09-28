@@ -18,6 +18,8 @@ from django.db import connection, connections
 
 from .provider_access import get_pcp_tract_lookup
 from .county_access import get_county_access_lookup, OUTPUTS as COUNTY_ACCESS_OUTPUTS
+from .cancer_center_access import get_cancer_center_access_lookup, OUTPUTS as CENTER_ACCESS_OUTPUTS
+from .county_crosswalks import county_assignments, geoids_for_counties
 from .rate_statistics import RateDataUnavailable, crude_rate as exact_poisson_rate
 from .acs_measures import ACS_MEASURES, COMPONENT_COLUMNS, COMPONENT_CI_KEYS, get_community_lookup
 
@@ -376,6 +378,9 @@ def _geoid_in_scope(geographic_level: str, geoid: str, filters: dict) -> bool:
         if geographic_level == "tract":
             return len(g) >= 5 and g[:5] in selected_counties
 
+        if geographic_level in {"zcta", "place"}:
+            return county_assignments(geographic_level).get(g) in selected_counties
+
         return True
 
     if not _is_neo15_scope(filters):
@@ -387,8 +392,6 @@ def _geoid_in_scope(geographic_level: str, geoid: str, filters: dict) -> bool:
     if geographic_level == "tract":
         return len(g) >= 5 and g[:5] in NEO_15_COUNTY_GEOIDS
 
-    # No county crosswalk is implemented here for ZCTA/place yet, so leave
-    # those geography levels unchanged rather than filtering everything out.
     return True
 
 def _filter_lookup_to_scope(lookup: dict, geographic_level: str, filters: dict) -> dict:
@@ -1052,11 +1055,21 @@ def _apply_ssf16(qs, logic):
 # FILTERS
 # ---------------------------------------------------------
 
-def apply_naaccr_filters(qs, filters: dict, *, mortality=False):
+def apply_naaccr_filters(qs, filters: dict, *, mortality=False, geographic_level=None):
     # FR54 applies to every case-based output, including an unfiltered query.
     if not mortality:
-        qs = qs.filter(Q(behavior="3") | Q(
-            behavior="2", primary_site__gte="C670", primary_site__lte="C679"))
+        # Match the Urinary Bladder definition in cancer_site_logic.csv.
+        # Missing histology cannot establish the in-situ exception; malignant
+        # cases remain eligible even when site or histology is missing.
+        bladder_in_situ = Q(
+            behavior="2", primary_site__gte="C670", primary_site__lte="C679",
+            hist_o3__isnull=False,
+        ) & ~Q(hist_o3="") & ~(
+            Q(hist_o3__range=("9050", "9055"))
+            | Q(hist_o3="9140")
+            | Q(hist_o3__range=("9590", "9992"))
+        )
+        qs = qs.filter(Q(behavior="3") | bladder_in_situ)
     if not filters:
         return qs
 
@@ -1117,9 +1130,15 @@ def apply_naaccr_filters(qs, filters: dict, *, mortality=False):
             qs = qs.filter(dx_year__lte=dx_end)
     selected_counties = _selected_county_geoids(filters)
     if selected_counties:
+        # FR60 selects whole areas via the supplied county assignment. Filtering
+        # patients by their own county would truncate cross-county areas while
+        # still using whole-area population denominators and community measures.
+        link_level = geographic_level if geographic_level in {"zcta", "place"} else "county"
+        selected_geoids = (geoids_for_counties(link_level, selected_counties)
+                           if link_level != "county" else selected_counties)
         neo_pat_ids = (
             NaaccrPatientCensusLinking.objects
-            .filter(geographic_level="county", geoid__in=selected_counties)
+            .filter(geographic_level=link_level, geoid__in=selected_geoids)
             .values_list("pat_id", flat=True)
             .distinct()
         )
@@ -1520,6 +1539,8 @@ def _normalize_support_measure_tokens(tokens):
         "uninsured": "no_insurance",
 
         "onc": "onc",
+        "nci": "nci",
+        "coc": "coc",
         "ext_care": "ext_care",
         "pcp": "pcp_access_score",
         "primary_care": "pcp_access_score",
@@ -2972,6 +2993,9 @@ def _get_geo_support_lookups_cached(geographic_level, requested_tuple):
 
     if geographic_level == "county" and requested_set & COUNTY_ACCESS_OUTPUTS.keys():
         lookups["county_access"] = get_county_access_lookup(requested_set)
+
+    if requested_set & CENTER_ACCESS_OUTPUTS.keys():
+        lookups["cancer_center_access"] = get_cancer_center_access_lookup(geographic_level, requested_set)
 
     # Space-based access tables currently exist at tract level only. For other
     # geographies, keep the selected output columns blank via
@@ -4612,7 +4636,7 @@ def _build_geo_dataset_uncached(
             NaaccrPatientCensusLinking.objects.values_list("year", flat=True).order_by("-year").first()
         ), geographic_level)
 
-    filtered_qs = apply_naaccr_filters(NaaccrData.objects.all(), filters)
+    filtered_qs = apply_naaccr_filters(NaaccrData.objects.all(), filters, geographic_level=geographic_level)
     stage_by_mid = dict(filtered_qs.values_list("mid", "stg_grp"))
     filtered_pat_ids = list(stage_by_mid.keys())
 
@@ -4947,6 +4971,11 @@ def _build_geo_dataset_uncached(
         # columns with None values instead of inventing unsupported estimates.
         if geographic_level == "county":
             out.update(support_lookup.get("county_access", {}).get(geoid, {}))
+        center_row = support_lookup.get("cancer_center_access", {}).get(geoid, {})
+        for token in support_measures:
+            if token in CENTER_ACCESS_OUTPUTS:
+                key = CENTER_ACCESS_OUTPUTS[token]
+                out[key] = center_row.get(key)
         _add_display_option_columns(
             out,
             support_measures=support_measures,

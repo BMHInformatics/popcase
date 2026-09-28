@@ -1,6 +1,8 @@
 from django import forms
 from .models import UICounty
-from .services import OHIO_COUNTY_NAMES, get_default_diagnosis_quarter_range, get_diagnosis_quarter_choices, diagnosis_quarter_sort_key
+from .county_crosswalks import county_assignments
+from .rate_statistics import RateDataUnavailable
+from .services import AGE_GROUP_RANGES, OHIO_COUNTY_NAMES, get_default_diagnosis_quarter_range, get_diagnosis_quarter_choices, diagnosis_quarter_sort_key
 
 GEO_CHOICES = [
     ("none", "Do not compare locations"),
@@ -183,11 +185,17 @@ ZCTA_PLACE_AGE_GROUP_CHOICES = [
 class FiltersForm(forms.Form):
     counties = forms.MultipleChoiceField(required=False, label="Counties", widget=forms.CheckboxSelectMultiple)
     sex = forms.ChoiceField(choices=SEX_CHOICES, widget=forms.RadioSelect, initial="all", label="Sex")
-    age_groups = forms.MultipleChoiceField(
+    age_group_from = forms.ChoiceField(
         choices=SEER_20_AGE_GROUP_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.Select(attrs={"class": "form-select"}),
         required=False,
-        label="Age (at diagnosis) groups",
+        label="Youngest",
+    )
+    age_group_to = forms.ChoiceField(
+        choices=SEER_20_AGE_GROUP_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        required=False,
+        label="Oldest",
     )
     race_ethnicity = forms.MultipleChoiceField(
         choices=RACE_CHOICES,
@@ -216,7 +224,31 @@ class FiltersForm(forms.Form):
         geographic_level = kwargs.pop("geographic_level", "none")
         super().__init__(*args, **kwargs)
         self.geographic_level = geographic_level
-        self.fields["age_groups"].choices = self.get_age_group_choices_for_geography(geographic_level)
+        age_choices = self.get_age_group_choices_for_geography(geographic_level)
+        for field in ("age_group_from", "age_group_to"):
+            self.fields[field].choices = age_choices
+        self.fields["age_group_from"].initial = age_choices[0][0]
+        self.fields["age_group_to"].initial = age_choices[-1][0]
+        self.age_range_notice = ""
+        if not self.is_bound:
+            # Restore saved filters, including old checkbox selections and
+            # endpoint bands that changed after switching geographic level.
+            endpoints = [self.initial.get("age_group_from"), self.initial.get("age_group_to")]
+            saved = endpoints if all(endpoints) else self.initial.get("age_groups", [])
+            if isinstance(saved, str):
+                saved = [saved]
+            ranges = [AGE_GROUP_RANGES[token] for token in saved if token in AGE_GROUP_RANGES]
+            if ranges:
+                low = min(a for a, _ in ranges)
+                high = max(b if b is not None else float("inf") for _, b in ranges)
+                included = [token for token, _ in age_choices
+                            if AGE_GROUP_RANGES[token][0] <= high
+                            and (AGE_GROUP_RANGES[token][1] is None or AGE_GROUP_RANGES[token][1] >= low)]
+                self.initial.update(age_group_from=included[0], age_group_to=included[-1])
+                if not all(endpoints) and set(included) != set(saved):
+                    self.age_range_notice = "Your saved age groups are shown as one inclusive range. Review Youngest and Oldest before continuing."
+            else:
+                self.initial.update(age_group_from=age_choices[0][0], age_group_to=age_choices[-1][0])
         self.fields["race_ethnicity"].choices = self.get_race_choices_for_geography(geographic_level)
 
         diagnosis_quarter_choices = get_diagnosis_quarter_choices() or tuple(DX_QUARTER_FALLBACK_CHOICES)
@@ -308,10 +340,25 @@ class FiltersForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        age_tokens = [token for token, _ in self.get_age_group_choices_for_geography(self.geographic_level)]
+        youngest = cleaned.get("age_group_from") or age_tokens[0]
+        oldest = cleaned.get("age_group_to") or age_tokens[-1]
+        if not any(field in self.errors for field in ("age_group_from", "age_group_to")):
+            start, end = age_tokens.index(youngest), age_tokens.index(oldest)
+            if start > end:
+                self.add_error("age_group_to", "Oldest must be the same age group as Youngest or an older group.")
+            else:
+                cleaned.update(age_group_from=youngest, age_group_to=oldest)
+                # Preserve the existing all-ages default, including unknown ages.
+                # Every narrower range feeds the shared case/population filters.
+                cleaned["age_groups"] = [] if (start == 0 and end == len(age_tokens) - 1) else age_tokens[start:end + 1]
         if cleaned.get("geography") == "counties" and not cleaned.get("counties"):
             self.add_error("counties", "Select at least one county.")
         if self.geographic_level in {"place", "zcta"} and cleaned.get("geography") not in ("", None, "all_ohio"):
-            self.add_error("geography", "County restrictions require a Place/ZCTA crosswalk. Select all Ohio or compare counties/tracts.")
+            try:
+                county_assignments(self.geographic_level)
+            except RateDataUnavailable as exc:
+                self.add_error("geography", str(exc))
         s = cleaned.get("dx_start")
         e = cleaned.get("dx_end")
         if s and e:
@@ -480,7 +527,7 @@ class MeasuresForm(forms.Form):
     )
 
     access_comm_zcta_place = forms.MultipleChoiceField(
-        choices=SURVEY_ACCESS_LEAVES,
+        choices=ACCESS_PATIENT_LEAVES[4:6] + SURVEY_ACCESS_LEAVES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Access to care for communities (ZCTA / Place)"

@@ -126,8 +126,6 @@ class IncidenceCalculator:
         if 'inc_ci' in measures:
             out.update(inc_ci_lower_per_100k=None, inc_ci_upper_per_100k=None)
         try:
-            if self.level in ('zcta', 'place') and self.filters.get('geography', 'all_ohio') not in ('all_ohio', '', None):
-                raise RateDataUnavailable('County-restricted ZCTA/place rates require a population crosswalk.')
             sex, races, bands = group_demographics(self.variables, values, self.filters, self.population_level)
             # Do not silently use a female denominator for male breast records,
             # or include unknown-sex records in a sex-specific numerator.
