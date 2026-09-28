@@ -66,7 +66,7 @@
   {% else %}
     <div class="alert alert-warning">
       <strong>PATIENT-LEVEL MODE</strong>
-      <div class="small">Measures will be reviewed along with patient-level stratification.</div>
+      <div class="small">Select block-group access measures to include with each qualifying cancer registry record.</div>
     </div>
   {% endif %}
 
@@ -744,7 +744,13 @@
     {% else %}
       <div class="card shadow-sm">
         <div class="card-body">
-          <p class="text-secondary mb-0">Patient-level measures selection is under development.</p>
+          <h6 class="text-uppercase text-secondary">Access to Care for Cancer Patients</h6>
+          <p>Each qualifying cancer registry record will include the selected measures for the patient's census block group.</p>
+          <div class="fw-semibold mb-2">Travel time-adjusted providers or facilities per 100,000 population from block group centroid</div>
+          {% for choice in form.access_patient_measures %}
+            {% if forloop.counter == 5 %}<div class="fw-semibold mt-3 mb-2">Drive time to nearest cancer center from block group centroid</div>{% endif %}
+            <div class="form-check">{{ choice.tag }} <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>
+          {% endfor %}
         </div>
       </div>
     {% endif %}

@@ -5,7 +5,7 @@ import json
 import re
 from collections import Counter
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.contrib.auth import views as auth_views
@@ -42,6 +42,10 @@ from .acs_measures import (
 
 
 from .stratification import StratificationUnavailable, LABELS as STRATIFICATION_LABELS
+from .patient_access import (
+    patient_access_allowed, build_patient_dataset, linkage_year as patient_linkage_year,
+    HEADERS as PATIENT_HEADERS, BASE_COLUMNS as PATIENT_COLUMNS, OUTPUTS as PATIENT_OUTPUTS,
+)
 
 STEPS = ["geographic-level", "filters", "measures", "stratification"]
 PREVIEW_ROW_LIMIT = 200
@@ -816,7 +820,19 @@ def _build_results_payload_cached(
 
 
 
+def _build_results_payload(**kwargs):
+    # Patient extracts must not enter the shared process-wide results cache.
+    if kwargs['geographic_level'] == 'patient':
+        rows = build_patient_dataset((kwargs['dx_start'], kwargs['dx_end']),
+                                     _deserialize_payload(kwargs['filters_json']),
+                                     kwargs['support_measures_tuple'])
+        return {'incidence': [], 'total_incidence': None, 'dataset_rows': rows, 'result_mode': 'dataset'}
+    return _build_results_payload_cached(**kwargs)
+
+
 def _get_measure_selections(measures_state: dict, geographic_level: str):
+    if geographic_level == 'patient':
+        return [], [t for t in _coerce_to_list(measures_state.get('access_patient_measures')) if t in PATIENT_OUTPUTS]
     disease_measures = _coerce_to_list(measures_state.get("disease_measures"))
     cancer_prevention_measures = _coerce_to_list(measures_state.get("cancer_prevention"))
     health_status_measures = _coerce_to_list(measures_state.get("noncancer_health_status"))
@@ -874,6 +890,8 @@ def _support_columns_for_token(token, display_options):
 
 
 def _build_preferred_dataset_columns(disease_measures, support_measures, display_options, geographic_level):
+    if geographic_level == 'patient':
+        return PATIENT_COLUMNS + [column for token, column in PATIENT_OUTPUTS.items() if token in support_measures]
     disease_order = _ordered_selected_tokens(disease_measures, [MeasuresForm.DISEASE_LEAVES])
 
     access_choices = {
@@ -1085,6 +1103,8 @@ def home(request):
 def wizard_step(request, step: str = "geographic-level"):
     if step not in STEPS:
         return redirect("popcase:wizard_step", step="geographic-level")
+    if step != 'geographic-level' and _session_get(request, 'geographic_level') == 'patient' and not patient_access_allowed(request.user):
+        return HttpResponseForbidden('Patient-level reporting is restricted to administrators.')
 
     form_map = {
         "geographic-level": GeographicLevelForm,
@@ -1108,6 +1128,8 @@ def wizard_step(request, step: str = "geographic-level"):
         leaf_choices = _build_cancer_type_leaf_choices(leaf_meta)
 
     form_kwargs = {"initial": None if request.method == "POST" else initial}
+    if step == 'geographic-level':
+        form_kwargs['allow_patient'] = patient_access_allowed(request.user)
     if step == "filters":
         form_kwargs["geographic_level"] = _normalize_geographic_level(_session_get(request, "geographic_level", "none"))
     if step in {"measures", "stratification"}:
@@ -1172,13 +1194,17 @@ def results(request):
     wizard = request.session.get("popcase_wizard", {})
     filters = wizard.get("filters", {}) or {}
     geographic_level = _normalize_geographic_level(wizard.get("geographic_level", "county"))
+    if geographic_level == 'patient':
+        if not patient_access_allowed(request.user):
+            return HttpResponseForbidden('Patient-level reporting is restricted to administrators.')
+        wizard = dict(wizard, stratification={})
     measures_state = wizard.get("measures", {}) or {}
 
     disease_measures, support_measures = _get_measure_selections(measures_state, geographic_level)
     display_options = _get_display_options(measures_state, geographic_level)
     community_timeframes = _get_community_timeframes(measures_state)
     disease_measures = _filter_disease_measures_for_geography(disease_measures, geographic_level)
-    year = str(_latest_linking_year())
+    year = patient_linkage_year() if geographic_level == 'patient' else str(_latest_linking_year())
     default_dx_start, default_dx_end = get_default_diagnosis_quarter_range()
     dx_start = (filters.get("dx_start") or default_dx_start).strip() or default_dx_start
     dx_end = (filters.get("dx_end") or default_dx_end).strip() or default_dx_end
@@ -1195,7 +1221,7 @@ def results(request):
             return redirect("popcase:wizard_step", step="filters")
 
     try:
-        payload = _build_results_payload_cached(
+        payload = _build_results_payload(
             geographic_level=geographic_level,
             dx_start=dx_start,
             dx_end=dx_end,
@@ -1222,6 +1248,8 @@ def results(request):
     dataset_rows_preview = dataset_rows[:dataset_preview_limit]
 
     dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, dataset_rows)
+    if geographic_level == 'patient':
+        dynamic_header_map.update(PATIENT_HEADERS)
     dynamic_numeric_cols = list(dict.fromkeys(DATASET_NUMERIC_COLS + [
         key
         for row in dataset_rows
@@ -1286,7 +1314,7 @@ def results(request):
         "community_timeframes": community_timeframes,
         "cancer_type_labels": cancer_type_labels,
         "age_group_labels": age_group_labels,
-        "dataset_title": f"Selected measures by {geographic_level.title()}",
+        "dataset_title": 'Patient-level access dataset' if geographic_level == 'patient' else f"Selected measures by {geographic_level.title()}",
         "dataset_header_map": dynamic_header_map,
         "dataset_numeric_cols": dynamic_numeric_cols,
         # Backward-compatible context aliases for older templates/custom tags.
@@ -1297,7 +1325,10 @@ def results(request):
         "dataset_column_classes": dataset_column_classes,
         "dataset_exclude_columns": DATASET_EXCLUDE_COLUMNS,
     }
-    return render(request, "popcase/results.html", context)
+    response = render(request, "popcase/results.html", context)
+    if geographic_level == 'patient':
+        response['Cache-Control'] = 'private, no-store'
+    return response
 
 
 
@@ -1365,6 +1396,8 @@ def export_geo_dataset_csv(request):
     wizard = request.session.get("popcase_wizard", {})
     filters = wizard.get("filters", {}) or {}
     geographic_level = _normalize_geographic_level(wizard.get("geographic_level", "county"))
+    if geographic_level == 'patient' and not patient_access_allowed(request.user):
+        return HttpResponseForbidden('Patient-level reporting is restricted to administrators.')
     measures_state = wizard.get("measures", {}) or {}
     disease_measures, support_measures = _get_measure_selections(measures_state, geographic_level)
     display_options = _get_display_options(measures_state, geographic_level)
@@ -1374,10 +1407,10 @@ def export_geo_dataset_csv(request):
     default_dx_start, default_dx_end = get_default_diagnosis_quarter_range()
     dx_start = (filters.get("dx_start") or default_dx_start).strip() or default_dx_start
     dx_end = (filters.get("dx_end") or default_dx_end).strip() or default_dx_end
-    latest_year = str(_latest_linking_year())
+    latest_year = patient_linkage_year() if geographic_level == 'patient' else str(_latest_linking_year())
 
     try:
-        payload = _build_results_payload_cached(
+        payload = _build_results_payload(
             geographic_level=geographic_level,
             dx_start=dx_start,
             dx_end=dx_end,
@@ -1395,11 +1428,16 @@ def export_geo_dataset_csv(request):
     rows = payload["dataset_rows"] or []
     filename = f"popcase_results_{geographic_level}_{dx_start}_{dx_end}.csv"
 
-    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+    # Write one BOM explicitly; utf-8-sig would add another on every CSV row.
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    if geographic_level == 'patient':
+        response['Cache-Control'] = 'private, no-store'
     response["Content-Disposition"] = f"attachment; filename={filename}"
     response.write("\ufeff")
 
     dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, rows)
+    if geographic_level == 'patient':
+        dynamic_header_map.update(PATIENT_HEADERS)
     preferred_dataset_columns = _build_preferred_dataset_columns(
         disease_measures,
         support_measures,
@@ -1408,7 +1446,7 @@ def export_geo_dataset_csv(request):
     )
     columns = _build_dataset_columns(rows, dynamic_header_map, preferred_dataset_columns)
     if not columns:
-        columns = ["label"]
+        columns = preferred_dataset_columns if geographic_level == 'patient' else ["label"]
 
     writer = csv.writer(response)
     writer.writerow([dynamic_header_map.get(col, col) for col in columns])

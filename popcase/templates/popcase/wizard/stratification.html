@@ -20,10 +20,10 @@
 </ul>
 <div class="card shadow-sm"><div class="card-body">
 {% if is_patient_level %}
-  <p class="alert alert-info">Patient-level stratification is not yet available.</p>
+  <p>Patient-level results contain one row per qualifying cancer registry record, with the selected block-group access measures. A patient with multiple cancers may appear more than once. You can download the full CSV for analysis.</p>
   <div class="d-flex justify-content-between">
     <a class="btn btn-outline-secondary" href="{% url 'popcase:wizard_step' step='measures' %}">Back</a>
-    <a class="btn btn-primary" href="{% url 'popcase:results' %}">Finish</a>
+    <form method="post">{% csrf_token %}<button class="btn btn-primary" type="submit">Finish</button></form>
   </div>
 {% else %}
   <h5>Compare measures across groups</h5>

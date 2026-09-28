@@ -130,6 +130,11 @@ DX_QUARTER_FALLBACK_CHOICES = [(f"{year}q{quarter}", f"{year}q{quarter}") for ye
 
 
 class GeographicLevelForm(forms.Form):
+    def __init__(self, *args, allow_patient=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not allow_patient:
+            self.fields['geographic_level'].choices = [(k, v) for k, v in GEO_CHOICES if k != 'patient']
+
     geographic_level = forms.ChoiceField(
         choices=GEO_CHOICES,
         widget=forms.RadioSelect,
@@ -651,6 +656,7 @@ class MeasuresForm(forms.Form):
     def __init__(self, *args, **kwargs):
         geographic_level = kwargs.pop("geographic_level", None)
         super().__init__(*args, **kwargs)
+        self.geographic_level = geographic_level
 
         # FR41 availability matrix:
         #   County -> show county age-adjusted option
@@ -677,6 +683,10 @@ class MeasuresForm(forms.Form):
             for token in cleaned.get("community_characteristics", [])
             if token != "redlined_pct"
         ]
+        if self.geographic_level == 'patient':
+            for field in self.MEASURE_SELECTION_FIELDS:
+                if field != 'access_patient_measures':
+                    cleaned[field] = []
         has_measure = any(cleaned.get(field) for field in self.MEASURE_SELECTION_FIELDS)
         if not has_measure:
             raise forms.ValidationError("One or more measures must be chosen in order to proceed.")
@@ -730,6 +740,9 @@ class StratificationForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        if self.geographic_level == 'patient':
+            cleaned.update(row_variable='', col_variable='', table_variable='', output_type='table')
+            return cleaned
         selected = [cleaned.get(name) for name in
                     ("row_variable", "col_variable", "table_variable") if cleaned.get(name)]
         if len(selected) != len(set(selected)):

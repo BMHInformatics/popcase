@@ -210,6 +210,13 @@
           </a>
         </div>
 
+{% if geographic_level == 'patient' %}
+  <p class="text-secondary mt-3">One row per qualifying cancer registry record; patients with multiple cancers may appear more than once.
+    Access measures use the patient's linked census block group (geography linkage year {{ year }}).
+    Blank values indicate missing or unusable links or source measurements; zero is a reported value.
+    These measures describe access from the block group centroid, not the patient's exact address.
+    Cancer-center travel times retain the source table's units.</p>
+{% endif %}
 {% if dataset_rows %}
   {% if dataset_is_truncated %}
     <div class="alert alert-info">
