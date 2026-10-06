@@ -1,0 +1,37 @@
+.sdd-help-trigger[hidden], .sdd-help-panel[hidden] { display: none; }
+.sdd-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #075bbd;
+  font-size: 1rem;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-left: .3rem;
+  vertical-align: middle;
+  cursor: help;
+  text-transform: none;
+}
+.sdd-help-trigger:focus-visible { outline: 2px solid #075bbd; outline-offset: 2px; border-radius: 50%; }
+.sdd-help-panel {
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 1080;
+  width: max-content;
+  max-width: min(34rem, calc(100vw - 24px));
+  max-height: min(32rem, calc(100dvh - 24px));
+  overflow-y: auto;
+  padding: .8rem 1rem;
+  border: 1px solid #b6cff0;
+  border-radius: .5rem;
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .15);
+  background: #fff;
+  color: #075bbd;
+  font-size: .9rem;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

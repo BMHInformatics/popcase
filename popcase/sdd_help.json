@@ -1,0 +1,711 @@
+{
+  "source_url": "https://docs.google.com/document/d/1N--cVxlRRnP5vkEdPGafroTbYUHvEYFbfxnhm2SBC_Y/edit",
+  "revision": "ANLCKQlC3uZvt-eOc_aBb5M-n9KjtckeUXOhI90loqm49X938m5rG-LOtN1qXaZtu1CtB00Pt1NUmEiBfcktVg",
+  "retrieved": "2026-10-06",
+  "entries": [
+    {
+      "id": "sdd-319",
+      "tab": "User interface design",
+      "context": [
+        "UI Requirements",
+        "Brackets indicate tables where source data resides."
+      ],
+      "text": "icon with blue text: This is verbatim language that should go in the hover-over/linked explanations in the interface.",
+      "status": "legend"
+    },
+    {
+      "id": "sdd-345",
+      "tab": "User interface design",
+      "context": [
+        "Race by Ethnicity -",
+        "If ‘Do not compare locations’, county or census tract chosen (these are “bridged race” categories)"
+      ],
+      "text": "The Non-Hispanic race categories represent National Center for Health Statistics “bridged” race categories, which are designed to probabilistically assign individuals who report multiple races on the U.S. Census to single race categories.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-393",
+      "tab": "User interface design",
+      "context": [
+        "Obesity-related cancers",
+        "HPV-related cancers"
+      ],
+      "text": "Use Ctrl+click or Shift+click to select multiple cancer types.",
+      "status": "superseded-control",
+      "review_reason": "Cancer type and stage use checkboxes; Ctrl/Shift-click instructions do not apply."
+    },
+    {
+      "id": "sdd-397",
+      "tab": "User interface design",
+      "context": [
+        "IMPORTANT [Added 10-14-25] - By default, only cases with behavior code (BehaviorCodeicd03) = 3 (i.e., malignant) should be included. The only exception is for urinary bladder cancer. Here, Behavior Code =2 or 3 should be included (2 = in situ).",
+        "[Added 12-13-25 in response to Steering Comm] - Add option to restrict to only patients with a single primary cancer (restricts to only cases where Sequence number = 0)."
+      ],
+      "text": "Use Ctrl+click or Shift+click to select multiple stages.",
+      "status": "superseded-control",
+      "review_reason": "Cancer type and stage use checkboxes; Ctrl/Shift-click instructions do not apply."
+    },
+    {
+      "id": "sdd-404",
+      "tab": "User interface design",
+      "context": [
+        "Case count [Patient]",
+        "% Advanced at diagnosis (Regional or metastatic spread) with option for 95% CI (default)"
+      ],
+      "text": "Includes cancers with regional or metastatic spread. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion and assuming n*p ≥ 5 and n*(1-p) ≥ 5",
+      "status": "method-review",
+      "review_reason": "SDD qualifies normal-approximation proportion intervals with n*p >= 5 and n*(1-p) >= 5. App returns these intervals for smaller counts too, without checking those conditions."
+    },
+    {
+      "id": "sdd-406",
+      "tab": "User interface design",
+      "context": [
+        "🛈 Includes cancers with regional or metastatic spread. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion and assuming n*p ≥ 5 and n*(1-p) ≥ 5",
+        "% Metastatic at diagnosis with option for 95% CI (default)"
+      ],
+      "text": "Equivalent to SEER Summary Stage of “Distant”. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion and assuming n*p ≥ 5 and n*(1-p) ≥ 5",
+      "status": "method-review",
+      "review_reason": "SDD qualifies normal-approximation proportion intervals with n*p >= 5 and n*(1-p) >= 5. App returns these intervals for smaller counts too, without checking those conditions."
+    },
+    {
+      "id": "sdd-408",
+      "tab": "User interface design",
+      "context": [
+        "🛈 Equivalent to SEER Summary Stage of “Distant”. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion and assuming n*p ≥ 5 and n*(1-p) ≥ 5",
+        "Median time-to-treatment [Patient] with IQR"
+      ],
+      "text": "Calculated based on date of diagnosis and date of initial treatment as reported in the cancer registry",
+      "status": "available"
+    },
+    {
+      "id": "sdd-410",
+      "tab": "User interface design",
+      "context": [
+        "“Next to “Median time-to-treatment”  option: 🛈 Calculated based on date of diagnosis and date of initial treatment as reported in the cancer registry",
+        "Crude incidence rate (per 100,000) with 95% CI [Patient and decennial census tables]"
+      ],
+      "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
+      "status": "method-review",
+      "review_reason": "SDD says Tiwari for crude-rate intervals; app uses Exact Poisson."
+    },
+    {
+      "id": "sdd-412",
+      "tab": "User interface design",
+      "context": [
+        "Next to “95% Confidence Interval”  option 🛈 Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
+        "Crude mortality rate (per 100,000) with 95% CI [Patient and decennial census tables]"
+      ],
+      "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
+      "status": "method-review",
+      "review_reason": "SDD says Tiwari for crude-rate intervals; app uses Exact Poisson."
+    },
+    {
+      "id": "sdd-421",
+      "tab": "User interface design",
+      "context": [
+        "Age-adjusted incidence rate (per 100,000) with 95% CI [Patient and decennial census tables]",
+        "If county chosen"
+      ],
+      "text": "Calculated using the direct age adjustment method and the standard National Cancer Institute 20-category age categorization. The 2000 U.S. Standard Population is used as the reference population",
+      "status": "available"
+    },
+    {
+      "id": "sdd-423",
+      "tab": "User interface design",
+      "context": [
+        "Next to “Age-adjusted Incidence Rate”  option: 🛈 Calculated using the direct age adjustment method and the standard National Cancer Institute 20-category age categorization. The 2000 U.S. Standard Population is used as the reference population",
+        "If census tract chosen"
+      ],
+      "text": "Calculated using the indirect age adjustment method and the standard National Cancer Institute 20-category age categorization. The population of the entire cancer registry catchment area is used as the reference population.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-425",
+      "tab": "User interface design",
+      "context": [
+        "Next to “Age-adjusted Incidence Rate”  option: 🛈 Calculated using the indirect age adjustment method and the standard National Cancer Institute 20-category age categorization. The population of the entire cancer registry catchment area is used as the reference population.",
+        "If ZCTA or place chosen"
+      ],
+      "text": "Calculated using the indirect age adjustment method and the 18 age categories as defined in the 2010 and 2020 Decennial Census. The population of the entire cancer registry catchment area is used as the reference population.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-427",
+      "tab": "User interface design",
+      "context": [
+        "Next to “Age-adjusted Incidence Rate”  option: 🛈 Calculated using the indirect age adjustment method and the 18 age categories as defined in the 2010 and 2020 Decennial Census. The population of the entire cancer registry catchment area is used as the reference population.",
+        "Next to “95% Confidence Interval”  option:"
+      ],
+      "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
+      "status": "method-review",
+      "review_reason": "SDD assigns both Tiwari and Byar to county incidence intervals and generic Tiwari to mortality. App uses Tiwari for county direct adjustment and Byar for subcounty indirect adjustment."
+    },
+    {
+      "id": "sdd-428",
+      "tab": "User interface design",
+      "context": [
+        "Next to “95% Confidence Interval”  option:",
+        "If county has been chosen as the geographical area: 🛈 Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69."
+      ],
+      "text": "Calculated based on the Byar approximation for Poisson-distributed data. Rothman KJ, Boice JD. Epidemiologic Analysis with a Programmable Calculator. Boston: Epidemiology Resources; 1979.",
+      "status": "method-review",
+      "review_reason": "SDD assigns both Tiwari and Byar to county incidence intervals and generic Tiwari to mortality. App uses Tiwari for county direct adjustment and Byar for subcounty indirect adjustment."
+    },
+    {
+      "id": "sdd-433",
+      "tab": "User interface design",
+      "context": [
+        "If small area estimates are chosen -",
+        "Change label on interface from ‘Age-adjusted Incidence Rate (per 100,000)’ to Small area estimates of incidence [mortality} rate (per 100,000)’"
+      ],
+      "text": "Age-adjusted (six age groups) spatio-temporal hierarchical Bayesian modeling method proposed by\nJay M, Oleson J, Charlton M, Arab A. A Bayesian approach for estimating age-adjusted rates for low-prevalence diseases over space and time. Stat Med. 2021;40(12):2922-38.\nWard C, Oleson J, Jones K, Charlton M. Showcasing Cancer Incidence and Mortality in Rural ZCTAs Using Risk Probabilities via Spatio-Temporal Bayesian Disease Mapping. Applied Spatial Analysis and Policy. 2018;12(4):907-21.",
+      "status": "future-control",
+      "review_reason": "No matching Bayesian/exceedance or forest-plot control exists in the current interface."
+    },
+    {
+      "id": "sdd-437",
+      "tab": "User interface design",
+      "context": [
+        "[Smaller font] Ward C, Oleson J, Jones K, Charlton M. Showcasing Cancer Incidence and Mortality in Rural ZCTAs Using Risk Probabilities via Spatio-Temporal Bayesian Disease Mapping. Applied Spatial Analysis and Policy. 2018;12(4):907-21.",
+        "Change the subfield from ‘95% CI’’ to ‘Exceedance Probability’."
+      ],
+      "text": "The exceedance probability is a probability that the rate for a given location exceeds the overall rate for the state.",
+      "status": "future-control",
+      "review_reason": "No matching Bayesian/exceedance or forest-plot control exists in the current interface."
+    },
+    {
+      "id": "sdd-440",
+      "tab": "User interface design",
+      "context": [
+        "Age-adjusted mortality rate (per 100,000) with 95% CI [Patient and decennial census tables]",
+        "If county chosen"
+      ],
+      "text": "Calculated using the direct age adjustment method and the standard National Cancer Institute 20-category age categorization. The 2000 U.S. Standard Population is used as the reference population",
+      "status": "available"
+    },
+    {
+      "id": "sdd-442",
+      "tab": "User interface design",
+      "context": [
+        "Next to “Age-adjusted Mortality Rate”: 🛈 Calculated using the direct age adjustment method and the standard National Cancer Institute 20-category age categorization. The 2000 U.S. Standard Population is used as the reference population",
+        "If census tract chosen"
+      ],
+      "text": "Calculated using the indirect age adjustment method and the standard National Cancer Institute 20-category age categorization. The population of the entire cancer registry catchment area is used as the reference population.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-444",
+      "tab": "User interface design",
+      "context": [
+        "Next to “Age-adjusted Mortality Rate”: 🛈 Calculated using the indirect age adjustment method and the standard National Cancer Institute 20-category age categorization. The population of the entire cancer registry catchment area is used as the reference population.",
+        "If ZCTA or place chosen"
+      ],
+      "text": "Calculated using the indirect age adjustment method and the 18 age categories as defined in the 2010 and 2020 Decennial Census. The population of the entire cancer registry catchment area is used as the reference population.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-445",
+      "tab": "User interface design",
+      "context": [
+        "If ZCTA or place chosen",
+        "Next to “Age-adjusted Mortality Rate”: 🛈 Calculated using the indirect age adjustment method and the 18 age categories as defined in the 2010 and 2020 Decennial Census. The population of the entire cancer registry catchment area is used as the reference population."
+      ],
+      "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
+      "status": "method-review",
+      "review_reason": "SDD assigns both Tiwari and Byar to county incidence intervals and generic Tiwari to mortality. App uses Tiwari for county direct adjustment and Byar for subcounty indirect adjustment."
+    },
+    {
+      "id": "sdd-453",
+      "tab": "User interface design",
+      "context": [
+        "Census block group-level Healthcare access (proxy for patient-level; THIS IS ONLY RELEVANT IF PATIENT-LEVEL IS CHOSEN ON THE ‘GEOGRAPHIC LEVEL' TAB OF THE INTERFACE.) - Each individual cancer patient can be associated with a set of scores assigned for each of the medical specialties/facilities below. Instead of geocoding each patient address and calculating distances, can base travel measures on census block group centroids. Link patients to census block groups",
+        "Primary Care Providers [Tavel_bg* tables; See Lookup Tables for definitions]"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nInternal Medicine without further specialization\nPediatrics without further specialization\nFamily Medicine\nGeriatrics",
+      "status": "available"
+    },
+    {
+      "id": "sdd-459",
+      "tab": "User interface design",
+      "context": [
+        "Geriatrics",
+        "Oncology Providers [Tavel_bg* tables; See Lookup Tables for definitions]"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-468",
+      "tab": "User interface design",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Expanded Cancer Care [Tavel_bg* tables; See Lookup Tables for definitions]"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nUrology\nThoracic Surgery\nGeneral Surgery\nGastroenterology\nPathology\nDiagnostic Radiology\nInterventional Radiology\nColorectal Surgery\nNeurosurgery\nOtolaryngology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-487",
+      "tab": "User interface design",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Mammography facilities [FDA Mammography facilities]"
+      ],
+      "text": "Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included. See Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-494",
+      "tab": "User interface design",
+      "context": [
+        "Community-level - Can be reported when stratification is by geography (census tract, Place (= incorporated area and census designated places), ZCTA, or county unless otherwise stated)",
+        "Cancer Prevention - PROVIDE OPTION TO DISPLAY 95% CI."
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-500",
+      "tab": "User interface design",
+      "context": [
+        "No leisure-time physical activity - Label = No leisure-time physical activity (% of adults)",
+        "Short sleep duration - Label = Short sleep duration (% of adults)"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-504",
+      "tab": "User interface design",
+      "context": [
+        "Breast (age 50-74) - Label = % Breast cancer screening (age 50-74)",
+        "Cervical (age 21-65) - Label = % Cervical cancer screening (age 21-65)"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-519",
+      "tab": "User interface design",
+      "context": [
+        "Travel time-adjusted providers or facilities per 100,000 population from census tract centroid - More detail under the measure definition in the Controller Logic  tab)",
+        "Primary Care Providers per 100,000 (travel time-adjusted) [Tavel_Tract_2020 tables; Calculate measure as count.x * 100000. Show only values for which the source_file column = pcp1_1220_tr.xlsx.xlsx"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nInternal Medicine without further specialization\nPediatrics without further specialization\nFamily Medicine\nGeriatrics\nSee Technical Glossary for modified  2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-526",
+      "tab": "User interface design",
+      "context": [
+        "See Technical Glossary for modified  2-step floating catchment area calculation details.",
+        "Oncology Providers per 100,000 (travel time-adjusted) [Tavel_Tract_2020 tables; Calculate measure as count.x * 100000. Show only values for which the source_file column = cnc1_1220_tr.xlsx.xlsx"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-535",
+      "tab": "User interface design",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Expanded Cancer Care  per 100,000 (travel time-adjusted) [Tavel_Tract_2020 tables; Calculate measure as count.x * 100000. Show only values for which the source_file column = cnc2_1220_tr.xlsx.xlsx)"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nUrology\nThoracic Surgery\nGeneral Surgery\nGastroenterology\nPathology\nDiagnostic Radiology\nInterventional Radiology\nColorectal Surgery\nNeurosurgery\nOtolaryngology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-554",
+      "tab": "User interface design",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Mammogram facilities per 100,000 (travel time-adjusted)  [FDA_Mammography_travel_tract; use column mammo_per_100k]"
+      ],
+      "text": "Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included. See Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-560",
+      "tab": "User interface design",
+      "context": [
+        "American College of Surgeons Commission on Cancer (CoC)-accredited Academic Comprehensive Cancer (ACAD) programs [Cancer Center Locations]",
+        "Label = Time to nearest CoC-designated Cancer Center"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-566",
+      "tab": "User interface design",
+      "context": [
+        "Visited dentist or dental clinic in past year (% of adults) [CDC PLACES]",
+        "[If stratifying by ZCTA or Place/Municipality]"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-574",
+      "tab": "User interface design",
+      "context": [
+        "Provides or facilities per 100,000 in county",
+        "Primary Care Providers per 100,000 [doctorsclinicians table; See Lookup Tables for definitions that should be applied to pri_spec and sec_spec_1 to define provider categories]. Define county based on FIPS code (geoid column): First 2 digits = state (39 for Ohio), digits 3-5 = county. Use B01001_001 from ACS5yr2020 for population denominator."
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nInternal Medicine without further specialization\nPediatrics without further specialization\nFamily Medicine\nGeriatrics\nSee Technical Glossary for modified  2-step floating catchment area calculation details.",
+      "status": "method-review",
+      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+    },
+    {
+      "id": "sdd-582",
+      "tab": "User interface design",
+      "context": [
+        "",
+        "Oncology Providers  per 100,000[doctorsclinicians table; See Lookup Tables for definitions that should be applied to pri_spec and sec_spec_1 to define provider categories]. Define county based on FIPS code (geoid column): First 2 digits = state (39 for Ohio), digits 3-5 = county. Use B01001_001 from ACS5yr2020 for population denominator."
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "method-review",
+      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+    },
+    {
+      "id": "sdd-592",
+      "tab": "User interface design",
+      "context": [
+        "Expanded Cancer Care Providers per 100,000 [doctorsclinicians table; See Lookup Tables for definitions that should be applied to pri_spec and sec_spec_1 to define provider categories]. Define county based on FIPS (geoid column) code: First 2 digits = state (39 for Ohio), digits 3-5 = county. Use B01001_001 from ACS5yr2020 for population denominator.",
+        ""
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nUrology\nThoracic Surgery\nGeneral Surgery\nGastroenterology\nPathology\nDiagnostic Radiology\nInterventional Radiology\nColorectal Surgery\nNeurosurgery\nOtolaryngology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "method-review",
+      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+    },
+    {
+      "id": "sdd-611",
+      "tab": "User interface design",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Mammogram facilities per 100,000 - [Use FIPS (geoid column) codes from FDA_Mammography_facilities table to identify county. Use B01001_001 from ACS5yr2020 for population denominator."
+      ],
+      "text": "Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included. See Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "method-review",
+      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+    },
+    {
+      "id": "sdd-612",
+      "tab": "User interface design",
+      "context": [
+        "Mammogram facilities per 100,000 - [Use FIPS (geoid column) codes from FDA_Mammography_facilities table to identify county. Use B01001_001 from ACS5yr2020 for population denominator.",
+        "🛈 Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included. See Technical Glossary for modified 2-step floating catchment area calculation details."
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-618",
+      "tab": "User interface design",
+      "context": [
+        "Visited dentist or dental clinic in past year (% of adults) [CDC PLACES]",
+        "Community Characteristics - AVAILABLE FOR ALL 4 GEO LEVELS UNLESS OTHERWISE INDICATED; Output categories indicated in { }"
+      ],
+      "text": "From the U.S. Census American Community Survey (5-year data) unless otherwise noted",
+      "status": "available"
+    },
+    {
+      "id": "sdd-689",
+      "tab": "User interface design",
+      "context": [
+        "{Native citizen (%) (B07007_002), Naturalized citizen (%) (B07007_004), Non-citizen (%) (B07007_005)}",
+        "Metro/Non-Metro (RUCC/RUCA code) - ONLY IF COUNTY OR CENSUS TRACT SELECTED"
+      ],
+      "text": "Metro counties are defined as those with Rural-Urban Continuum Codes (RUCC)  of 1-3), while Non-Metro counties are defined as those with RUCC of 4-9).",
+      "status": "available"
+    },
+    {
+      "id": "sdd-690",
+      "tab": "User interface design",
+      "context": [
+        "Metro/Non-Metro (RUCC/RUCA code) - ONLY IF COUNTY OR CENSUS TRACT SELECTED",
+        "If county-level: 🛈 Metro counties are defined as those with Rural-Urban Continuum Codes (RUCC)  of 1-3), while Non-Metro counties are defined as those with RUCC of 4-9)."
+      ],
+      "text": "Metro census tracts are defined as those with Rural-Urban Commuting Area (RUCA) Codes of 1-3, while Non-Metro tracts are defined as those with RUCA of 4-10)",
+      "status": "available"
+    },
+    {
+      "id": "sdd-714",
+      "tab": "User interface design",
+      "context": [
+        "{Civilian employed (%), Civilian unemployed (%), Armed forces (%), Not in labor force (%)}}",
+        "Utility services shut-off threat in past 12 months (% of adults) [CDC PLACES]"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-716",
+      "tab": "User interface design",
+      "context": [
+        "🛈 2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+        "Housing insecurity in past 12 months (% of adults) [CDC PLACES]"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-721",
+      "tab": "User interface design",
+      "context": [
+        "Production, transportation, and material moving occupations (% age >=16) {B08124_006}",
+        "Gini Index [ACS-5]"
+      ],
+      "text": "A measure of income equality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality.",
+      "status": "method-review",
+      "review_reason": "SDD describes Gini on a 0–100 scale; app outputs ACS B19083 on a 0–1 scale."
+    },
+    {
+      "id": "sdd-723",
+      "tab": "User interface design",
+      "context": [
+        "🛈 A measure of income equality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality.",
+        "Social Vulnerability Index (SVI)"
+      ],
+      "text": "The Centers for Disease Control and Prevention Social Vulnerability Index is derived from _______",
+      "status": "unfinished",
+      "review_reason": "SDD explanation ends with an unfilled blank."
+    },
+    {
+      "id": "sdd-734",
+      "tab": "User interface design",
+      "context": [
+        "Label: Household overcrowding (% with >1.0 residents per room)",
+        "Derive single percentage by combining the last 3 categorie: {<=0.50, 0.50-1.00, 1.01-1.50, 1.51-2.00, >2.00)"
+      ],
+      "text": "Based on U.S. Department of Huusing and Urban Development 2007 report Measuring Overcrowding in Housing",
+      "status": "available"
+    },
+    {
+      "id": "sdd-745",
+      "tab": "User interface design",
+      "context": [
+        "Households with grandparents caring for children (%) [ACS-5]",
+        "Home broadband internet subscription (%) [ACS-5]"
+      ],
+      "text": "Satellite internet considered to be broadband",
+      "status": "method-review",
+      "review_reason": "SDD describes broadband; app internet subscriptions include dial-up as well."
+    },
+    {
+      "id": "sdd-872",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "",
+        "Include checkbox option for “Output all available registry variables”."
+      ],
+      "text": "All available raw registry data elements available for each patient will be output. This includes several elements not listed below.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-913",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Travel time-adjusted providers or facilities per 100,000 population from census tract centroid",
+        "Primary Care Providers per 100,000 (travel time-adjusted) [Tavel_bg_2020 tables; Calculate measure as count.x * 100000. Show only values for which the source_file column = pcp1_1220_tr.xlsx.xlsx"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nInternal Medicine without further specialization\nPediatrics without further specialization\nFamily Medicine\nGeriatrics\nSee Technical Glossary for modified  2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-920",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "See Technical Glossary for modified  2-step floating catchment area calculation details.",
+        "Oncology Providers per 100,000 (travel time-adjusted) [Tavel_bg_2020 tables; Calculate measure as count.x * 100000. Show only values for which the source_file column = cnc1_1220_tr.xlsx.xlsx"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-929",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Expanded Cancer Care  per 100,000 (travel time-adjusted) [Tavel_bg_2020 tables; Calculate measure as count.x * 100000. Show only values for which the source_file column = cnc2_1220_tr.xlsx.xlsx)"
+      ],
+      "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nUrology\nThoracic Surgery\nGeneral Surgery\nGastroenterology\nPathology\nDiagnostic Radiology\nInterventional Radiology\nColorectal Surgery\nNeurosurgery\nOtolaryngology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-948",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "See Technical Glossary for modified 2-step floating catchment area calculation details.",
+        "Mammogram facilities per 100,000 (travel time-adjusted)  [FDA_Mammography_travel_bg; use column mammo_per_100k]"
+      ],
+      "text": "Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included. See Technical Glossary for modified 2-step floating catchment area calculation details.",
+      "status": "available"
+    },
+    {
+      "id": "sdd-961",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Patient's County",
+        "Cancer prevention - PROVIDE OPTION FOR 95% CI"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-967",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "No leisure-time physical activity - Label = No leisure-time physical activity (% of adults)",
+        "Short sleep duration - Label = Short sleep duration (% of adults)"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-971",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Breast (age 50-74) - Label = % Breast cancer screening (age 50-74)",
+        "Cervical (age 21-65) - Label = % Cervical cancer screening (age 21-65)"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-982",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Independent living disability (% of adults) [CDC PLACES]",
+        "Access to care for communities"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-988",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Visited dentist or dental clinic in past year (% of adults) [CDC PLACES]",
+        "Community Characteristics - AVAILABLE FOR ALL 4 GEO LEVELS UNLESS OTHERWISE INDICATED; Output categories indicated in { }"
+      ],
+      "text": "From the U.S. Census American Community Survey (5-year data) unless otherwise noted",
+      "status": "available"
+    },
+    {
+      "id": "sdd-1010",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "{Native citizen (%) (B07007_002), Naturalized citizen (%) (B07007_004), Non-citizen (%) (B07007_005)}",
+        "Metro/Non-Metro (RUCC/RUCA code) - ONLY IF COUNTY OR CENSUS TRACT SELECTED"
+      ],
+      "text": "Metro counties are defined as those with Rural-Urban Continuum Codes (RUCC)  of 1-3), while Non-Metro counties are defined as those with RUCC of 4-9).",
+      "status": "available"
+    },
+    {
+      "id": "sdd-1011",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Metro/Non-Metro (RUCC/RUCA code) - ONLY IF COUNTY OR CENSUS TRACT SELECTED",
+        "If county-level: 🛈 Metro counties are defined as those with Rural-Urban Continuum Codes (RUCC)  of 1-3), while Non-Metro counties are defined as those with RUCC of 4-9)."
+      ],
+      "text": "Metro census tracts are defined as those with Rural-Urban Commuting Area (RUCA) Codes of 1-3, while Non-Metro tracts are defined as those with RUCA of 4-10)",
+      "status": "available"
+    },
+    {
+      "id": "sdd-1026",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "{Civilian employed (%), Civilian unemployed (%), Armed forces (%), Not in labor force (%)}}",
+        "Utility services shut-off threat in past 12 months (% of adults) [CDC PLACES]"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-1028",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "🛈 2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+        "Housing insecurity in past 12 months (% of adults) [CDC PLACES]"
+      ],
+      "text": "2024 Centers for Disease Control and Prevention (CDC) PLACES data derived from the Behavioral Risk Factor Surveillance System survey",
+      "status": "available"
+    },
+    {
+      "id": "sdd-1033",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Production, transportation, and material moving occupations (% age >=16) {B08124_006}",
+        "Gini Index [ACS-5]"
+      ],
+      "text": "A measure of income equality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality.",
+      "status": "method-review",
+      "review_reason": "SDD describes Gini on a 0–100 scale; app outputs ACS B19083 on a 0–1 scale."
+    },
+    {
+      "id": "sdd-1035",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "🛈 A measure of income equality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality.",
+        "Social Vulnerability Index (SVI)"
+      ],
+      "text": "The Centers for Disease Control and Prevention Social Vulnerability Index is derived from _______",
+      "status": "unfinished",
+      "review_reason": "SDD explanation ends with an unfilled blank."
+    },
+    {
+      "id": "sdd-1046",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Label: Household overcrowding (% with >1.0 residents per room)",
+        "Derive single percentage by combining the last 3 categorie: {<=0.50, 0.50-1.00, 1.01-1.50, 1.51-2.00, >2.00)"
+      ],
+      "text": "Based on U.S. Department of Huusing and Urban Development 2007 report Measuring Overcrowding in Housing",
+      "status": "available"
+    },
+    {
+      "id": "sdd-1055",
+      "tab": "UI Design - Patient-level measures",
+      "context": [
+        "Households with grandparents caring for children (%) [ACS-5]",
+        "Home broadband internet subscription (%) [ACS-5]"
+      ],
+      "text": "Satellite internet considered to be broadband",
+      "status": "method-review",
+      "review_reason": "SDD describes broadband; app internet subscriptions include dial-up as well."
+    },
+    {
+      "id": "sdd-1091",
+      "tab": "Visualizations",
+      "context": [
+        "“Select variable to plot” - The user will select one variable from a dropfown list of all point estimate variables represented in the current Results page.",
+        "If the variable does not have 95% CI estimates available, it should appear in the list but be inactivated. When the user hovers over that inactivated variable, they should get the following message:"
+      ],
+      "text": "The forest plot option requires variables for which confidence interval estimates are available. Either re-run your query selecting the option for 95% CI’s for that variable if available, or use a bar chart if a confidence interval is unavailable for the variable of interest.",
+      "status": "future-control",
+      "review_reason": "No matching Bayesian/exceedance or forest-plot control exists in the current interface."
+    },
+    {
+      "id": "sdd-1093",
+      "tab": "Visualizations",
+      "context": [
+        "🛈 The forest plot option requires variables for which confidence interval estimates are available. Either re-run your query selecting the option for 95% CI’s for that variable if available, or use a bar chart if a confidence interval is unavailable for the variable of interest.",
+        "If the variable is categorical, inactivate and display the following hover-over message"
+      ],
+      "text": "Only continuous variables may be depicted using forest plots.",
+      "status": "future-control",
+      "review_reason": "No matching Bayesian/exceedance or forest-plot control exists in the current interface."
+    },
+    {
+      "id": "sdd-1095",
+      "tab": "Visualizations",
+      "context": [
+        "🛈 Only continuous variables may be depicted using forest plots.",
+        "“Select value for reference line”"
+      ],
+      "text": "Select the value for which a dashed vertical line intersecting the x-axis will appear.",
+      "status": "future-control",
+      "review_reason": "No matching Bayesian/exceedance or forest-plot control exists in the current interface."
+    }
+  ]
+}

@@ -54,7 +54,7 @@
     <div class="card shadow-sm mb-3 patient-measure-subcategory"><div class="card-body popcase-tree select-all-scope">
 
       <div class="measure-heading-inline">
-        <h3 class="h6 text-uppercase text-secondary mb-0">{{ card.title }}</h3>
+        <h3 class="h6 text-uppercase text-secondary mb-0"{% if card.title == 'Community Characteristics' %} data-sdd-help="acs"{% endif %}>{{ card.title }}</h3>
         <div class="form-check measure-select-all">
           <input type="checkbox" class="form-check-input select-all-master" id="select_all_patient_community_{{ forloop.counter }}">
           <label class="form-check-label" for="select_all_patient_community_{{ forloop.counter }}">Select all</label>
