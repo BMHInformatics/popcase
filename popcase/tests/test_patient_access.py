@@ -153,4 +153,4 @@ class PatientAccessTests(SimpleTestCase):
         html = response.content.decode()
         self.assertIn('Registry patient ID', html)
         self.assertIn('P1', html)
-        self.assertEqual(html.count('One row per qualifying cancer registry record'), 1)
+        self.assertNotIn('One row per qualifying cancer registry record', html)

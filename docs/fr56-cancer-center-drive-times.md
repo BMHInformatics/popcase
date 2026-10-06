@@ -17,13 +17,12 @@ Geography IDs retain their standard zero-padded widths. Existing geography scope
 filters apply before output. The measures flow into results, stratified reports'
 community rows, and CSV exports.
 
-The requested list has four matrices and one center lookup, not five matrices.
-On September 28, 2026, both configured databases were checked: County, Tract,
-ZCTA and Block Group matrices exist in `default`; no Place matrix exists.
-Place choices are present with an unavailable-data message. The reader supports
-`coc_travelmatrix_place_to_center_car_p50` if supplied with the same columns and
-seven-digit Place GEOIDs. Remove the temporary Place message when enabling that
-source, and restart application workers to clear cached lookups/results.
+On October 5, 2026, `default.public.coc_travelmatrix_place_to_center_car_p50`
+was verified through the existing geography-aware reader. Its 4,113 routes cover
+1,215 seven-digit Place GEOIDs: all have CoC ACAD routes and 447 have NCI routes.
+The temporary Place unavailable-data message has been removed. Restart
+application workers after deploying to clear cached lookups/results created
+before the Place table was loaded. Missing NCI routes remain blank.
 The block-group matrix is available to the reader; this FR does not add a new
 patient-level reporting workflow or provider-density calculations.
 

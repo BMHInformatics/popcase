@@ -1,0 +1,103 @@
+{{ form.patient_schema_version }}
+
+<section class="mb-4 patient-measure-category" aria-labelledby="patient-variables-heading">
+  <h2 class="h5 mb-3" id="patient-variables-heading">Patient Variables</h2>
+  <div class="form-check">{{ form.patient_all_registry }} <label class="form-check-label" for="{{ form.patient_all_registry.id_for_label }}">{{ form.patient_all_registry.label }}</label></div>
+<fieldset id="patient-variable-options" class="mt-3">
+    {% for group in form.patient_variable_groups %}
+      <div class="card shadow-sm mb-3 patient-measure-subcategory"><div class="card-body popcase-tree select-all-scope">
+
+        <div class="measure-heading-inline">
+          <h3 class="h6 text-uppercase text-secondary mb-0">{{ group.title }}</h3>
+          <div class="form-check measure-select-all">
+            <input type="checkbox" class="form-check-input select-all-master" id="select_all_patient_{{ forloop.counter }}">
+            <label class="form-check-label" for="select_all_patient_{{ forloop.counter }}">Select all</label>
+          </div>
+        </div>
+        <div class="ms-3">
+          {% for choice in group.choices %}
+            <div class="form-check">
+              {% if choice.data.value == 'gleason' and not prostate_selected %}
+                <input type="checkbox" name="patient_variables" value="gleason" id="{{ choice.id_for_label }}" disabled>
+                <label class="form-check-label text-muted" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+              {% else %}
+                {{ choice.tag }} <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div></div>
+    {% endfor %}
+    <div class="card shadow-sm mb-3 patient-measure-subcategory"><div class="card-body popcase-tree select-all-scope">
+
+      <div class="measure-heading-inline">
+        <h3 class="h6 text-uppercase text-secondary mb-0">Access to care</h3>
+        <div class="form-check measure-select-all">
+          <input type="checkbox" class="form-check-input select-all-master" id="select_all_patient_access">
+          <label class="form-check-label" for="select_all_patient_access">Select all</label>
+        </div>
+      </div>
+      <div class="fw-semibold mb-2">Access indices</div>
+      {% for choice in form.patient_access_choices %}
+        {% if forloop.counter == 5 %}<div class="fw-semibold mt-3 mb-2">Travel time to nearest facility</div>{% endif %}
+        <div class="ms-3"><div class="form-check">{{ choice.tag }} <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div></div>
+      {% endfor %}
+    </div></div>
+</fieldset>
+</section>
+<section class="patient-measure-category" aria-labelledby="patient-community-heading">
+    <h2 class="h5 mb-3" id="patient-community-heading">Variables describing the patient's community</h2>
+    <p class="mb-2" style="color: #4477f8">At what geographic level would you like to output community-level measures?</p>
+    <div class="ms-3">{{ form.patient_community_geography }}</div>
+  <div class="mt-3">
+  {% for card in form.patient_community_cards %}
+    <div class="card shadow-sm mb-3 patient-measure-subcategory"><div class="card-body popcase-tree select-all-scope">
+
+      <div class="measure-heading-inline">
+        <h3 class="h6 text-uppercase text-secondary mb-0">{{ card.title }}</h3>
+        <div class="form-check measure-select-all">
+          <input type="checkbox" class="form-check-input select-all-master" id="select_all_patient_community_{{ forloop.counter }}">
+          <label class="form-check-label" for="select_all_patient_community_{{ forloop.counter }}">Select all</label>
+        </div>
+      </div>
+      {% for section in card.sections %}
+        {% if section.heading %}<div class="fw-semibold{% if not forloop.first %} mt-3{% endif %}">{{ section.heading }}</div>{% endif %}
+        <div class="form-check measure-sub-option">{{ section.ci }} <label class="form-check-label" style="color: #4477f8; font-style: italic" for="{{ section.ci.id_for_label }}">{{ section.ci.label }}</label></div>
+        {% if section.access %}<div class="form-check measure-sub-option">{{ form.patient_community_age_adjusted }} <label class="form-check-label" style="color: #4477f8; font-style: italic" for="{{ form.patient_community_age_adjusted.id_for_label }}">{{ form.patient_community_age_adjusted.label }}</label></div>{% endif %}
+        <div class="ms-3">
+          {% for choice in section.choices %}
+            {% if choice.data.value == 'redlined_pct' %}
+              <div class="form-check text-secondary"><input id="patient_redlined_unavailable" type="checkbox" disabled> <label class="form-check-label" for="patient_redlined_unavailable">% of population living in formerly redlined neighborhoods</label></div>
+            {% elif choice.data.value == 'svi_adi' %}
+              <div class="form-check text-secondary"><input id="patient_svi_unavailable" type="checkbox" disabled> <label class="form-check-label" for="patient_svi_unavailable">Social Vulnerability Index</label></div>
+            {% else %}
+              <div class="form-check">{{ choice.tag }} <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div></div>
+  {% endfor %}
+  </div>
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const all = document.getElementById('id_patient_all_registry');
+  const fields = document.getElementById('patient-variable-options');
+  const adjusted = document.getElementById('id_patient_community_age_adjusted');
+  const rurality = document.querySelector('input[name="community_characteristics"][value="rurality"]');
+  function updatePatientOptions() {
+    fields.disabled = all.checked;
+    fields.classList.toggle('text-secondary', all.checked);
+    const level = document.querySelector('input[name="patient_community_geography"]:checked')?.value || 'tract';
+    adjusted.disabled = !['county', 'place'].includes(level);
+    if (adjusted.disabled) adjusted.checked = false;
+    if (rurality) { rurality.disabled = !['county', 'tract'].includes(level); if (rurality.disabled) rurality.checked = false; }
+    // Refresh the page's common measure-selection validation after disabling fields.
+    document.getElementById('id_patient_all_registry').dispatchEvent(new Event('change'));
+  }
+  all.addEventListener('click', updatePatientOptions);
+  document.querySelectorAll('input[name="patient_community_geography"]').forEach(input => input.addEventListener('change', updatePatientOptions));
+  updatePatientOptions();
+});
+</script>

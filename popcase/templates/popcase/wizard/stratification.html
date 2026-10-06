@@ -20,7 +20,7 @@
 </ul>
 <div class="card shadow-sm"><div class="card-body">
 {% if is_patient_level %}
-  <p>Patient-level results contain one row per qualifying cancer registry record, with the selected block-group access measures. A patient with multiple cancers may appear more than once. You can download the full CSV for analysis.</p>
+  <p>Patient-level results contain one row per qualifying cancer registry record, with your selected patient variables and linked community measures. A patient with multiple cancers may appear more than once. You can download the full CSV for analysis.</p>
   <div class="d-flex justify-content-between">
     <a class="btn btn-outline-secondary" href="{% url 'popcase:wizard_step' step='measures' %}">Back</a>
     <form method="post">{% csrf_token %}<button class="btn btn-primary" type="submit">Finish</button></form>

@@ -5,7 +5,7 @@ import json
 import re
 from collections import Counter
 
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.contrib.auth import views as auth_views
@@ -821,12 +821,27 @@ def _build_results_payload_cached(
 
 
 def _build_results_payload(**kwargs):
+    patient_options = _deserialize_payload(kwargs.pop('patient_measures_json', ''))
     # Patient extracts must not enter the shared process-wide results cache.
     if kwargs['geographic_level'] == 'patient':
+        if patient_options.get('patient_schema_version') == '2':
+            from .patient_reporting import prepare_patient_report
+            from .registry_labels import display_row
+            report = prepare_patient_report((kwargs['dx_start'], kwargs['dx_end']),
+                                            _deserialize_payload(kwargs['filters_json']), patient_options)
+            rows, count = [], 0
+            for row in report.rows:
+                count += 1
+                if len(rows) < PREVIEW_ROW_LIMIT:
+                    rows.append(display_row(row))
+            return {'incidence': [], 'total_incidence': None, 'dataset_rows': rows, 'result_mode': 'dataset',
+                    'patient_headers': report.headers, 'patient_columns': report.columns, 'patient_row_count': count}
         rows = build_patient_dataset((kwargs['dx_start'], kwargs['dx_end']),
                                      _deserialize_payload(kwargs['filters_json']),
                                      kwargs['support_measures_tuple'])
-        return {'incidence': [], 'total_incidence': None, 'dataset_rows': rows, 'result_mode': 'dataset'}
+        from .registry_labels import display_row
+        return {'incidence': [], 'total_incidence': None,
+                'dataset_rows': [display_row(row) for row in rows], 'result_mode': 'dataset'}
     return _build_results_payload_cached(**kwargs)
 
 
@@ -1223,6 +1238,7 @@ def results(request):
     try:
         payload = _build_results_payload(
             geographic_level=geographic_level,
+            patient_measures_json=_serialize_payload(measures_state),
             dx_start=dx_start,
             dx_end=dx_end,
             filters_json=_serialize_payload(filters),
@@ -1243,13 +1259,16 @@ def results(request):
     result_mode = payload["result_mode"]
 
     dataset_preview_limit = _get_preview_row_limit(request)
-    dataset_total_rows = len(dataset_rows)
+    dataset_total_rows = payload.get('patient_row_count', len(dataset_rows))
     dataset_is_truncated = dataset_total_rows > dataset_preview_limit
     dataset_rows_preview = dataset_rows[:dataset_preview_limit]
 
     dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, dataset_rows)
     if geographic_level == 'patient':
         dynamic_header_map.update(PATIENT_HEADERS)
+        dynamic_header_map.update(payload.get('patient_headers', {}))
+        dynamic_header_map.update({'sex_code': 'Sex', 'race_code': 'Race',
+                                   'hispanic_origin_code': 'Hispanic origin'})
     dynamic_numeric_cols = list(dict.fromkeys(DATASET_NUMERIC_COLS + [
         key
         for row in dataset_rows
@@ -1263,7 +1282,7 @@ def results(request):
         display_options,
         geographic_level,
     )
-    dataset_columns = _build_dataset_columns(dataset_rows, dynamic_header_map, preferred_dataset_columns)
+    dataset_columns = payload.get('patient_columns') or _build_dataset_columns(dataset_rows, dynamic_header_map, preferred_dataset_columns)
     dataset_header_rows, dataset_column_classes = _build_dataset_header_rows(
         dataset_columns,
         dynamic_header_map,
@@ -1314,7 +1333,7 @@ def results(request):
         "community_timeframes": community_timeframes,
         "cancer_type_labels": cancer_type_labels,
         "age_group_labels": age_group_labels,
-        "dataset_title": 'Patient-level access dataset' if geographic_level == 'patient' else f"Selected measures by {geographic_level.title()}",
+        "dataset_title": 'Patient-level dataset' if geographic_level == 'patient' else f"Selected measures by {geographic_level.title()}",
         "dataset_header_map": dynamic_header_map,
         "dataset_numeric_cols": dynamic_numeric_cols,
         # Backward-compatible context aliases for older templates/custom tags.
@@ -1408,6 +1427,27 @@ def export_geo_dataset_csv(request):
     dx_start = (filters.get("dx_start") or default_dx_start).strip() or default_dx_start
     dx_end = (filters.get("dx_end") or default_dx_end).strip() or default_dx_end
     latest_year = patient_linkage_year() if geographic_level == 'patient' else str(_latest_linking_year())
+
+    if geographic_level == 'patient' and measures_state.get('patient_schema_version') == '2':
+        from .patient_reporting import prepare_patient_report
+        try:
+            report = prepare_patient_report((dx_start, dx_end), filters, measures_state)
+        except StratificationUnavailable as exc:
+            messages.error(request, str(exc))
+            return redirect('popcase:wizard_step', step='measures')
+        class CsvBuffer:
+            def write(self, value):
+                return value
+        def stream():
+            writer = csv.writer(CsvBuffer())
+            yield '\ufeff'
+            yield writer.writerow([report.headers.get(col, col) for col in report.columns])
+            for row in report.rows:
+                yield writer.writerow(['' if row.get(col) is None else row.get(col) for col in report.columns])
+        response = StreamingHttpResponse(stream(), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename=popcase_results_patient_{dx_start}_{dx_end}.csv'
+        response['Cache-Control'] = 'private, no-store'
+        return response
 
     try:
         payload = _build_results_payload(

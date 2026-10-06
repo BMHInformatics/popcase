@@ -9,6 +9,7 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from collections import defaultdict
+from contextvars import ContextVar
 from typing import Iterable, Tuple, Union
 
 from django.db.models import Count, Q
@@ -40,6 +41,12 @@ from popcase.models import (
 # ---------------------------------------------------------
 # CONSTANTS
 # ---------------------------------------------------------
+
+# Scoped patient reads must not populate the geography-wide lookup cache.
+_patient_community_source_scope = ContextVar('patient_community_source_scope', default=None)
+
+# Scoped patient reads must not populate the geography-wide lookup cache.
+_patient_community_source_scope = ContextVar('patient_community_source_scope', default=None)
 
 AGE_GROUP_RANGES = {
     "age_00": (0, 0),
@@ -3006,8 +3013,14 @@ def _get_geo_support_lookups_cached(geographic_level, requested_tuple):
     return lookups
 
 
-def _get_geo_support_lookups(geographic_level, requested_support_measures=None):
+def _get_geo_support_lookups(geographic_level, requested_support_measures=None, geoid_scope=None):
     normalized = tuple(sorted(_normalize_support_measure_tokens(requested_support_measures or [])))
+    if geoid_scope is not None:
+        token = _patient_community_source_scope.set((geographic_level, tuple(sorted(geoid_scope))))
+        try:
+            return _get_geo_support_lookups_cached.__wrapped__(geographic_level, normalized)
+        finally:
+            _patient_community_source_scope.reset(token)
     return _get_geo_support_lookups_cached(geographic_level, normalized)
 
 
@@ -3225,6 +3238,14 @@ def _community_where_sql(table_name, geographic_level, source, period):
     colmap = _get_table_column_map(table_name)
     clauses = []
     params = []
+
+    scope = _patient_community_source_scope.get()
+    if scope is not None and scope[0] == geographic_level:
+        geo_column = _first_existing_col(colmap, ['GEO_ID', 'geo_id', 'geoid'])
+        width = {'county': 5, 'tract': 11, 'place': 7, 'zcta': 5}.get(geographic_level)
+        if geo_column and width:
+            clauses.append(f'RIGHT({_quote_identifier(geo_column)}::text, %s) = ANY(%s)')
+            params.extend([width, list(scope[1])])
 
     level_col = _first_existing_col(colmap, ["geographic_level", "geo_level", "geography_level"])
     if level_col:
@@ -4596,6 +4617,7 @@ def _build_geo_dataset_uncached(
     display_options=None,
     community_timeframes=None,
     incidence_year=None,
+    support_geoid_scope=None,
 ):
     """
     Returns list[dict] with one row per geographic unit.
@@ -4737,7 +4759,19 @@ def _build_geo_dataset_uncached(
 
     support_lookup = {}
     if support_measures:
-        support_lookup = _get_geo_support_lookups(geographic_level, support_measures)
+        if support_geoid_scope is not None:
+            support_lookup = _get_geo_support_lookups(geographic_level, support_measures, geoid_scope=support_geoid_scope)
+        else:
+            support_lookup = _get_geo_support_lookups(geographic_level, support_measures)
+
+    # Patient extracts need area values only for their linked geographies.
+    # In particular, avoid assembling hundreds of columns for every national
+    # ZCTA when only a small linked subset will be used. Values/denominators
+    # remain whole-community values; this is not a patient-population filter.
+    if support_geoid_scope is not None:
+        support_geoid_scope = set(support_geoid_scope)
+        support_lookup = {name: {g: row for g, row in lookup.items() if g in support_geoid_scope}
+                          for name, lookup in support_lookup.items()}
 
     if support_lookup:
         support_lookup = {
@@ -4768,6 +4802,8 @@ def _build_geo_dataset_uncached(
         g for g in all_geoids
         if _geoid_in_scope(geographic_level, g, filters)
     }
+    if support_geoid_scope is not None:
+        all_geoids &= support_geoid_scope
 
     rows = []
 
@@ -5042,6 +5078,7 @@ def build_geo_dataset(
     display_options=None,
     community_timeframes=None,
     incidence_year=None,
+    support_geoid_scope=None,
 ):
     filters = filters or {}
     dx_start, dx_end = year_range
@@ -5049,6 +5086,11 @@ def build_geo_dataset(
     normalized_support = tuple(sorted(_normalize_support_measure_tokens(support_measures)))
     normalized_display_options = tuple(sorted(_as_list(display_options)))
     normalized_community_timeframes = tuple(sorted(_normalize_community_timeframes(community_timeframes)))
+    if support_geoid_scope is not None:
+        return _build_geo_dataset_uncached(
+            geographic_level, year_range, filters, normalized_disease, normalized_support,
+            normalized_display_options, normalized_community_timeframes, incidence_year,
+            support_geoid_scope=support_geoid_scope)
     return _build_geo_dataset_cached(
         geographic_level=geographic_level,
         dx_start=str(dx_start),

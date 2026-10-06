@@ -2,6 +2,7 @@ from django import forms
 from .models import UICounty
 from .county_crosswalks import county_assignments
 from .rate_statistics import RateDataUnavailable
+from .patient_reporting import VARIABLE_CHOICES, VARIABLE_GROUPS
 from .services import AGE_GROUP_RANGES, OHIO_COUNTY_NAMES, get_default_diagnosis_quarter_range, get_diagnosis_quarter_choices, diagnosis_quarter_sort_key
 
 GEO_CHOICES = [
@@ -375,6 +376,16 @@ class FiltersForm(forms.Form):
 
 class MeasuresForm(forms.Form):
     # Leaf options only; categories are rendered in the template (not selectable).
+    patient_schema_version = forms.CharField(required=False, initial='2', widget=forms.HiddenInput)
+    patient_all_registry = forms.BooleanField(required=False, label='Output all available registry variables')
+    patient_variables = forms.MultipleChoiceField(choices=VARIABLE_CHOICES, required=False,
+                                                 widget=forms.CheckboxSelectMultiple)
+    patient_community_geography = forms.ChoiceField(required=False, initial='tract', widget=forms.RadioSelect,
+        choices=[('tract', "Patient's Census Tract"), ('zcta', "Patient's ZCTA"),
+                 ('place', "Patient's Census Designated Place / Municipality"), ('county', "Patient's County")])
+    patient_community_access = forms.MultipleChoiceField(required=False, widget=forms.CheckboxSelectMultiple)
+    patient_community_access_ci = forms.BooleanField(required=False, label='Display 95% Confidence Intervals')
+    patient_community_age_adjusted = forms.BooleanField(required=False, label='Display age-adjusted measures (County and Place only)')
 
     DISEASE_LEAVES = [
         ("case_count", "Case count"),
@@ -657,6 +668,45 @@ class MeasuresForm(forms.Form):
         geographic_level = kwargs.pop("geographic_level", None)
         super().__init__(*args, **kwargs)
         self.geographic_level = geographic_level
+        self.fields['patient_community_access'].choices = self.SURVEY_ACCESS_LEAVES
+        if geographic_level == 'patient':
+            # Wireframe wording is specific to this page; shared geographic
+            # forms and the measure tokens used by reporting stay unchanged.
+            labels = {
+                'place': 'Census Designated Place/Municipality',
+                'patient_rurality': 'Rurality (County RUCC and Census tract RUCA codes)',
+                'tti_modalities': 'Time to treatment initiation with various modalities',
+                'gleason': 'Gleason Score (Prostate cancer only)',
+                'coc': 'CoC-accredited academic cancer programs',
+                'crc_screen': 'Colorectal cancer (age 45-75)',
+                'breast_screen': 'Breast (age 50-74)',
+                'cervical_screen': 'Cervical (age 21-65)',
+                'routine_checkup': '% who visited doctor for routine checkup within the past year among adults',
+                'no_transport': '% with lack of reliable transportation in the past 12 months among adults',
+                'no_insurance': '% with current lack of health insurance among adults aged 18-64 years',
+                'dentist': '% who visited dentist or dental clinic in the past year among adults',
+                'median_age': 'Median age', 'marital_status': 'Marital status',
+                'educ_attain': 'Educational attainment', 'citizenship': 'Citizenship status',
+                'med_hh_income': 'Median household income', 'per_capita_income': 'Per capita income',
+                'income_pov_ratio': 'Income to poverty-level ratio',
+                'housing_unoccupied': '% of housing units unoccupied', 'renting_pct': '% Renting',
+                'median_year_built': 'Median Year Structure Built',
+                'median_housing_costs': 'Median monthly housing costs (rent or mortgage + fees + utilities + taxes, etc.)',
+                'plumbing_complete': '% with complete plumbing facilities',
+                'kitchen_complete': '% with complete kitchen facilities',
+                'female_headed': '% Female-headed households',
+                'internet_access': '% with internet access by primary type (dialup, high-speed, mobile only)',
+                'moved_last_year': '% who have moved in last year',
+            }
+            for name in ('patient_variables', 'access_patient_measures', 'cancer_prevention',
+                         'noncancer_health_status', 'patient_community_access', 'community_characteristics'):
+                self.fields[name].choices = [(token, labels.get(token, label.replace(' (% of adults)', '')))
+                                             for token, label in self.fields[name].choices]
+            self.fields['patient_community_geography'].choices = [
+                ('tract', "Patient's Census Tract"), ('zcta', "Patient's Zip Code Tabulation Area (ZCTA)"),
+                ('place', "Patient's Census Designated Place/Municipality"), ('county', "Patient's County")]
+            self.fields['patient_community_age_adjusted'].label = 'Display age-adjusted measures'
+            self.fields['patient_community_age_adjusted'].widget.attrs['title'] = 'Available for County and Place only'
 
         # FR41 availability matrix:
         #   County -> show county age-adjusted option
@@ -684,13 +734,65 @@ class MeasuresForm(forms.Form):
             if token != "redlined_pct"
         ]
         if self.geographic_level == 'patient':
-            for field in self.MEASURE_SELECTION_FIELDS:
-                if field != 'access_patient_measures':
-                    cleaned[field] = []
+            cleaned['patient_schema_version'] = '2'
+            for field in ('disease_measures', 'access_comm_tract', 'access_comm_county', 'access_comm_zcta_place'):
+                cleaned[field] = []
+            cleaned['community_characteristics'] = [t for t in cleaned.get('community_characteristics', []) if t != 'svi_adi']
+            level = cleaned.get('patient_community_geography') or 'tract'
+            cleaned['patient_community_geography'] = level
+            if level not in {'county', 'place'}:
+                cleaned['patient_community_age_adjusted'] = False
+            if level not in {'county', 'tract'}:
+                cleaned['community_characteristics'] = [t for t in cleaned['community_characteristics'] if t != 'rurality']
+            if cleaned.get('patient_all_registry'):
+                cleaned['patient_variables'] = []
+                cleaned['access_patient_measures'] = []
         has_measure = any(cleaned.get(field) for field in self.MEASURE_SELECTION_FIELDS)
+        if self.geographic_level == 'patient':
+            has_measure = has_measure or any(cleaned.get(field) for field in
+                ('patient_all_registry', 'patient_variables', 'patient_community_access'))
         if not has_measure:
             raise forms.ValidationError("Select at least one measure to continue.")
         return cleaned
+
+    @property
+    def patient_variable_groups(self):
+        choices = list(self['patient_variables'])
+        return [{'title': title, 'choices': [c for c in choices if c.data['value'] in dict(tokens)]}
+                for title, tokens in VARIABLE_GROUPS]
+
+    @property
+    def patient_access_choices(self):
+        order = ['pcp', 'onc', 'ext_care', 'mammo_fac', 'nci', 'coc']
+        return sorted(self['access_patient_measures'], key=lambda choice: order.index(choice.data['value']))
+
+    @property
+    def patient_community_cards(self):
+        sections = self.patient_community_sections
+        groups = [
+            ('Cancer Prevention', sections[:2], ['Cancer Risk Factors (Community-level, Adults only)', 'Cancer Screening (Community-level)']),
+            ('Non-cancer community Health Status Measures (Adults only)', sections[2:3], ['']),
+            ('Access to care for communities', sections[3:4], ['Survey-based community access measures']),
+            ('Community Characteristics', sections[4:], ['Demographic (Basic)', 'Demographic (Extended)', 'Economic', 'Housing', 'Household characteristics']),
+        ]
+        return [{'title': title, 'sections': [dict(section, heading=heading)
+                 for section, heading in zip(items, headings)]} for title, items, headings in groups]
+
+    @property
+    def patient_community_sections(self):
+        specs = [
+            ('Cancer prevention: risk factors (adults)', 'cancer_prevention', self.CANCER_PREVENTION_LEAVES[:5], 'cancer_risk_factors_ci'),
+            ('Cancer prevention: screening', 'cancer_prevention', self.CANCER_PREVENTION_LEAVES[5:], 'cancer_screening_ci'),
+            ('Non-cancer community health status (adults)', 'noncancer_health_status', self.HEALTH_STATUS_LEAVES, 'noncancer_health_status_ci'),
+            ('Access to care for communities: survey measures', 'patient_community_access', self.SURVEY_ACCESS_LEAVES, 'patient_community_access_ci'),
+            ('Community characteristics: demographics (basic)', 'community_characteristics', self.COMMUNITY_BASIC_LEAVES, 'community_basic_ci'),
+            ('Community characteristics: demographics (extended)', 'community_characteristics', self.COMMUNITY_EXT_LEAVES, 'community_extended_ci'),
+            ('Community characteristics: economic', 'community_characteristics', self.COMMUNITY_ECON_LEAVES, 'community_economic_ci'),
+            ('Community characteristics: housing', 'community_characteristics', self.COMMUNITY_HOUSING_LEAVES, 'community_housing_ci'),
+            ('Community characteristics: household', 'community_characteristics', self.COMMUNITY_HHCHAR_LEAVES, 'community_household_ci'),
+        ]
+        return [{'title': title, 'choices': [c for c in self[field] if c.data['value'] in dict(tokens)],
+                 'ci': self[ci], 'access': field == 'patient_community_access'} for title, field, tokens, ci in specs]
 
 class StratificationForm(forms.Form):
     row_variable = forms.ChoiceField(choices=[("", "None")] + STRAT_VAR_CHOICES, required=False, initial="", label="Row")

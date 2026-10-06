@@ -43,6 +43,12 @@ class CancerCenterAccessTests(SimpleTestCase):
             result = get_cancer_center_access_lookup('zcta', ['coc'])
             self.assertEqual(result, {'01234': {OUTPUTS['coc']: 40},
                                      '43001': {OUTPUTS['coc']: None}, '43002': {OUTPUTS['coc']: None}})
+            db.execute('CREATE TABLE public.coc_travelmatrix_place_to_center_car_p50 AS '
+                       'SELECT * FROM public.coc_travelmatrix_zcta_to_center_car_p50')
+            result = get_cancer_center_access_lookup('place', ['nci', 'coc'])
+            self.assertEqual(result['0001234'], {OUTPUTS['nci']: 25, OUTPUTS['coc']: 40})
+            self.assertEqual(result['0043001'], {OUTPUTS['nci']: 0, OUTPUTS['coc']: None})
+            self.assertEqual(result['0043002'], {OUTPUTS['nci']: None, OUTPUTS['coc']: None})
 
     def test_missing_place_table_is_unavailable(self):
         with patch('popcase.cancer_center_access.connections') as connections:
@@ -64,6 +70,7 @@ class CancerCenterAccessTests(SimpleTestCase):
                                         {'form': form, 'geographic_level': level,
                                          'current_step': 'measures', 'is_geo_strat': True})
                 self.assertIn(f'Drive time to nearest cancer center from {label} centroid', html)
+                self.assertNotIn('Place drive-time data are not yet available', html)
                 for token in ('nci', 'coc'):
                     self.assertEqual(html.count(f'value="{token}"'), 1)
                 self.assertEqual(views._get_measure_selections(form.cleaned_data, level)[1], ['nci', 'coc'])
@@ -77,7 +84,7 @@ class CancerCenterAccessTests(SimpleTestCase):
                 links = MagicMock()
                 links.filter.return_value = links
                 links.values_list.return_value.distinct.return_value = [('patient', geoid)]
-                support = {'cancer_center_access': {geoid: {OUTPUTS['nci']: 25}}} if level != 'place' else {}
+                support = {'cancer_center_access': {geoid: {OUTPUTS['nci']: 25}}}
                 with patch.object(services, 'apply_naaccr_filters', return_value=filtered), \
                      patch.object(services.NaaccrPatientCensusLinking, 'objects', links), \
                      patch.object(services, '_get_geo_support_lookups', return_value=support), \
@@ -86,7 +93,7 @@ class CancerCenterAccessTests(SimpleTestCase):
                      patch.object(services, '_geo_label', return_value='Example'):
                     rows = services._build_geo_dataset_uncached(level, ('2020', '2020'), {}, [], ['nci', 'coc'])
                 self.assertEqual(len(rows), 1)
-                self.assertEqual(rows[0][OUTPUTS['nci']], None if level == 'place' else 25)
+                self.assertEqual(rows[0][OUTPUTS['nci']], 25)
                 self.assertIsNone(rows[0][OUTPUTS['coc']])
                 field = {'county': 'access_comm_county', 'tract': 'access_comm_tract'}.get(level, 'access_comm_zcta_place')
                 request = RequestFactory().get('/export/')
@@ -100,3 +107,5 @@ class CancerCenterAccessTests(SimpleTestCase):
                 records = list(csv.reader(io.StringIO(response.content.decode('utf-8-sig'))))
                 self.assertIn(views.DATASET_HEADER_MAP[OUTPUTS['nci']], records[0])
                 self.assertIn(views.DATASET_HEADER_MAP[OUTPUTS['coc']], records[0])
+                self.assertEqual(records[1][records[0].index(views.DATASET_HEADER_MAP[OUTPUTS['nci']])], '25')
+                self.assertEqual(records[1][records[0].index(views.DATASET_HEADER_MAP[OUTPUTS['coc']])], '')

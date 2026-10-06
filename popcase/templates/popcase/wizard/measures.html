@@ -64,9 +64,9 @@
       <div class="small">Select measures to output.</div>
     </div>
   {% else %}
-    <div class="alert alert-info">
-      <strong>PATIENT-LEVEL MODE</strong>
-      <div class="small">Choose the access-to-care measures to include for each patient. Values are based on the patient's census block group.</div>
+    <div class="alert alert-success">
+      <strong>PATIENT LEVEL CHOSEN</strong>
+      <div class="small">Select measures to output.</div>
     </div>
   {% endif %}
 
@@ -81,9 +81,11 @@
       </div>
     {% endif %}
 
+    {% if not is_patient_level %}
     <div id="noMeasuresWarning" class="alert alert-warning d-none" role="alert">
       Select at least one measure to continue.
     </div>
+    {% endif %}
 
     {% if has_sex_specific_cancers %}
       <div
@@ -742,17 +744,8 @@
       </div>
 
     {% else %}
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h6 class="text-uppercase text-secondary">Access to Care for Cancer Patients</h6>
-          <p>A census block group is a small geographic area. These measures use its centroid as an approximate patient location.</p>
-          <div class="fw-semibold mb-2">Travel time-adjusted providers or facilities per 100,000 population from block group centroid</div>
-          {% for choice in form.access_patient_measures %}
-            {% if forloop.counter == 5 %}<div class="fw-semibold mt-3 mb-2">Drive time to nearest cancer center from block group centroid</div>{% endif %}
-            <div class="form-check">{{ choice.tag }} <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>
-          {% endfor %}
-        </div>
-      </div>
+      {% for field in form %}{{ field.errors }}{% endfor %}
+      {% include 'popcase/wizard/patient_measures.html' %}
     {% endif %}
 
     <div class="d-flex justify-content-between mt-3">
@@ -767,6 +760,9 @@
       const noMeasuresWarning = document.getElementById("noMeasuresWarning");
       const measuresNextButton = document.getElementById("measuresNextButton");
       const measureFieldNames = new Set([
+        "patient_all_registry",
+        "patient_variables",
+        "patient_community_access",
         "disease_measures",
         "access_patient_measures",
         "cancer_prevention",
@@ -791,7 +787,7 @@
         return cb instanceof HTMLInputElement
           && cb.type === "checkbox"
           && measureFieldNames.has(cb.name)
-          && !cb.disabled;
+          && !cb.matches(':disabled');
       }
 
       function updateMeasureSelectionState() {
@@ -826,7 +822,7 @@
       });
 
       document.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-        if (isMeasureCheckbox(cb)) {
+        if (measureFieldNames.has(cb.name)) {
           cb.addEventListener("change", updateMeasureSelectionState);
         }
       });
@@ -842,7 +838,7 @@
         if (!master) return;
 
         const children = getChildCheckboxes(scope).filter(function (cb) {
-          return !cb.disabled;
+          return !cb.matches(':disabled');
         });
 
         if (children.length === 0) {
@@ -899,7 +895,7 @@
 
         master.addEventListener('change', function () {
           children.forEach(function (cb) {
-            if (!cb.disabled) {
+            if (!cb.matches(':disabled')) {
               cb.checked = master.checked;
             }
           });
