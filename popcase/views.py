@@ -9,6 +9,8 @@ from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpRespon
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.contrib.auth import views as auth_views
+from django.contrib.auth import get_user_model, login
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
@@ -671,6 +673,28 @@ for _token, _label in MeasuresForm.DISEASE_LEAVES:
 class PopcaseLoginView(auth_views.LoginView):
     template_name = "popcase/login.html"
     redirect_authenticated_user = True
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["demo_login_enabled"] = settings.POPCASE_DEMO_LOGIN_ENABLED
+        return context
+
+    def post(self, request, *args, **kwargs):
+        if not settings.POPCASE_DEMO_LOGIN_ENABLED:
+            return super().post(request, *args, **kwargs)
+
+        # A dedicated, unprivileged account keeps normal session authentication
+        # and patient-level access restrictions in place during the demo.
+        user, _ = get_user_model().objects.get_or_create(username="popcase-demo")
+        user.is_active = True
+        user.is_staff = False
+        user.is_superuser = False
+        user.set_unusable_password()
+        user.save()
+        user.groups.clear()
+        user.user_permissions.clear()
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        return redirect(self.get_success_url())
 
     def get_success_url(self):
         return self.get_redirect_url() or reverse_lazy("popcase:wizard")

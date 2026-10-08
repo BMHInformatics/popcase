@@ -83,7 +83,13 @@
               <div class="text-secondary">Access your PopCASE workspace</div>
             </div>
 
-            {% if form.errors %}
+            {% if demo_login_enabled %}
+              <div class="alert alert-info" id="demo-login-notice">
+                For demo purposes, username and password requirements are temporarily disabled. Click Sign in to explore PopCASE.
+              </div>
+            {% endif %}
+
+            {% if form.errors and not demo_login_enabled %}
               <div class="alert alert-danger">Please check your username and password.</div>
             {% endif %}
 
@@ -92,21 +98,23 @@
 
               <div class="mb-3">
                 <label class="form-label" for="id_username">Username</label>
-                <input class="form-control" type="text" name="username" autofocus autocapitalize="none" autocomplete="username" maxlength="150" required id="id_username">
+                <input class="form-control" type="text" name="username" autocapitalize="none" autocomplete="username" maxlength="150" id="id_username" {% if demo_login_enabled %}disabled aria-describedby="demo-login-notice"{% else %}autofocus required{% endif %}>
               </div>
 
               <div class="mb-3">
                 <label class="form-label" for="id_password">Password</label>
-                <input class="form-control" type="password" name="password" autocomplete="current-password" required id="id_password">
+                <input class="form-control" type="password" name="password" autocomplete="current-password" id="id_password" {% if demo_login_enabled %}disabled aria-describedby="demo-login-notice"{% else %}required{% endif %}>
               </div>
 
               <button class="btn btn-primary w-100" type="submit">Sign in</button>
               <input type="hidden" name="next" value="{{ next }}">
             </form>
 
+            {% if not demo_login_enabled %}
             <div class="mt-4 small text-secondary">
               Need access? Contact your PopCASE administrator.
             </div>
+            {% endif %}
           </div>
         </div>
 

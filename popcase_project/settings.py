@@ -81,6 +81,10 @@ CSRF_TRUSTED_ORIGINS = env_list(
 # https://bmhinformatics.case.edu/popcase/
 FORCE_SCRIPT_NAME = os.environ.get("DJANGO_FORCE_SCRIPT_NAME", "/popcase")
 
+# Optional URL mount point for servers (such as Django's development server)
+# that do not strip the deployment prefix before passing requests to Django.
+URL_PREFIX = os.environ.get("DJANGO_URL_PREFIX", "").strip("/")
+
 
 # ---------------------------------------------------------------------
 # Applications
@@ -219,6 +223,7 @@ STATIC_ROOT = os.environ.get("DJANGO_STATIC_ROOT", str(BASE_DIR / "staticfiles")
 
 STATICFILES_DIRS = []
 
+
 MEDIA_URL = os.environ.get("DJANGO_MEDIA_URL", "/popcase/media/")
 MEDIA_ROOT = os.environ.get("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media"))
 
@@ -231,6 +236,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------
 
 LOGIN_URL = "popcase:login"
+# Temporary grant-review demo. Set POPCASE_DEMO_LOGIN_ENABLED=false to
+# restore the standard username/password login.
+POPCASE_DEMO_LOGIN_ENABLED = env_bool("POPCASE_DEMO_LOGIN_ENABLED", True)
 LOGIN_REDIRECT_URL = "popcase:wizard"
 LOGOUT_REDIRECT_URL = "popcase:login"
 
