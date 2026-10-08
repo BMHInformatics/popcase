@@ -236,7 +236,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------
 
 LOGIN_URL = "popcase:login"
-# Temporary grant-review demo. Set POPCASE_DEMO_LOGIN_ENABLED=false to
+# Temporary demo. Set POPCASE_DEMO_LOGIN_ENABLED=false to
 # restore the standard username/password login.
 POPCASE_DEMO_LOGIN_ENABLED = env_bool("POPCASE_DEMO_LOGIN_ENABLED", True)
 LOGIN_REDIRECT_URL = "popcase:wizard"
