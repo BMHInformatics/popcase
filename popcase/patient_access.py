@@ -50,8 +50,13 @@ BASE_COLUMNS = list(RECORD_FIELDS.values()) + ['block_group_geoid', 'linkage_yea
 
 
 def patient_access_allowed(user):
+    demo_access = (
+        getattr(settings, 'POPCASE_DEMO_LOGIN_ENABLED', False)
+        and getattr(user, 'is_authenticated', False)
+        and getattr(user, 'username', '') == 'popcase-demo'
+    )
     return bool(getattr(user, 'is_active', False) and
-                (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)))
+                (demo_access or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)))
 
 
 def linkage_year():

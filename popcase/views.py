@@ -683,12 +683,11 @@ class PopcaseLoginView(auth_views.LoginView):
         if not settings.POPCASE_DEMO_LOGIN_ENABLED:
             return super().post(request, *args, **kwargs)
 
-        # A dedicated, unprivileged account keeps normal session authentication
-        # and patient-level access restrictions in place during the demo.
+        # The temporary demo account has full administrator access.
         user, _ = get_user_model().objects.get_or_create(username="popcase-demo")
         user.is_active = True
-        user.is_staff = False
-        user.is_superuser = False
+        user.is_staff = True
+        user.is_superuser = True
         user.set_unusable_password()
         user.save()
         user.groups.clear()
