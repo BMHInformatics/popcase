@@ -1,7 +1,6 @@
 """Registry-based stratification; geography-wide rates are never reused as subgroup rates."""
 from collections import defaultdict, Counter
 import csv
-from math import sqrt
 from pathlib import Path
 from itertools import product
 
@@ -122,12 +121,11 @@ def summarize(records, measures, details):
     for token, prefix, codes in [('pct_advanced', 'adv', {'2', '3', '4', '5', '7'}), ('pct_metastatic', 'meta', {'7'})]:
         if token not in measures and token + '_ci' not in measures:
             continue
-        p = sum(s in codes for s in stages) / denominator if denominator else None
+        p, lo, hi = services._proportion_ci(sum(s in codes for s in stages), denominator)
         if token in measures: out[token] = round(100 * p, 2) if p is not None else None
         if token + '_ci' in measures:
-            se = sqrt(p * (1-p) / denominator) if p is not None else None
-            out[prefix + '_ci_lower'] = round(100 * max(0, p - 1.96*se), 2) if p is not None else None
-            out[prefix + '_ci_upper'] = round(100 * min(1, p + 1.96*se), 2) if p is not None else None
+            out[prefix + '_ci_lower'] = round(100 * lo, 2) if lo is not None else None
+            out[prefix + '_ci_upper'] = round(100 * hi, 2) if hi is not None else None
     for field, outputs in [
         ('tti_days', [('median_tti', 'median_tti', 'median'), ('median_tti_iqr', 'median_tti_iqr_lower', 'q1'), ('median_tti_iqr', 'median_tti_iqr_upper', 'q3')]),
         ('gleason', [('gleason', 'mean_gleason_score', 'mean'), ('gleason_ci', 'gleason_ci_lower', 'ci_lower'), ('gleason_ci', 'gleason_ci_upper', 'ci_upper')])]:

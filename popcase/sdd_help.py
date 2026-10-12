@@ -16,7 +16,7 @@ def help_config(geography, step):
     def text(number):
         return entries[f'sdd-{number}']
     texts = {key: text(number) for key, number in {
-        'bridged_race': 345, 'treatment': 408,
+        'bridged_race': 345, 'treatment': 408, 'advanced': 404, 'metastatic': 406,
         'direct_rate': 421, 'indirect_20': 423, 'indirect_18': 425,
         'cdc': 494, 'acs': 618,
         'county_rurality': 689, 'tract_rurality': 690,
@@ -38,7 +38,9 @@ def help_config(geography, step):
         bind('disease_measures', value, 'crude_ci')
     for value in ('inc_ci', 'mort_ci'):
         bind('disease_measures', value, 'direct_ci' if geography in {'county', 'none', 'total'} else 'indirect_ci')
-    # Proportion interval help remains deferred for review.
+    for token, topic in [('pct_advanced', 'advanced'), ('pct_metastatic', 'metastatic')]:
+        bind('disease_measures', token, topic)
+        bind('disease_measures', token + '_ci', topic)
     bind('patient_all_registry', None, 'all_registry')
     bind('patient_variables', 'patient_rurality', 'patient_rurality')
     for field, prefix in [('access_patient_measures', 'patient'), ('access_comm_tract', 'tract'),

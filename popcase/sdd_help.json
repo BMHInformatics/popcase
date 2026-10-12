@@ -55,8 +55,9 @@
         "% Advanced at diagnosis (Regional or metastatic spread) with option for 95% CI (default)"
       ],
       "text": "Includes cancers with regional or metastatic spread. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion and assuming n*p ≥ 5 and n*(1-p) ≥ 5",
-      "status": "method-review",
-      "review_reason": "SDD qualifies normal-approximation proportion intervals with n*p >= 5 and n*(1-p) >= 5. App returns these intervals for smaller counts too, without checking those conditions."
+      "status": "resolved-help",
+      "review_reason": "Shared calculation retains the proportion but returns blank normal-approximation confidence limits unless affected >= 5 and total - affected >= 5, for ordinary and stratified results.",
+      "display_text": "Includes cancers with regional or metastatic spread. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion. Confidence intervals are reported only when n*p ≥ 5 and n*(1-p) ≥ 5."
     },
     {
       "id": "sdd-406",
@@ -66,8 +67,9 @@
         "% Metastatic at diagnosis with option for 95% CI (default)"
       ],
       "text": "Equivalent to SEER Summary Stage of “Distant”. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion and assuming n*p ≥ 5 and n*(1-p) ≥ 5",
-      "status": "method-review",
-      "review_reason": "SDD qualifies normal-approximation proportion intervals with n*p >= 5 and n*(1-p) >= 5. App returns these intervals for smaller counts too, without checking those conditions."
+      "status": "resolved-help",
+      "review_reason": "Shared calculation retains the proportion but returns blank normal-approximation confidence limits unless affected >= 5 and total - affected >= 5, for ordinary and stratified results.",
+      "display_text": "Equivalent to SEER Summary Stage of “Distant”. 95% confidence interval for proportions calculated based on a normal approximation using the formula p ± 1.96 (p(1-p)/n)^½ where p is the sample proportion. Confidence intervals are reported only when n*p ≥ 5 and n*(1-p) ≥ 5."
     },
     {
       "id": "sdd-408",

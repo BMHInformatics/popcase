@@ -4,7 +4,6 @@ import math
 import ast
 import json
 import logging
-from math import sqrt
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -4489,6 +4488,18 @@ def _percentile(values, percentile):
     return ordered[f] + (ordered[c] - ordered[f]) * (k - f)
 
 
+def _proportion_ci(affected, total):
+    """SDD normal-approximation CI; retain the proportion for small counts."""
+    if total <= 0:
+        return None, None, None
+    p = affected / total
+    # Compare integer counts directly to avoid floating-point errors at five.
+    if affected < 5 or total - affected < 5:
+        return p, None, None
+    se = math.sqrt(p * (1 - p) / total)
+    return p, max(0.0, p - 1.96 * se), min(1.0, p + 1.96 * se)
+
+
 def _summarize_numeric_values(values):
     """Return mean, normal 95% CI, median, Q1, Q3 for numeric values."""
     clean = [float(v) for v in values if v is not None]
@@ -4715,15 +4726,6 @@ def _build_geo_dataset_uncached(
             if stg == meta_id:
                 meta_by_geo[geoid] += 1
 
-    def _prop_ci(a, n):
-        if n <= 0:
-            return (None, None, None)
-        p = a / n
-        se = sqrt(p * (1 - p) / n)
-        lo = max(0.0, p - 1.96 * se)
-        hi = min(1.0, p + 1.96 * se)
-        return (p, lo, hi)
-
     incidence_lookup = {}
     if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
         if incidence_year is None:
@@ -4818,7 +4820,7 @@ def _build_geo_dataset_uncached(
             n = int(denom_by_geo.get(geoid, 0))
             a = int(adv_by_geo.get(geoid, 0))
             out["n_total_staged_unstaged"] = n
-            p, lo, hi = _prop_ci(a, n)
+            p, lo, hi = _proportion_ci(a, n)
 
             if "pct_advanced" in disease_measures:
                 out["pct_advanced"] = round(p * 100, 2) if p is not None else None
@@ -4830,7 +4832,7 @@ def _build_geo_dataset_uncached(
         if ("pct_metastatic" in disease_measures) or ("pct_metastatic_ci" in disease_measures):
             n = int(denom_by_geo.get(geoid, 0))
             m = int(meta_by_geo.get(geoid, 0))
-            p, lo, hi = _prop_ci(m, n)
+            p, lo, hi = _proportion_ci(m, n)
 
             if "pct_metastatic" in disease_measures:
                 out["pct_metastatic"] = round(p * 100, 2) if p is not None else None
