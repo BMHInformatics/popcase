@@ -31,8 +31,9 @@
         "HPV-related cancers"
       ],
       "text": "Use Ctrl+click or Shift+click to select multiple cancer types.",
-      "status": "superseded-control",
-      "review_reason": "Cancer type and stage use checkboxes; Ctrl/Shift-click instructions do not apply."
+      "status": "resolved-help",
+      "review_reason": "Retain existing checkbox multi-selection; replace only the obsolete modifier-key instruction.",
+      "display_text": "Use the checkboxes to select multiple cancer types."
     },
     {
       "id": "sdd-397",
@@ -42,8 +43,9 @@
         "[Added 12-13-25 in response to Steering Comm] - Add option to restrict to only patients with a single primary cancer (restricts to only cases where Sequence number = 0)."
       ],
       "text": "Use Ctrl+click or Shift+click to select multiple stages.",
-      "status": "superseded-control",
-      "review_reason": "Cancer type and stage use checkboxes; Ctrl/Shift-click instructions do not apply."
+      "status": "resolved-help",
+      "review_reason": "Retain existing checkbox multi-selection; replace only the obsolete modifier-key instruction.",
+      "display_text": "Use the checkboxes to select multiple stages."
     },
     {
       "id": "sdd-404",
@@ -85,8 +87,9 @@
         "Crude incidence rate (per 100,000) with 95% CI [Patient and decennial census tables]"
       ],
       "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
-      "status": "method-review",
-      "review_reason": "SDD says Tiwari for crude-rate intervals; app uses Exact Poisson."
+      "status": "resolved-help",
+      "review_reason": "Controller Logic specifies Exact Poisson; retained in September rate discussions. Corrected wording without changing calculations.",
+      "display_text": "Calculated using the Exact Poisson method for 95% confidence intervals of crude rates."
     },
     {
       "id": "sdd-412",
@@ -96,8 +99,9 @@
         "Crude mortality rate (per 100,000) with 95% CI [Patient and decennial census tables]"
       ],
       "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
-      "status": "method-review",
-      "review_reason": "SDD says Tiwari for crude-rate intervals; app uses Exact Poisson."
+      "status": "resolved-help",
+      "review_reason": "Controller Logic specifies Exact Poisson; retained in September rate discussions. Corrected wording without changing calculations.",
+      "display_text": "Calculated using the Exact Poisson method for 95% confidence intervals of crude rates."
     },
     {
       "id": "sdd-421",
@@ -137,8 +141,8 @@
         "Next to “95% Confidence Interval”  option:"
       ],
       "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
-      "status": "method-review",
-      "review_reason": "SDD assigns both Tiwari and Byar to county incidence intervals and generic Tiwari to mortality. App uses Tiwari for county direct adjustment and Byar for subcounty indirect adjustment."
+      "status": "resolved-help",
+      "review_reason": "User clarified September 8: Tiwari for county/overall direct adjustment, Byar for subcounty indirect adjustment. Use original 427/428 text unchanged, selected by geography for incidence and mortality."
     },
     {
       "id": "sdd-428",
@@ -148,8 +152,8 @@
         "If county has been chosen as the geographical area: 🛈 Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69."
       ],
       "text": "Calculated based on the Byar approximation for Poisson-distributed data. Rothman KJ, Boice JD. Epidemiologic Analysis with a Programmable Calculator. Boston: Epidemiology Resources; 1979.",
-      "status": "method-review",
-      "review_reason": "SDD assigns both Tiwari and Byar to county incidence intervals and generic Tiwari to mortality. App uses Tiwari for county direct adjustment and Byar for subcounty indirect adjustment."
+      "status": "resolved-help",
+      "review_reason": "User clarified September 8: Tiwari for county/overall direct adjustment, Byar for subcounty indirect adjustment. Use original 427/428 text unchanged, selected by geography for incidence and mortality."
     },
     {
       "id": "sdd-433",
@@ -211,8 +215,8 @@
         "Next to “Age-adjusted Mortality Rate”: 🛈 Calculated using the indirect age adjustment method and the 18 age categories as defined in the 2010 and 2020 Decennial Census. The population of the entire cancer registry catchment area is used as the reference population."
       ],
       "text": "Calculated based on the method established in Tiwari RC, Clegg LX, Zou Z. Efficient interval estimation for age-adjusted cancer rates. Stat Methods Med Res. 2006 Dec;15(6):547-69.",
-      "status": "method-review",
-      "review_reason": "SDD assigns both Tiwari and Byar to county incidence intervals and generic Tiwari to mortality. App uses Tiwari for county direct adjustment and Byar for subcounty indirect adjustment."
+      "status": "resolved-help",
+      "review_reason": "User clarified September 8: Tiwari for county/overall direct adjustment, Byar for subcounty indirect adjustment. Use original 427/428 text unchanged, selected by geography for incidence and mortality."
     },
     {
       "id": "sdd-453",
@@ -352,8 +356,9 @@
         "Primary Care Providers per 100,000 [doctorsclinicians table; See Lookup Tables for definitions that should be applied to pri_spec and sec_spec_1 to define provider categories]. Define county based on FIPS code (geoid column): First 2 digits = state (39 for Ohio), digits 3-5 = county. Use B01001_001 from ACS5yr2020 for population denominator."
       ],
       "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nInternal Medicine without further specialization\nPediatrics without further specialization\nFamily Medicine\nGeriatrics\nSee Technical Glossary for modified  2-step floating catchment area calculation details.",
-      "status": "method-review",
-      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+      "status": "resolved-help",
+      "review_reason": "County counts per 100,000 were requested September 9 and specified by SDD county instructions. Preserve original description, reconcile specialties with Provider Types lookup, and replace the travel-adjustment sentence.",
+      "display_text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nInternal Medicine without further specialization\nPediatrics without further specialization\nFamily Medicine\nGeriatrics\nGeneralist Nurse Practitioner\n\nCalculated as the number of qualifying providers in the county per 100,000 population."
     },
     {
       "id": "sdd-582",
@@ -363,8 +368,9 @@
         "Oncology Providers  per 100,000[doctorsclinicians table; See Lookup Tables for definitions that should be applied to pri_spec and sec_spec_1 to define provider categories]. Define county based on FIPS code (geoid column): First 2 digits = state (39 for Ohio), digits 3-5 = county. Use B01001_001 from ACS5yr2020 for population denominator."
       ],
       "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
-      "status": "method-review",
-      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+      "status": "resolved-help",
+      "review_reason": "County counts per 100,000 were requested September 9 and specified by SDD county instructions. Preserve original description, reconcile specialties with Provider Types lookup, and replace the travel-adjustment sentence.",
+      "display_text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary or secondary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\n\nCalculated as the number of qualifying providers in the county per 100,000 population."
     },
     {
       "id": "sdd-592",
@@ -374,8 +380,9 @@
         ""
       ],
       "text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with primary specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nUrology\nThoracic Surgery\nGeneral Surgery\nGastroenterology\nPathology\nDiagnostic Radiology\nInterventional Radiology\nColorectal Surgery\nNeurosurgery\nOtolaryngology\nSee Technical Glossary for modified 2-step floating catchment area calculation details.",
-      "status": "method-review",
-      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+      "status": "resolved-help",
+      "review_reason": "County counts per 100,000 were requested September 9 and specified by SDD county instructions. Preserve original description, reconcile specialties with Provider Types lookup, and replace the travel-adjustment sentence.",
+      "display_text": "Includes all providers recognized by the Centers for Medicare and Medicaid Services (CMS) with specialties of\nHematology/Oncology\nMedical Oncology\nHematology\nRadiation Oncology\nSurgical Oncology\nGynecological Oncology\nUrology\nThoracic Surgery\nGeneral Surgery\nGastroenterology\nDermatology\nPathology\nDiagnostic Radiology\nInterventional Radiology\nColorectal Surgery\nNeurosurgery\nOtolaryngology\nOncology specialties may be primary or secondary; other expanded cancer care specialties must be primary.\n\nCalculated as the number of qualifying providers in the county per 100,000 population."
     },
     {
       "id": "sdd-611",
@@ -385,8 +392,9 @@
         "Mammogram facilities per 100,000 - [Use FIPS (geoid column) codes from FDA_Mammography_facilities table to identify county. Use B01001_001 from ACS5yr2020 for population denominator."
       ],
       "text": "Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included. See Technical Glossary for modified 2-step floating catchment area calculation details.",
-      "status": "method-review",
-      "review_reason": "SDD tips describe modified two-step floating catchment calculations; county_access.py calculates county counts/population times 100,000. County specialty rules also include nurse practitioners, dermatology, and secondary specialties not fully described by these tips."
+      "status": "resolved-help",
+      "review_reason": "County counts per 100,000 were requested September 9 and specified by SDD county instructions. Preserve original description, reconcile specialties with Provider Types lookup, and replace the travel-adjustment sentence.",
+      "display_text": "Facilities accredited by a Food and Drug Administration (FDA) approved accrediting body: either the American College of Radiology, the State of Texas, or the State of Arkansas. Veterans Affairs mammography facilities are not included.\n\nCalculated as the number of qualifying facilities in the county per 100,000 population."
     },
     {
       "id": "sdd-612",

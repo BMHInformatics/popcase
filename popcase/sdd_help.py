@@ -12,7 +12,7 @@ def catalog():
 def help_config(geography, step):
     if step not in {'filters', 'measures', 'stratification'}:
         return {}
-    entries = {entry['id']: entry['text'] for entry in catalog()['entries']}
+    entries = {entry['id']: entry.get('display_text', entry['text']) for entry in catalog()['entries']}
     def text(number):
         return entries[f'sdd-{number}']
     texts = {key: text(number) for key, number in {
@@ -23,6 +23,9 @@ def help_config(geography, step):
         'overcrowding': 734, 'all_registry': 872,
         'patient_pcp': 913, 'patient_onc': 920, 'patient_ext': 929, 'patient_mammo': 948,
         'tract_pcp': 519, 'tract_onc': 526, 'tract_ext': 535, 'tract_mammo': 554,
+        'crude_ci': 410, 'direct_ci': 427, 'indirect_ci': 428,
+        'cancer_selection': 393, 'stage_selection': 397,
+        'county_pcp': 574, 'county_onc': 582, 'county_ext': 592, 'county_mammo': 611,
     }.items()}
     texts['patient_rurality'] = texts['county_rurality'] + '\n\n' + texts['tract_rurality']
     rate = 'direct_rate' if geography in {'county', 'none', 'total'} else 'indirect_20' if geography == 'tract' else 'indirect_18'
@@ -31,11 +34,15 @@ def help_config(geography, step):
         bindings.append({'field': field, 'value': value, 'topic': topic})
     for value, topic in {'median_tti': 'treatment', 'inc_rate': rate, 'mort_rate': rate}.items():
         bind('disease_measures', value, topic)
-    # Conflicting interval, Gini, broadband, and county access tips are omitted
-    # at the user's request; the source catalog records the review reasons.
+    for value in ('crude_inc_ci', 'crude_mort_ci'):
+        bind('disease_measures', value, 'crude_ci')
+    for value in ('inc_ci', 'mort_ci'):
+        bind('disease_measures', value, 'direct_ci' if geography in {'county', 'none', 'total'} else 'indirect_ci')
+    # Proportion intervals, Gini, and broadband remain deferred for review.
     bind('patient_all_registry', None, 'all_registry')
     bind('patient_variables', 'patient_rurality', 'patient_rurality')
-    for field, prefix in [('access_patient_measures', 'patient'), ('access_comm_tract', 'tract')]:
+    for field, prefix in [('access_patient_measures', 'patient'), ('access_comm_tract', 'tract'),
+                          ('access_comm_county', 'county')]:
         for value, suffix in [('pcp', 'pcp'), ('onc', 'onc'), ('ext_care', 'ext'), ('mammo_fac', 'mammo')]:
             bind(field, value, prefix + '_' + suffix)
     survey = ['routine_checkup', 'no_transport', 'no_insurance', 'dentist']
