@@ -3481,6 +3481,7 @@ def _get_acs_single_estimate_community_lookup(
     acs_period="2019-2023",
     floor_zero=True,
     ndigits=2,
+    scale=1,
 ):
     """
     Generic ACS single-estimate reader, e.g. per-capita income, GINI,
@@ -3503,10 +3504,14 @@ def _get_acs_single_estimate_community_lookup(
         geoid = _community_geoid_from_geo_id(_acs_lookup_value(row, aliases, "geo_id"), geographic_level)
         if not geoid:
             continue
-        est = _acs_lookup_value(row, aliases, "estimate")
+        est = _safe_num(_acs_lookup_value(row, aliases, "estimate"))
+        moe = _safe_num(_acs_lookup_value(row, aliases, "moe"))
+        # Scale source estimates and MOEs before calculating/rounding limits.
+        est = est * scale if est is not None else None
+        moe = moe * scale if moe is not None else None
         lo, hi = _acs_estimate_ci(
             est,
-            _acs_lookup_value(row, aliases, "moe"),
+            moe,
             floor_zero=floor_zero,
             ndigits=ndigits,
         )
@@ -3668,7 +3673,8 @@ def _get_acs_gini_community_lookup(geographic_level="tract", acs_period="2019-20
         geographic_level,
         acs_period,
         floor_zero=False,
-        ndigits=3,
+        ndigits=2,
+        scale=100,
     )
 
 
@@ -3722,18 +3728,7 @@ def _get_acs_median_home_value_community_lookup(geographic_level="tract", acs_pe
 
 
 def _get_acs_internet_access_community_lookup(geographic_level="tract", acs_period="2019-2023"):
-    return _get_acs_percentage_community_lookup(
-        _resolve_acs_table("B28002", geographic_level, acs_period) or "acs_5yr_B28002",
-        ["B28002_002E"],
-        ["B28002_001E"],
-        ["B28002_002M"],
-        ["B28002_001M"],
-        "internet_access_pct",
-        "internet_access_ci_lower",
-        "internet_access_ci_upper",
-        geographic_level,
-        acs_period,
-    )
+    return get_community_lookup(["internet_access"], geographic_level, acs_period)
 
 
 def _get_acs_moved_last_year_community_lookup(geographic_level="tract", acs_period="2019-2023"):

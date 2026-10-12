@@ -20,7 +20,7 @@ def help_config(geography, step):
         'direct_rate': 421, 'indirect_20': 423, 'indirect_18': 425,
         'cdc': 494, 'acs': 618,
         'county_rurality': 689, 'tract_rurality': 690,
-        'overcrowding': 734, 'all_registry': 872,
+        'overcrowding': 734, 'all_registry': 872, 'gini': 721, 'internet': 745,
         'patient_pcp': 913, 'patient_onc': 920, 'patient_ext': 929, 'patient_mammo': 948,
         'tract_pcp': 519, 'tract_onc': 526, 'tract_ext': 535, 'tract_mammo': 554,
         'crude_ci': 410, 'direct_ci': 427, 'indirect_ci': 428,
@@ -38,7 +38,7 @@ def help_config(geography, step):
         bind('disease_measures', value, 'crude_ci')
     for value in ('inc_ci', 'mort_ci'):
         bind('disease_measures', value, 'direct_ci' if geography in {'county', 'none', 'total'} else 'indirect_ci')
-    # Proportion intervals, Gini, and broadband remain deferred for review.
+    # Proportion interval help remains deferred for review.
     bind('patient_all_registry', None, 'all_registry')
     bind('patient_variables', 'patient_rurality', 'patient_rurality')
     for field, prefix in [('access_patient_measures', 'patient'), ('access_comm_tract', 'tract'),
@@ -52,7 +52,7 @@ def help_config(geography, step):
     for field in ('cancer_prevention', 'noncancer_health_status'):
         bind(field, None, 'cdc')
     for value, topic in {'utility_shutoff_threat': 'cdc', 'housing_insecurity': 'cdc',
-                         'occupants_per_room': 'overcrowding',
+                         'occupants_per_room': 'overcrowding', 'gini': 'gini', 'internet_access': 'internet',
                          'rurality': 'community_rurality'}.items():
         bind('community_characteristics', value, topic)
     return {'geography': geography, 'texts': texts, 'bindings': bindings}

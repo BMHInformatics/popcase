@@ -464,8 +464,9 @@
         "Gini Index [ACS-5]"
       ],
       "text": "A measure of income equality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality.",
-      "status": "method-review",
-      "review_reason": "SDD describes Gini on a 0–100 scale; app outputs ACS B19083 on a 0–1 scale."
+      "status": "resolved-help",
+      "review_reason": "App now scales ACS Gini estimates and confidence limits by 100 before rounding, matching the SDD scale.",
+      "display_text": "A measure of income inequality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality."
     },
     {
       "id": "sdd-723",
@@ -496,8 +497,8 @@
         "Home broadband internet subscription (%) [ACS-5]"
       ],
       "text": "Satellite internet considered to be broadband",
-      "status": "method-review",
-      "review_reason": "SDD describes broadband; app internet subscriptions include dial-up as well."
+      "status": "resolved-help",
+      "review_reason": "App now implements SDD B28002 Yes (007+010) and No (003+006+012+013) categories, each divided by total households."
     },
     {
       "id": "sdd-872",
@@ -647,8 +648,9 @@
         "Gini Index [ACS-5]"
       ],
       "text": "A measure of income equality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality.",
-      "status": "method-review",
-      "review_reason": "SDD describes Gini on a 0–100 scale; app outputs ACS B19083 on a 0–1 scale."
+      "status": "resolved-help",
+      "review_reason": "App now scales ACS Gini estimates and confidence limits by 100 before rounding, matching the SDD scale.",
+      "display_text": "A measure of income inequality, with 0 representing perfect equality and 100 representing perfect inequality. Less than 30 may be considered a high level of equality, while >40 may be considered a high level of inequality."
     },
     {
       "id": "sdd-1035",
@@ -679,8 +681,8 @@
         "Home broadband internet subscription (%) [ACS-5]"
       ],
       "text": "Satellite internet considered to be broadband",
-      "status": "method-review",
-      "review_reason": "SDD describes broadband; app internet subscriptions include dial-up as well."
+      "status": "resolved-help",
+      "review_reason": "App now implements SDD B28002 Yes (007+010) and No (003+006+012+013) categories, each divided by total households."
     },
     {
       "id": "sdd-1091",

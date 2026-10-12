@@ -91,7 +91,7 @@ MEASURE_COMMUNITY_CHOICES = [
     ("med_hh_income", "Median household income ($)"),
     ("poverty_pct", "% of households below poverty level"),
     ("snap_pct", "% of households receiving Food stamps/SNAP"),
-    ("gini", "GINI Index"),
+    ("gini", "GINI Index (0–100)"),
     ("redlined_pct", "% of population living in formerly redlined neighborhoods"),
     ("smoking", "Current cigarette smoking (Adults only)"),
     ("obesity", "Obesity (Adults only)"),
@@ -480,7 +480,7 @@ class MeasuresForm(forms.Form):
         ("utility_shutoff_threat", "Utility services shut-off threat in the past 12 months among adults"),
         ("housing_insecurity", "Housing insecurity in the past 12 months among adults"),
         ("occupation_dist", "Occupational category distribution"),
-        ("gini", "GINI Index"),
+        ("gini", "GINI Index (0–100)"),
         ("redlined_pct", "% of population living in formerly redlined neighborhoods"),
         ("svi_adi", "Social Vulnerability Index / ADI"),
     ]
@@ -497,7 +497,7 @@ class MeasuresForm(forms.Form):
     COMMUNITY_HHCHAR_LEAVES = [
         ("female_headed", "% of households with female householder, no spouse present"),
         ("grandparents_care", "% of households with grandparents caring for children"),
-        ("internet_access", "Household internet access by type (categories may overlap)"),
+        ("internet_access", "Home broadband internet subscription (%)"),
         ("moved_last_year", "Moved in past year (% of population age 1+)"),
     ]
 
@@ -695,7 +695,7 @@ class MeasuresForm(forms.Form):
                 'plumbing_complete': '% with complete plumbing facilities',
                 'kitchen_complete': '% with complete kitchen facilities',
                 'female_headed': '% Female-headed households',
-                'internet_access': '% with internet access by primary type (dialup, high-speed, mobile only)',
+                'internet_access': 'Home broadband internet subscription (%)',
                 'moved_last_year': '% who have moved in last year',
             }
             for name in ('patient_variables', 'access_patient_measures', 'cancer_prevention',

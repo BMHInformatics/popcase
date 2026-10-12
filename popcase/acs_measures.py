@@ -123,15 +123,11 @@ ACS_MEASURES = {
     'grandparents_care': ('B10063', 'Household characteristics', (
         pct('grandparents_care_pct', 'Households with grandparents responsible for own grandchildren under 18 (%)', 3),
     )),
-    'internet_access': ('B28002', 'Household internet access', (
-        pct('internet_access_pct', 'Any internet subscription (%)', 2),
-        pct('internet_dialup_only_pct', 'Dial-up only (%)', 3),
-        pct('internet_broadband_pct', 'Broadband of any type, including cellular (%)', 4),
-        pct('internet_wired_pct', 'Cable, fiber optic, or DSL (%)', 7),
-        pct('internet_cellular_only_pct', 'Cellular data plan only (%)', 6),
-        pct('internet_satellite_only_pct', 'Satellite only (%)', 10),
-        pct('internet_without_subscription_pct', 'Access without subscription (%)', 12),
-        pct('internet_none_pct', 'No internet access (%)', 13),
+    # SDD Yes/No groups, each divided by all households. Use the specified
+    # cells directly; do not substitute any-subscription or cellular broadband.
+    'internet_access': ('B28002', 'Home broadband internet subscription', (
+        pct('internet_access_pct', 'Home broadband internet subscription: Yes (%)', 7, 10),
+        pct('internet_no_broadband_pct', 'Home broadband internet subscription: No (%)', 3, 6, 12, 13),
     )),
 }
 
