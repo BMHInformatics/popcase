@@ -127,7 +127,7 @@ GEOGRAPHY_SCOPE_CHOICES = [
 ]
 
 # Diagnosis quarter choices are populated dynamically in FiltersForm.__init__.
-DX_QUARTER_FALLBACK_CHOICES = [(f"{year}q{quarter}", f"{year}q{quarter}") for year in range(2010, 2023) for quarter in range(1, 5)]
+DX_QUARTER_FALLBACK_CHOICES = [(f"{year}q{quarter}", f"{year}q{quarter}") for year in range(2010, 2024) for quarter in range(1, 5)]
 
 
 class GeographicLevelForm(forms.Form):
@@ -669,6 +669,12 @@ class MeasuresForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.geographic_level = geographic_level
         self.fields['patient_community_access'].choices = self.SURVEY_ACCESS_LEAVES
+        rurality_label = {'county': 'Rurality (RUCC code)', 'tract': 'Rurality (RUCA code)'}.get(geographic_level)
+        if rurality_label:
+            self.fields['community_characteristics'].choices = [
+                (token, rurality_label if token == 'rurality' else label)
+                for token, label in self.fields['community_characteristics'].choices
+            ]
         if geographic_level == 'patient':
             # Wireframe wording is specific to this page; shared geographic
             # forms and the measure tokens used by reporting stay unchanged.

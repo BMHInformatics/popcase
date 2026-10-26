@@ -74,7 +74,7 @@ AGE_GROUP_RANGES = {
 
 
 DIAGNOSIS_QUARTER_FALLBACK_START = "2010q1"
-DIAGNOSIS_QUARTER_FALLBACK_END = "2022q4"
+DIAGNOSIS_QUARTER_FALLBACK_END = "2023q4"
 QUARTER_START_END_DATES = {
     1: ("0101", "0331"),
     2: ("0401", "0630"),
@@ -2640,6 +2640,8 @@ def _get_tract_support_lookups_cached(requested_tuple):
 
 
 def _ci_requested_for_token(token, display_options):
+    if token == 'rurality':
+        return False
     return any(
         token in CI_DISPLAY_OPTION_TO_TOKENS.get(option, set())
         for option in display_options
@@ -4193,6 +4195,28 @@ def _get_ruca_lookup(period):
     return lookup
 
 
+def _rucc_description(code, period):
+    """USDA RUCC definitions; the urban threshold changed in 2023.
+
+    https://ers.usda.gov/data-products/rural-urban-continuum-codes/documentation
+    """
+    try:
+        numeric = float(str(code).strip())
+        if not numeric.is_integer() or not 1 <= numeric <= 9:
+            return None
+        code = int(numeric)
+    except (ValueError, TypeError):
+        return None
+    if code <= 3:
+        size = {1: '1 million or more', 2: '250,000 to fewer than 1 million',
+                3: 'fewer than 250,000'}[code]
+        return f'Metro area population of {size}'
+    threshold = '5,000' if str(period) == '2023' else '2,500'
+    size = '20,000 or more' if code <= 5 else f'{threshold} to 19,999' if code <= 7 else f'fewer than {threshold}'
+    adjacency = 'adjacent' if code % 2 == 0 else 'not adjacent'
+    return f'Nonmetro: urban population of {size}, {adjacency} to a metro area'
+
+
 def _get_rucc_lookup(period):
     """
     Return county-level RUCC lookup for the actual PopCASE RUCC tables:
@@ -4308,7 +4332,7 @@ def _get_rucc_lookup(period):
 
         record = {
             "rurality": str(code).strip(),
-            "rurality_description": str(desc).strip() if desc not in (None, "") else None,
+            "rurality_description": str(desc).strip() if desc is not None and str(desc).strip() else _rucc_description(code, period),
         }
 
         # For long-format RUCC 2023 tables, keep the row most likely to be the

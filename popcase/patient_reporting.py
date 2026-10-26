@@ -213,7 +213,7 @@ def prepare_patient_report(year_range, filters, options):
         normalized = services._normalize_support_measure_tokens(community_tokens)
         services._add_display_option_columns(schema_row, normalized, displays)
         services._apply_display_option_contract(schema_row, normalized, displays)
-        labels = views._with_dynamic_community_headers(views.DATASET_HEADER_MAP, rows)
+        labels = views._with_dynamic_community_headers(views.DATASET_HEADER_MAP, rows, community_level)
         preferred = views._build_preferred_dataset_columns([], community_tokens, displays, community_level)
         community_columns = [col for col in views._build_dataset_columns(rows + [schema_row], labels, preferred)
                              if col not in {'label', 'geoid', 'tract_geoid'}]

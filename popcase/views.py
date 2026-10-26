@@ -468,6 +468,8 @@ DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 # or exported. The real component columns (male/female %, race-specific %, etc.)
 # are displayed instead.
 DATASET_EXCLUDE_COLUMNS = {
+    "rurality_ci_lower",
+    "rurality_ci_upper",
     "stratification_rate_note",
     "mortality_data_note",
     # FR47: omit deferred redlining/ADI measures from reports, including caches.
@@ -612,7 +614,7 @@ SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
         "occupation_natural_resources_construction_maintenance_pct", "occupation_natural_resources_construction_maintenance_ci_lower", "occupation_natural_resources_construction_maintenance_ci_upper",
         "occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper",
     ],
-    "rurality": ["rurality", "rurality_description", "rurality_ci_lower", "rurality_ci_upper"],
+    "rurality": ["rurality", "rurality_description"],
     "pcp_access_score": ["primary_care_access_score", "primary_care_providers_per_100k"],
     "onc": ["oncology_providers_per_100k", "oncology_providers_travel_adjusted_per_100k"],
     "ext_care": ["extended_cancer_care_providers_per_100k", "extended_cancer_care_providers_travel_adjusted_per_100k"],
@@ -622,8 +624,8 @@ TRACT_HEADER_MAP.update({
     "oncology_providers_travel_adjusted_per_100k": "Oncology providers per 100,000 (travel time-adjusted)",
     "extended_cancer_care_providers_travel_adjusted_per_100k": "Extended cancer care providers per 100,000 (travel time-adjusted)",
     "mammography_facilities_travel_adjusted_per_100k": "Mammography facilities per 100,000 (travel time-adjusted)",
-    "nearest_nci_drive_time": "Drive time to nearest NCI-designated cancer center from centroid",
-    "nearest_coc_acad_drive_time": "Drive time to nearest CoC-accredited ACAD cancer center from centroid",
+    "nearest_nci_drive_time": "Drive time to nearest NCI-designated cancer center from centroid (minutes)",
+    "nearest_coc_acad_drive_time": "Drive time to nearest CoC-accredited ACAD cancer center from centroid (minutes)",
     "primary_care_providers_per_100k": "Primary care providers per 100,000 in county",
     "oncology_providers_per_100k": "Oncology providers per 100,000 in county",
     "extended_cancer_care_providers_per_100k": "Extended cancer care providers per 100,000 in county",
@@ -1286,7 +1288,7 @@ def results(request):
     dataset_is_truncated = dataset_total_rows > dataset_preview_limit
     dataset_rows_preview = dataset_rows[:dataset_preview_limit]
 
-    dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, dataset_rows)
+    dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, dataset_rows, geographic_level)
     if geographic_level == 'patient':
         dynamic_header_map.update(PATIENT_HEADERS)
         dynamic_header_map.update(payload.get('patient_headers', {}))
@@ -1375,13 +1377,15 @@ def results(request):
 
 
 
-def _with_dynamic_community_headers(base_header_map, rows):
+def _with_dynamic_community_headers(base_header_map, rows, geographic_level=None):
     """Add readable labels for dynamically suffixed community data columns."""
     header_map = dict(base_header_map)
+    if geographic_level in {'county', 'tract'}:
+        header_map['rurality'] = 'Rurality (RUCC code)' if geographic_level == 'county' else 'Rurality (RUCA code)'
     if not rows:
         return header_map
 
-    base_labels = dict(base_header_map)
+    base_labels = dict(header_map)
     suffix_re = re.compile(r"^(?P<base>.+)__(?P<src>acs|svi|rucc|ruca)_(?P<period>[0-9_]+)$")
     source_labels = {"acs": "ACS-5", "svi": "SVI", "rucc": "RUCC", "ruca": "RUCA"}
 
@@ -1498,7 +1502,7 @@ def export_geo_dataset_csv(request):
     response["Content-Disposition"] = f"attachment; filename={filename}"
     response.write("\ufeff")
 
-    dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, rows)
+    dynamic_header_map = _with_dynamic_community_headers(DATASET_HEADER_MAP, rows, geographic_level)
     if geographic_level == 'patient':
         dynamic_header_map.update(PATIENT_HEADERS)
     preferred_dataset_columns = _build_preferred_dataset_columns(
