@@ -3,6 +3,12 @@ from django import template
 register = template.Library()
 
 
+@register.simple_tag
+def sdd_help_assets():
+    from popcase.sdd_help import help_assets
+    return help_assets()
+
+
 @register.simple_tag(takes_context=True)
 def sdd_help_config(context):
     from popcase.sdd_help import help_config

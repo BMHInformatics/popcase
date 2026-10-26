@@ -5,6 +5,16 @@ from pathlib import Path
 
 
 @lru_cache(maxsize=1)
+def help_assets():
+    """Bundle help with the page even when collected static files are stale."""
+    root = Path(__file__).with_name('static') / 'popcase'
+    return {
+        'css': (root / 'css' / 'sdd-help.css').read_text(encoding='utf-8'),
+        'js': (root / 'js' / 'sdd-help.js').read_text(encoding='utf-8'),
+    }
+
+
+@lru_cache(maxsize=1)
 def catalog():
     return json.loads(Path(__file__).with_name('sdd_help.json').read_text(encoding='utf-8'))
 
