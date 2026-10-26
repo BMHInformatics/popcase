@@ -17,7 +17,7 @@ LABELS = {'sex': 'Sex', 'race_eth': 'Race/Ethnicity', 'age_broad': 'Age (broad)'
           'age_narrow': 'Age (narrow)', 'site': 'Cancer site', 'stage': 'Cancer stage',
           'insurance': 'Insurance at diagnosis', 'receptor3': 'Breast receptor status (3 categories)', 'receptor4': 'Breast receptor status (4 categories)'}
 MEASURES = {'case_count', 'pct_advanced', 'pct_advanced_ci', 'pct_metastatic',
-            'pct_metastatic_ci', 'median_tti', 'median_tti_iqr', 'gleason', 'gleason_ci'}
+            'pct_metastatic_ci', 'median_tti', 'median_tti_iqr', 'gleason', 'gleason_sd'}
 STAGES = {'0': 'In situ', '1': 'Localized', '2': 'Regional', '3': 'Regional',
           '4': 'Regional', '5': 'Regional', '7': 'Distant', '9': 'Unknown'}
 API_CODES = {'04', '05', '06', '07', '08', '09', '10', '12', '13', '14', '15', '16'}
@@ -128,12 +128,13 @@ def summarize(records, measures, details):
             out[prefix + '_ci_upper'] = round(100 * hi, 2) if hi is not None else None
     for field, outputs in [
         ('tti_days', [('median_tti', 'median_tti', 'median'), ('median_tti_iqr', 'median_tti_iqr_lower', 'q1'), ('median_tti_iqr', 'median_tti_iqr_upper', 'q3')]),
-        ('gleason', [('gleason', 'mean_gleason_score', 'mean'), ('gleason_ci', 'gleason_ci_lower', 'ci_lower'), ('gleason_ci', 'gleason_ci_upper', 'ci_upper')])]:
+        ('gleason', [('gleason', 'mean_gleason_score', 'mean'), ('gleason_sd', 'gleason_score_sd', 'sd')])]:
         if not any(token in measures for token, _, _ in outputs): continue
         summary = services._summarize_numeric_values([details.get(r.get('record_key', str(r['mid']).strip()), {}).get(field) for r in records])
         for token, key, stat in outputs:
             if token in measures:
-                out[key] = round(summary[stat], 2) if summary[stat] is not None else None
+                value = summary[stat]
+                out[key] = value if stat == 'sd' or value is None else round(value, 2)
     return out
 
 
@@ -188,7 +189,7 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
                 'RX Date Chemo', 'RX Date Radiation', 'RX Date Systemic', 'RX Date Hormone',
                 'RX Date BRM', 'RX Date Other', 'RX Date Mst Defn Srg')):
             detail_fields['tx_' + str(i)] = RawSQL('"' + column + '"', [], output_field=TextField())
-    if measures & {'gleason', 'gleason_ci'}:
+    if measures & {'gleason', 'gleason_sd'}:
         detail_fields['gleason_clinical'] = RawSQL('"Gleason Score Clinical"', [], output_field=TextField())
         detail_fields['gleason_pathological'] = RawSQL('"Gleason Score Pathological"', [], output_field=TextField())
     if detail_fields:

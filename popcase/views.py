@@ -4,6 +4,7 @@ import csv
 import json
 import re
 from collections import Counter
+from .result_formatting import format_result, format_result_row
 
 from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpResponse
 from django.shortcuts import render, redirect
@@ -68,7 +69,7 @@ SUPPORTED_DISEASE_MEASURES = {
     "mort_rate",
     "mort_ci",
     "gleason",
-    "gleason_ci",
+    "gleason_sd",
 }
 NORMALIZED_TOTAL_LEVELS = {None, "", "none", "total", "do_not_compare", "no_compare"}
 
@@ -121,8 +122,7 @@ TRACT_HEADER_MAP = {
     "mort_ci_lower_per_100k": "Age-adjusted mortality CI 95% (L) /100,000",
     "mort_ci_upper_per_100k": "Age-adjusted mortality CI 95% (U) /100,000",
     "mean_gleason_score": "Mean Gleason Score",
-    "gleason_ci_lower": "Mean Gleason Score CI 95% (L)",
-    "gleason_ci_upper": "Mean Gleason Score CI 95% (U)",
+    "gleason_score_sd": "Gleason Score Standard Deviation",
     "total_population": "Total population",
     "median_household_income": "Median household income",
     "limited_english_pct": "% speak English less than very well",
@@ -198,8 +198,7 @@ TRACT_NUMERIC_COLS = [
     "mort_ci_lower_per_100k",
     "mort_ci_upper_per_100k",
     "mean_gleason_score",
-    "gleason_ci_lower",
-    "gleason_ci_upper",
+    "gleason_score_sd",
     "total_population",
     "median_household_income",
     "limited_english_pct",
@@ -468,6 +467,8 @@ DATASET_NUMERIC_COLS = TRACT_NUMERIC_COLS
 # or exported. The real component columns (male/female %, race-specific %, etc.)
 # are displayed instead.
 DATASET_EXCLUDE_COLUMNS = {
+    "gleason_ci_lower",
+    "gleason_ci_upper",
     "rurality_ci_lower",
     "rurality_ci_upper",
     "stratification_rate_note",
@@ -579,7 +580,7 @@ DISEASE_MEASURE_OUTPUT_COLUMNS = {
     "mort_rate": ["age_adjusted_mortality_per_100k"],
     "mort_ci": ["mort_ci_lower_per_100k", "mort_ci_upper_per_100k"],
     "gleason": ["mean_gleason_score"],
-    "gleason_ci": ["gleason_ci_lower", "gleason_ci_upper"],
+    "gleason_sd": ["gleason_score_sd"],
 }
 
 SUPPORT_COMPONENT_OUTPUT_COLUMNS = {
@@ -873,7 +874,10 @@ def _build_results_payload(**kwargs):
 def _get_measure_selections(measures_state: dict, geographic_level: str):
     if geographic_level == 'patient':
         return [], [t for t in _coerce_to_list(measures_state.get('access_patient_measures')) if t in PATIENT_OUTPUTS]
-    disease_measures = _coerce_to_list(measures_state.get("disease_measures"))
+    disease_measures = [
+        'gleason_sd' if token == 'gleason_ci' else token
+        for token in _coerce_to_list(measures_state.get("disease_measures"))
+    ]
     cancer_prevention_measures = _coerce_to_list(measures_state.get("cancer_prevention"))
     health_status_measures = _coerce_to_list(measures_state.get("noncancer_health_status"))
     community_measures = _coerce_to_list(measures_state.get("community_characteristics"))
@@ -1314,6 +1318,8 @@ def results(request):
         dynamic_numeric_cols,
     )
 
+    dataset_rows = [format_result_row(row) for row in dataset_rows]
+    dataset_rows_preview = dataset_rows[:dataset_preview_limit]
     comparison_tables = []
     stratification = wizard.get("stratification") or {}
     if any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
@@ -1345,8 +1351,8 @@ def results(request):
         "geographic_level": geographic_level,
         "dx_start": dx_start,
         "dx_end": dx_end,
-        "incidence": incidence,
-        "total_incidence": total_incidence,
+        "incidence": [format_result_row(row) for row in incidence],
+        "total_incidence": format_result_row(total_incidence) if total_incidence else total_incidence,
         "dataset_rows": dataset_rows_preview,
         "dataset_total_rows": dataset_total_rows,
         "dataset_preview_limit": dataset_preview_limit,
@@ -1470,7 +1476,7 @@ def export_geo_dataset_csv(request):
             yield '\ufeff'
             yield writer.writerow([report.headers.get(col, col) for col in report.columns])
             for row in report.rows:
-                yield writer.writerow(['' if row.get(col) is None else row.get(col) for col in report.columns])
+                yield writer.writerow([format_result(row.get(col), col) for col in report.columns])
         response = StreamingHttpResponse(stream(), content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename=popcase_results_patient_{dx_start}_{dx_end}.csv'
         response['Cache-Control'] = 'private, no-store'
@@ -1519,7 +1525,7 @@ def export_geo_dataset_csv(request):
     writer.writerow([dynamic_header_map.get(col, col) for col in columns])
 
     for row in rows:
-        writer.writerow(["" if row.get(col) is None else row.get(col, "") for col in columns])
+        writer.writerow([format_result(row.get(col), col) for col in columns])
 
     return response
 

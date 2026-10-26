@@ -412,7 +412,7 @@ class MeasuresForm(forms.Form):
         ("mort_ci", "95% Confidence Interval (mortality)"),
 
         ("gleason", "Mean Gleason Score (Prostate cancer only)"),
-        ("gleason_ci", "95% Confidence Interval (Mean Gleason Score)"),
+        ("gleason_sd", "Standard Deviation (Gleason Score)"),
     ]
 
     ACCESS_PATIENT_LEAVES = [
@@ -669,6 +669,11 @@ class MeasuresForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.geographic_level = geographic_level
         self.fields['patient_community_access'].choices = self.SURVEY_ACCESS_LEAVES
+        if 'disease_measures' in self.initial:
+            self.initial['disease_measures'] = [
+                'gleason_sd' if token == 'gleason_ci' else token
+                for token in self.initial['disease_measures']
+            ]
         rurality_label = {'county': 'Rurality (RUCC code)', 'tract': 'Rurality (RUCA code)'}.get(geographic_level)
         if rurality_label:
             self.fields['community_characteristics'].choices = [

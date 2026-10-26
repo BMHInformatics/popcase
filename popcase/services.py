@@ -4525,13 +4525,14 @@ def _proportion_ci(affected, total):
 
 
 def _summarize_numeric_values(values):
-    """Return mean, normal 95% CI, median, Q1, Q3 for numeric values."""
+    """Return mean, sample SD, normal 95% CI, median, Q1, Q3."""
     clean = [float(v) for v in values if v is not None]
     n = len(clean)
     if n == 0:
         return {
             "n": 0,
             "mean": None,
+            "sd": None,
             "ci_lower": None,
             "ci_upper": None,
             "median": None,
@@ -4539,15 +4540,17 @@ def _summarize_numeric_values(values):
             "q3": None,
         }
     mean_val = sum(clean) / n
-    ci_lower = ci_upper = None
+    ci_lower = ci_upper = sd = None
     if n >= 2:
         var = sum((v - mean_val) ** 2 for v in clean) / (n - 1)
-        se = math.sqrt(var) / math.sqrt(n)
+        sd = math.sqrt(var)
+        se = sd / math.sqrt(n)
         ci_lower = mean_val - 1.96 * se
         ci_upper = mean_val + 1.96 * se
     return {
         "n": n,
         "mean": mean_val,
+        "sd": sd,
         "ci_lower": ci_lower,
         "ci_upper": ci_upper,
         "median": _percentile(clean, 50),
@@ -4710,7 +4713,7 @@ def _build_geo_dataset_uncached(
     gleason_by_geo = defaultdict(list)
 
     need_tti = ("median_tti" in disease_measures) or ("median_tti_iqr" in disease_measures)
-    need_gleason = ("gleason" in disease_measures) or ("gleason_ci" in disease_measures)
+    need_gleason = ("gleason" in disease_measures) or ("gleason_sd" in disease_measures)
     disease_detail_by_mid = {}
     if (need_tti or need_gleason) and filtered_pat_ids:
         disease_detail_by_mid = _get_tti_gleason_details_for_patients(filtered_pat_ids)
@@ -4873,13 +4876,12 @@ def _build_geo_dataset_uncached(
                 out["median_tti_iqr_lower"] = round(tti_summary["q1"], 2) if tti_summary["q1"] is not None else None
                 out["median_tti_iqr_upper"] = round(tti_summary["q3"], 2) if tti_summary["q3"] is not None else None
 
-        if ("gleason" in disease_measures) or ("gleason_ci" in disease_measures):
+        if ("gleason" in disease_measures) or ("gleason_sd" in disease_measures):
             gleason_summary = _summarize_numeric_values(gleason_by_geo.get(geoid, []))
             if "gleason" in disease_measures:
                 out["mean_gleason_score"] = round(gleason_summary["mean"], 2) if gleason_summary["mean"] is not None else None
-            if "gleason_ci" in disease_measures:
-                out["gleason_ci_lower"] = round(gleason_summary["ci_lower"], 2) if gleason_summary["ci_lower"] is not None else None
-                out["gleason_ci_upper"] = round(gleason_summary["ci_upper"], 2) if gleason_summary["ci_upper"] is not None else None
+            if "gleason_sd" in disease_measures:
+                out["gleason_score_sd"] = gleason_summary["sd"]
 
         if ("crude_inc_rate" in disease_measures) or ("crude_inc_ci" in disease_measures) or ("inc_rate" in disease_measures) or ("inc_ci" in disease_measures):
             ir = incidence_lookup.get(geoid)
