@@ -48,8 +48,10 @@ ACS_MEASURES = {
         pct('occupation_production_transportation_material_moving_pct',
             'Production, transportation, and material moving occupations (% workers 16+)', 6),
     )),
-    'poverty_pct': ('B17017', 'Household poverty', (
-        pct('poverty_pct', '% households below poverty level', 2),
+    # FR47 interim decision: use the existing ratio bands and retain the
+    # requested household wording pending the PI's source/label decision.
+    'poverty_pct': ('B17026', 'Household poverty', (
+        pct('poverty_pct', '% households below poverty level', 2, 3, 4),
     )),
     'renting_pct': ('B25014', 'Housing tenure', (
         pct('renting_pct', '% Renting', 8),
@@ -225,6 +227,23 @@ def calculate_component(row, code, component):
     return result
 
 
+def _read_acs_rows(services, table, code, cells, geographic_level, acs_period):
+    columns = {'geo': ['GEO_ID', 'geo_id', 'geoid', 'GEOID']}
+    for cell in sorted(cells):
+        for suffix in ('E', 'M', 'EA', 'MA'):
+            column = f'{code}_{cell:03d}{suffix}'
+            columns[column] = [column]
+    where, params = services._community_where_sql(table, geographic_level, 'acs', acs_period)
+    rows, aliases = services._select_columns_from_table(table, columns, where, params)
+    result = {}
+    for raw in rows:
+        row = {alias: raw.get(actual) for alias, actual in aliases.items()}
+        geoid = services._community_geoid_from_geo_id(row.get('geo'), geographic_level)
+        if geoid:
+            result[geoid] = row
+    return result
+
+
 def get_community_lookup(requested, geographic_level, acs_period):
     # Lazy import avoids coupling the declarative catalog to Django at import.
     from . import services
@@ -240,18 +259,7 @@ def get_community_lookup(requested, geographic_level, acs_period):
             continue
         cells = {cell for component in components for cell in component.cells}
         cells.update(component.denominator for component in components if not component.median)
-        columns = {'geo': ['GEO_ID', 'geo_id', 'geoid', 'GEOID']}
-        for cell in sorted(cells):
-            for suffix in ('E', 'M', 'EA', 'MA'):
-                column = f'{code}_{cell:03d}{suffix}'
-                columns[column] = [column]
-        where, params = services._community_where_sql(table, geographic_level, 'acs', acs_period)
-        rows, aliases = services._select_columns_from_table(table, columns, where, params)
-        for raw in rows:
-            row = {alias: raw.get(actual) for alias, actual in aliases.items()}
-            geoid = services._community_geoid_from_geo_id(row.get('geo'), geographic_level)
-            if not geoid:
-                continue
+        for geoid, row in _read_acs_rows(services, table, code, cells, geographic_level, acs_period).items():
             output = result.setdefault(geoid, {})
             for component in components:
                 output.update(calculate_component(row, code, component))
