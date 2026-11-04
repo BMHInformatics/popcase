@@ -35,6 +35,7 @@ from popcase.services import (
     CI_DISPLAY_OPTION_TO_TOKENS,
     AGE_ADJUST_DISPLAY_OPTION_TO_TOKENS,
     _normalize_support_measure_tokens,
+    _apply_display_option_contract,
 )
 
 from .models import NaaccrPatientCensusLinking
@@ -687,11 +688,17 @@ class PopcaseLoginView(auth_views.LoginView):
             return super().post(request, *args, **kwargs)
 
         # The temporary demo account has full administrator access.
-        user, _ = get_user_model().objects.get_or_create(username="popcase-demo")
+        user, _ = get_user_model().objects.get_or_create(
+            username="popcase-demo",
+            # Initialize the password only when creating the shared account.
+            # Changing it on every login invalidates other visitors' sessions.
+            defaults={"password": "!"},
+        )
         user.is_active = True
         user.is_staff = True
         user.is_superuser = True
-        user.set_unusable_password()
+        if user.has_usable_password():
+            user.set_unusable_password()
         user.save()
         user.groups.clear()
         user.user_permissions.clear()
@@ -880,7 +887,8 @@ def _get_measure_selections(measures_state: dict, geographic_level: str):
     ]
     cancer_prevention_measures = _coerce_to_list(measures_state.get("cancer_prevention"))
     health_status_measures = _coerce_to_list(measures_state.get("noncancer_health_status"))
-    community_measures = _coerce_to_list(measures_state.get("community_characteristics"))
+    community_measures = [token for token in _coerce_to_list(measures_state.get("community_characteristics"))
+                          if token not in {'svi_adi', 'redlined_pct'}]
 
     access_field_by_geo = {
         "tract": "access_comm_tract",
@@ -897,6 +905,17 @@ def _get_measure_selections(measures_state: dict, geographic_level: str):
     )
 
     return disease_measures, support_measures
+
+
+def _apply_current_display_options(rows, support_measures, display_options):
+    """Enforce current CI switches even on older cached result payloads."""
+    tokens = _normalize_support_measure_tokens(support_measures)
+    cleaned = []
+    for raw in rows:
+        row = dict(raw)
+        _apply_display_option_contract(row, tokens, display_options)
+        cleaned.append(row)
+    return cleaned
 
 
 def _ordered_selected_tokens(selected_tokens, choice_groups):
@@ -1284,7 +1303,7 @@ def results(request):
 
     incidence = payload["incidence"]
     total_incidence = payload["total_incidence"]
-    dataset_rows = payload["dataset_rows"]
+    dataset_rows = _apply_current_display_options(payload["dataset_rows"], support_measures, display_options)
     result_mode = payload["result_mode"]
 
     dataset_preview_limit = _get_preview_row_limit(request)
@@ -1498,7 +1517,7 @@ def export_geo_dataset_csv(request):
     except StratificationUnavailable as exc:
         messages.error(request, str(exc))
         return redirect("popcase:wizard_step", step="stratification")
-    rows = payload["dataset_rows"] or []
+    rows = _apply_current_display_options(payload["dataset_rows"] or [], support_measures, display_options)
     filename = f"popcase_results_{geographic_level}_{dx_start}_{dx_end}.csv"
 
     # Write one BOM explicitly; utf-8-sig would add another on every CSV row.
