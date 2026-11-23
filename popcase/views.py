@@ -1,10 +1,10 @@
 from typing import Dict, Any
-from functools import lru_cache
 import csv
 import json
 import re
 from collections import Counter
 from .result_formatting import format_result, format_result_row
+from .result_sql import capture_results_sql, current_results_sql, result_lookup_cache
 from .visualization import metastatic_bar_payload_for_results
 
 from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpResponse
@@ -712,7 +712,7 @@ class PopcaseLogoutView(auth_views.LogoutView):
     next_page = reverse_lazy("popcase:login")
 
 
-@lru_cache(maxsize=1)
+@result_lookup_cache(maxsize=1)
 def _latest_linking_year():
     return (
         NaaccrPatientCensusLinking.objects.values_list("year", flat=True)
@@ -776,7 +776,7 @@ def _rate_availability_summary(rows):
     return [{'note': note, 'count': count} for note, count in sorted(counts.items())]
 
 
-@lru_cache(maxsize=128)
+@result_lookup_cache(maxsize=128)
 def _build_results_payload_cached(
     geographic_level: str,
     dx_start: str,
@@ -1259,6 +1259,7 @@ def wizard_step(request, step: str = "geographic-level"):
 
 
 @login_required(login_url="popcase:login")
+@capture_results_sql
 def results(request):
     wizard = request.session.get("popcase_wizard", {})
     filters = wizard.get("filters", {}) or {}
@@ -1417,6 +1418,7 @@ def results(request):
         "dataset_column_classes": dataset_column_classes,
         "dataset_exclude_columns": DATASET_EXCLUDE_COLUMNS,
     }
+    context["results_sql"] = current_results_sql()
     response = render(request, "popcase/results.html", context)
     if geographic_level == 'patient':
         response['Cache-Control'] = 'private, no-store'

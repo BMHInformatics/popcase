@@ -6,6 +6,8 @@ import json
 import logging
 from datetime import datetime
 from functools import lru_cache
+
+from .result_sql import result_lookup_cache
 from pathlib import Path
 from collections import defaultdict
 from contextvars import ContextVar
@@ -148,7 +150,7 @@ def _iter_quarters(start, end):
     return quarters
 
 
-@lru_cache(maxsize=1)
+@result_lookup_cache(maxsize=1)
 def get_diagnosis_quarter_choices():
     start = end = None
 
@@ -1325,7 +1327,7 @@ def _get_incidence_by_geography_uncached(year, geographic_level, filters):
     return results
 
 
-@lru_cache(maxsize=128)
+@result_lookup_cache(maxsize=128)
 def _get_incidence_by_geography_cached(year, geographic_level, filters_json):
     return _get_incidence_by_geography_uncached(
         year=year,
@@ -1380,7 +1382,7 @@ def _get_total_incidence_uncached(year: str, filters: dict):
         "incidence_per_100k": round((total_cases / population) * 100000, 1),
     }
 
-@lru_cache(maxsize=64)
+@result_lookup_cache(maxsize=64)
 def _get_total_incidence_cached(year: str, filters_json: str):
     return _get_total_incidence_uncached(year=year, filters=_deserialize_cache_payload(filters_json))
 
@@ -1627,7 +1629,7 @@ def _quote_table_identifier(table_name):
     return _quote_identifier(table)
 
 
-@lru_cache(maxsize=256)
+@result_lookup_cache(maxsize=256)
 def _get_table_column_map(table_name):
     schema, table = _split_schema_table(table_name)
     with connection.cursor() as cur:
@@ -2342,7 +2344,7 @@ def _find_total_column(table_name):
     return None
 
 
-@lru_cache(maxsize=32)
+@result_lookup_cache(maxsize=32)
 def _fetch_acs_total_lookup(table_name):
     spec = RACE_TABLE_SPECS.get(table_name)
     if not spec:
@@ -2378,7 +2380,7 @@ def _fetch_acs_total_lookup(table_name):
     return lookup
 
 
-@lru_cache(maxsize=32)
+@result_lookup_cache(maxsize=32)
 def _fetch_acs_total_moe_lookup(table_name):
     spec = RACE_TABLE_SPECS.get(table_name)
     if not spec:
@@ -2412,7 +2414,7 @@ def _fetch_acs_total_moe_lookup(table_name):
     return lookup
 
 
-@lru_cache(maxsize=1)
+@result_lookup_cache(maxsize=1)
 def _get_tract_race_ethnicity_lookup():
     total_lookup = {}
     for tract, row in _get_acs_b01001_tract_community_lookup(("pop_total",)).items():
@@ -2468,7 +2470,7 @@ def _get_tract_race_ethnicity_lookup():
     return lookup
 
 
-@lru_cache(maxsize=32)
+@result_lookup_cache(maxsize=32)
 def _get_tract_support_lookups_cached(requested_tuple):
     """
     Returns tract-level lookup dicts for selected non-disease fields.
@@ -2967,7 +2969,7 @@ def _get_most_recent_community_lookup(requested, geographic_level):
     return out_by_geo
 
 
-@lru_cache(maxsize=64)
+@result_lookup_cache(maxsize=64)
 def _get_geo_support_lookups_cached(geographic_level, requested_tuple):
     requested = tuple(sorted(_normalize_support_measure_tokens(requested_tuple or [])))
     requested_set = set(requested)
@@ -4312,7 +4314,7 @@ def _get_svi_lookup(geographic_level, period):
         return {str(geoid).strip(): {"svi": _safe_float(score)} for geoid, score in cursor.fetchall()}
 
 
-@lru_cache(maxsize=64)
+@result_lookup_cache(maxsize=64)
 def _get_period_community_lookups_cached(geographic_level, dx_start, dx_end, support_tuple, display_tuple, timeframe_tuple):
     support_measures = _normalize_support_measure_tokens(support_tuple or [])
     display_options = set(display_tuple or [])
@@ -4963,7 +4965,7 @@ def _deserialize_cache_payload(value):
         return {}
 
 
-@lru_cache(maxsize=128)
+@result_lookup_cache(maxsize=128)
 def _build_geo_dataset_cached(
     geographic_level: str,
     dx_start: str,
@@ -5532,7 +5534,7 @@ def _safe_literal_eval(s):
         return None
 
 
-@lru_cache(maxsize=1)
+@result_lookup_cache(maxsize=1)
 def _get_place_name_lookup():
     """Return normalized Place FIPS -> display name from CDC PLACES."""
     table_name = CDCPlacesPlace2024._meta.db_table
@@ -5689,7 +5691,7 @@ def _get_latest_tiger_tract_year():
     return str(yr) if yr is not None else None
 
 
-@lru_cache(maxsize=8)
+@result_lookup_cache(maxsize=8)
 def _get_tract_mammography_access_lookup(year="2013", radius_miles=20.0):
     """
     Builds tract-level mammography facility proximity/access using tract internal
