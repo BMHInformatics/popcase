@@ -5,6 +5,7 @@ import json
 import re
 from collections import Counter
 from .result_formatting import format_result, format_result_row
+from .visualization import metastatic_bar_payload_for_results
 
 from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpResponse
 from django.shortcuts import render, redirect
@@ -407,12 +408,10 @@ SUPPORT_DISPLAY_HEADER_MAP = {
     "ranked_historic_redlining_index": "Ranked Historic Redlining Index",
     "redlined_ci_lower": "% of population living in formerly redlined neighborhoods CI 95% (L)",
     "redlined_ci_upper": "% of population living in formerly redlined neighborhoods CI 95% (U)",
-    "svi_adi": "% population in ADI deciles 9-10",
+    "svi": "Social Vulnerability Index (SVI)",
     "adi_pct_deciles_9_10": "% population in ADI deciles 9-10",
     "adi_population_deciles_9_10": "Population in ADI deciles 9-10",
     "adi_total_population": "ADI denominator population",
-    "svi_adi_ci_lower": "ADI/SVI CI 95% (L)",
-    "svi_adi_ci_upper": "ADI/SVI CI 95% (U)",
 
     "housing_unoccupied_pct": "% housing units unoccupied",
     "housing_unoccupied_ci_lower": "Housing units unoccupied CI 95% (L)",
@@ -647,7 +646,7 @@ for _token, _label in (
     + MeasuresForm.COMMUNITY_ECON_LEAVES + MeasuresForm.COMMUNITY_HOUSING_LEAVES
     + MeasuresForm.COMMUNITY_HHCHAR_LEAVES
 ):
-    if _token in {"sex_dist", "race_eth", "rurality", "svi_adi", "redlined_pct"}:
+    if _token in {"sex_dist", "race_eth", "rurality", "svi", "redlined_pct"}:
         continue
     _spec = SUPPORT_MEASURE_OUTPUT_SPECS.get(_token)
     if not _spec:
@@ -945,7 +944,7 @@ def _support_columns_for_token(token, display_options):
 
         value_key, ci_low_key, ci_high_key, age_adjusted_key = spec
         columns.append(value_key)
-        columns.extend([ci_low_key, ci_high_key])
+        columns.extend(key for key in (ci_low_key, ci_high_key) if key)
         if age_adjusted_key:
             columns.append(age_adjusted_key)
             columns.extend(age_adjusted_key.replace("_pct", suffix) for suffix in ("_ci_lower", "_ci_upper"))
@@ -1211,14 +1210,7 @@ def wizard_step(request, step: str = "geographic-level"):
         if step == "measures":
             geographic_level = _normalize_geographic_level(_session_get(request, "geographic_level", "county"))
 
-            if geographic_level == "place":
-                cleaned_data["community_characteristics"] = [
-                    value
-                    for value in cleaned_data.get("community_characteristics", [])
-                    if value not in ["svi_adi", "rurality"]
-                ]
-
-            if geographic_level == "zcta":
+            if geographic_level in {"place", "zcta"}:
                 cleaned_data["community_characteristics"] = [
                     value
                     for value in cleaned_data.get("community_characteristics", [])
@@ -1306,6 +1298,13 @@ def results(request):
     dataset_rows = _apply_current_display_options(payload["dataset_rows"], support_measures, display_options)
     result_mode = payload["result_mode"]
 
+    visualization_payload = metastatic_bar_payload_for_results(
+        dataset_rows, geographic_level=geographic_level,
+        disease_measures=disease_measures,
+        stratification=wizard.get('stratification') or {},
+        dx_start=dx_start, dx_end=dx_end,
+    )
+
     dataset_preview_limit = _get_preview_row_limit(request)
     dataset_total_rows = payload.get('patient_row_count', len(dataset_rows))
     dataset_is_truncated = dataset_total_rows > dataset_preview_limit
@@ -1360,6 +1359,7 @@ def results(request):
 
     context = {
         "comparison_sections": comparison_tables,
+        "visualization_payload": visualization_payload,
         "stratification_selections": [(label, STRATIFICATION_LABELS.get((wizard.get("stratification") or {}).get(axis), "None"))
                                      for axis, label in (("row_variable", "Row"), ("col_variable", "Column"), ("table_variable", "Table"))],
         "stratification_active": any((wizard.get("stratification") or {}).get(axis) for axis in ("row_variable", "col_variable", "table_variable")),
@@ -1412,7 +1412,7 @@ def _with_dynamic_community_headers(base_header_map, rows, geographic_level=None
 
     base_labels = dict(header_map)
     suffix_re = re.compile(r"^(?P<base>.+)__(?P<src>acs|svi|rucc|ruca)_(?P<period>[0-9_]+)$")
-    source_labels = {"acs": "ACS-5", "svi": "SVI", "rucc": "RUCC", "ruca": "RUCA"}
+    source_labels = {"acs": "ACS-5", "rucc": "RUCC", "ruca": "RUCA"}
 
     for row in rows:
         for key in row.keys():
@@ -1425,7 +1425,8 @@ def _with_dynamic_community_headers(base_header_map, rows, geographic_level=None
             source = m.group("src")
             period = m.group("period").replace("_", "-")
             base_label = base_labels.get(base_key, base_key.replace("_", " ").title())
-            header_map[key] = f"{base_label} ({source_labels.get(source, source.upper())} {period})"
+            header_map[key] = (f"{base_label} ({period})" if source == "svi"
+                               else f"{base_label} ({source_labels[source]} {period})")
     return header_map
 
 

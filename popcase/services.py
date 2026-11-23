@@ -1475,7 +1475,7 @@ SUPPORT_MEASURE_OUTPUT_SPECS = {
     "occupation_dist": ("occupation_distribution", "occupation_distribution_ci_lower", "occupation_distribution_ci_upper", None),
     "gini": ("gini_index", "gini_ci_lower", "gini_ci_upper", None),
     "redlined_pct": ("redlined_pct", "redlined_ci_lower", "redlined_ci_upper", None),
-    "svi_adi": ("svi_adi", "svi_adi_ci_lower", "svi_adi_ci_upper", None),
+    "svi": ("svi", None, None, None),
 
     "housing_unoccupied": ("housing_unoccupied_pct", "housing_unoccupied_ci_lower", "housing_unoccupied_ci_upper", None),
     "renting_pct": ("renting_pct", "renting_ci_lower", "renting_ci_upper", None),
@@ -1501,7 +1501,7 @@ CI_DISPLAY_OPTION_TO_TOKENS = {
     "access_comm_county_survey_ci": {"routine_checkup", "no_transport", "no_insurance", "dentist"},
     "community_basic_ci": {"pop_total", "sex_distribution", "median_age", "race_eth"},
     "community_extended_ci": {"age_dist", "marital_status", "educ_attain", "lang_home", "limited_english_pct", "citizenship", "rurality"},
-    "community_economic_ci": {"med_hh_income", "per_capita_income", "poverty_pct", "income_pov_ratio", "snap_pct", "employment_16plus", "utility_shutoff_threat", "housing_insecurity", "occupation_dist", "gini", "redlined_pct", "svi_adi"},
+    "community_economic_ci": {"med_hh_income", "per_capita_income", "poverty_pct", "income_pov_ratio", "snap_pct", "employment_16plus", "utility_shutoff_threat", "housing_insecurity", "occupation_dist", "gini", "redlined_pct"},
     "community_housing_ci": {"housing_unoccupied", "renting_pct", "median_year_built", "median_housing_costs", "occupants_per_room", "plumbing_complete", "kitchen_complete", "median_home_value"},
     "community_household_ci": {"female_headed", "grandparents_care", "internet_access", "moved_last_year"},
 }
@@ -2715,7 +2715,7 @@ def _apply_display_option_contract(out, support_measures, display_options):
 
         _, ci_low_key, ci_high_key, age_adjusted_key = spec
         if not _ci_requested_for_token(token, display_options):
-            for key in {ci_low_key, ci_high_key} | SUPPORT_COMPONENT_CI_KEYS.get(token, set()):
+            for key in ({ci_low_key, ci_high_key} | SUPPORT_COMPONENT_CI_KEYS.get(token, set())) - {None}:
                 _remove_output_key_and_period_variants(out, key)
 
         if age_adjusted_key and not (_age_adjusted_requested_for_token(token, display_options)
@@ -2959,11 +2959,8 @@ def _get_most_recent_community_lookup(requested, geographic_level):
         for geoid, row in rural_lookup.items():
             out_by_geo.setdefault(geoid, {}).update(row)
 
-    if "svi_adi" in requested:
-        if geographic_level == "county":
-            svi_lookup = _get_county_adi_lookup()
-        else:
-            svi_lookup = _get_generic_community_lookup("svi", geographic_level, COMMUNITY_MOST_RECENT["svi"])
+    if "svi" in requested:
+        svi_lookup = _get_svi_lookup(geographic_level, COMMUNITY_MOST_RECENT["svi"])
         for geoid, row in svi_lookup.items():
             out_by_geo.setdefault(geoid, {}).update(row)
 
@@ -3053,7 +3050,7 @@ COMMUNITY_ACS_TOKENS = {
 }
 COMMUNITY_ACS_TOKENS.update(ACS_MEASURES)
 COMMUNITY_RURALITY_TOKENS = {"rurality"}
-COMMUNITY_SVI_TOKENS = {"svi_adi"}
+COMMUNITY_SVI_TOKENS = {"svi"}
 
 COMMUNITY_BASE_OUTPUT_KEYS = {
     "total_population", "total_population_ci_lower", "total_population_ci_upper", "total_population_moe_90",
@@ -3084,7 +3081,6 @@ COMMUNITY_BASE_OUTPUT_KEYS = {
     "occupation_natural_resources_construction_maintenance_pct", "occupation_natural_resources_construction_maintenance_ci_lower", "occupation_natural_resources_construction_maintenance_ci_upper",
     "occupation_production_transportation_material_moving_pct", "occupation_production_transportation_material_moving_ci_lower", "occupation_production_transportation_material_moving_ci_upper",
     "redlined_pct", "ranked_historic_redlining_index",
-    "adi_pct_deciles_9_10", "adi_population_deciles_9_10", "adi_total_population",
     "race_ethnicity", "race_eth_ci_lower", "race_eth_ci_upper",
     "white_alone_pct", "white_alone_ci_lower", "white_alone_ci_upper",
     "black_alone_pct", "black_alone_ci_lower", "black_alone_ci_upper",
@@ -3095,7 +3091,7 @@ COMMUNITY_BASE_OUTPUT_KEYS = {
     "multiracial_pct", "multiracial_ci_lower", "multiracial_ci_upper",
     "nh_white_pct", "nh_white_ci_lower", "nh_white_ci_upper",
     "hispanic_pct", "hispanic_ci_lower", "hispanic_ci_upper",
-    "rurality", "rurality_description", "svi_adi", "svi_adi_ci_lower", "svi_adi_ci_upper",
+    "rurality", "rurality_description", "svi",
 }
 COMMUNITY_BASE_OUTPUT_KEYS.update(column for columns in COMPONENT_COLUMNS.values() for column in columns)
 
@@ -3758,29 +3754,6 @@ def _get_acs_occupation_community_lookup(geographic_level="tract", acs_period="2
     return get_community_lookup(["occupation_dist"], geographic_level, acs_period)
 
 
-def _get_county_adi_lookup():
-    table = 'popcaseui.county'
-    # This table is in the manual ETL database, not the default popcase DB.
-    try:
-        with connections['popcase_manual_etl'].cursor() as cur:
-            cur.execute('SELECT geoid, pct_adi910, adi_pop, tot_pop FROM popcaseui.county')
-            rows = cur.fetchall()
-    except Exception:
-        return {}
-    lookup = {}
-    for geoid, pct, adi_pop, tot_pop in rows:
-        county = _normalize_plain_fips(geoid, target_len=5)
-        if not county:
-            continue
-        lookup[county] = {
-            'svi_adi': _safe_round_float(pct, 2),
-            'adi_pct_deciles_9_10': _safe_round_float(pct, 2),
-            'adi_population_deciles_9_10': _safe_round_float(adi_pop, 0),
-            'adi_total_population': _safe_round_float(tot_pop, 0),
-        }
-    return lookup
-
-
 def _read_redlining_hri_tract_table(period='2020'):
     """Return direct tract-level Historic Redlining Index rows for Ohio."""
     period = str(period)
@@ -3940,49 +3913,6 @@ def _get_acs_period_community_lookup(requested, geographic_level, acs_period):
     merge(get_community_lookup(requested, geographic_level, acs_period))
 
     return lookup
-
-
-def _candidate_community_tables(source, geographic_level, period):
-    level = {
-        "county": "county",
-        "tract": "tract",
-        "zcta": "zcta",
-        "place": "place",
-    }.get(geographic_level, geographic_level)
-
-    period = str(period)
-
-    if source == "rucc":
-        return [
-            f"rucc{period}",              # your actual table style: rucc2013, rucc2023
-            f"rucc_{period}",
-            f"rucc_codes_{period}",
-            f"rucc_county_{period}",
-            f"rucc_county_codes_{period}",
-        ]
-
-    if source == "ruca":
-        return [
-            f"ruca{period}",              # your actual table style: ruca2010, ruca2020
-            f"ruca_{period}",
-            f"ruca_codes_{period}",
-            f"ruca_tract_{period}",
-            f"ruca_tract_codes_{period}",
-        ]
-
-    if source == "svi":
-        return [
-            f"svi_{level}_{period}",
-            f"cdc_svi_{level}_{period}",
-            f"svi_{period}_{level}",
-            f"cdc_svi_{period}_{level}",
-            f"svi_{period}",
-            f"cdc_svi_{period}",
-            f"svi{period}",
-            f"cdcsvi{period}",
-        ]
-
-    return []
 
 
 def _normalize_plain_fips(value, target_len=None):
@@ -4365,58 +4295,21 @@ def _get_generic_community_lookup(source, geographic_level, period):
     if source == "rucc":
         return _get_rucc_lookup(period) if geographic_level == "county" else {}
 
-    tables = [t for t in _candidate_community_tables(source, geographic_level, period) if _table_exists(t)]
-    if not tables:
+    return {}
+
+
+def _get_svi_lookup(geographic_level, period):
+    geography = {"county": "County", "tract": "Tract", "place": "Place", "zcta": "ZCTA"}.get(geographic_level)
+    if geography is None:
         return {}
 
-    table = tables[0]
-    colmap = _get_table_column_map(table)
-    geo_col = _first_existing_col(
-        colmap,
-        [
-            "GEO_ID",
-            "geo_id",
-            "GEOID",
-            "geoid",
-            "FIPS",
-            "fips",
-            "CountyFIPS",
-            "TractFIPS",
-            "TractFIPS20",
-            "TractFIPS23",
-            "LOCATIONID",
-            "locationid",
-        ],
-    )
-    if not geo_col:
-        return {}
-
-    val_col = _first_existing_col(
-        colmap,
-        ["svi_adi", "SVI_ADI", "svi", "SVI", "overall_svi", "RPL_THEMES", "rpl_themes"],
-    )
-    out_key = "svi_adi"
-
-    if not val_col:
-        return {}
-
-    where, params = _community_where_sql(table, geographic_level, source, period)
-    sql = f'SELECT {_quote_identifier(geo_col)}, {_quote_identifier(val_col)} FROM {_quote_identifier(table)}'
-    if where:
-        sql += f" WHERE {where}"
-
-    lookup = {}
-    try:
-        with connection.cursor() as cur:
-            cur.execute(sql, params)
-            for geo, val in cur.fetchall():
-                geoid = _community_geoid_from_geo_id(geo, geographic_level)
-                if geoid:
-                    lookup[geoid] = {out_key: val}
-    except Exception:
-        return {}
-
-    return lookup
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'SELECT "GEOID", "RPL_themes" FROM public.svi_data_2012_2022 '
+            'WHERE geography = %s AND year = %s',
+            [geography, int(period)],
+        )
+        return {str(geoid).strip(): {"svi": _safe_float(score)} for geoid, score in cursor.fetchall()}
 
 
 @lru_cache(maxsize=64)
@@ -4443,10 +4336,7 @@ def _get_period_community_lookups_cached(geographic_level, dx_start, dx_end, sup
         elif source in {"rucc", "ruca"}:
             lookup = _get_generic_community_lookup(source, geographic_level, period) if "rurality" in requested else {}
         elif source == "svi":
-            if "svi_adi" in requested and geographic_level == "county":
-                lookup = _get_county_adi_lookup()
-            else:
-                lookup = _get_generic_community_lookup(source, geographic_level, period) if "svi_adi" in requested else {}
+            lookup = _get_svi_lookup(geographic_level, period)
         else:
             lookup = {}
         for geoid, row in lookup.items():
@@ -4812,6 +4702,9 @@ def _build_geo_dataset_uncached(
         tuple(sorted(community_timeframes)),
     )
     community_period_lookup = _filter_lookup_to_scope(community_period_lookup, geographic_level, filters)
+    display_column_measures = support_measures
+    if remove_unsuffixed_community:
+        display_column_measures = [token for token in support_measures if token != "svi"]
 
     all_geoids = set(denom_by_geo.keys()) | set(incidence_lookup.keys()) | set(mortality_lookup) | set(tti_by_geo.keys()) | set(gleason_by_geo.keys())
 
@@ -5032,7 +4925,7 @@ def _build_geo_dataset_uncached(
                 out[key] = center_row.get(key)
         _add_display_option_columns(
             out,
-            support_measures=support_measures,
+            support_measures=display_column_measures,
             display_options=display_options,
             source_values=out,
         )
