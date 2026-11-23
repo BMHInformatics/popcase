@@ -24,7 +24,7 @@ VARIABLE_GROUPS = [
 ]
 VARIABLE_CHOICES = [choice for _, choices in VARIABLE_GROUPS for choice in choices]
 RAW_FIELDS = {
-    'sex': ['Sex'], 'race': ['Race 1'], 'ethnicity': ['Spanish/Hispanic Origin'],
+    'sex': ['Sex'], 'race': ['Race 1', 'Race 2', 'Race 3'], 'ethnicity': ['Spanish/Hispanic Origin'],
     'sequence': ['Sequence Number_Central'], 'histology': ['Histologic Type ICD-O-3'],
     'lymphovascular': ['Lymphovascular Invasion'], 'perineural': ['Perineural Invasion'],
     'nodes_examined': ['Regional Nodes Examined'], 'nodes_positive': ['Regional Nodes Positive'],

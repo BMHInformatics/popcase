@@ -1,0 +1,24 @@
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+  <ul class="nav nav-tabs flex-grow-1">
+    {% for step in steps %}
+      <li class="nav-item">
+        {% if step == current_step %}
+          <span class="nav-link active" aria-current="page">{{ step|title }}</span>
+        {% elif step == "stratification" and is_patient_level %}
+          <span class="nav-link disabled" aria-disabled="true">{{ step|title }}</span>
+        {% else %}
+          <a class="nav-link" href="{% url 'popcase:wizard_step' step=step %}">{{ step|title }}</a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% if current_step != "stratification" %}
+    <small class="fst-italic text-secondary">
+      {% if current_step == "measures" and is_patient_level %}Pressing Finish saves changes.{% else %}Pressing Next saves changes.{% endif %}
+    </small>
+  {% endif %}
+  <button class="btn btn-primary ms-auto" id="wizard-top-submit" type="submit"
+          form="{% if current_step == 'stratification' %}stratification-form{% else %}wizard-step-form{% endif %}">
+    {% if current_step == "stratification" or current_step == "measures" and is_patient_level %}Finish{% else %}Next{% endif %}
+  </button>
+</div>

@@ -1,0 +1,5 @@
+<div class="d-flex gap-2">
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset_wizard_step' step=current_step %}">Reset this page</a>
+  <a class="btn btn-outline-danger btn-sm" href="{% url 'popcase:reset' %}"
+     onclick="return confirm('Are you sure you want to reset search parameters?')">Start over</a>
+</div>

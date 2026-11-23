@@ -4403,15 +4403,17 @@ def _percentile(values, percentile):
 
 
 def _proportion_ci(affected, total):
-    """SDD normal-approximation CI; retain the proportion for small counts."""
+    """Return the proportion and its two-sided 95% Wilson score interval."""
     if total <= 0:
         return None, None, None
     p = affected / total
-    # Compare integer counts directly to avoid floating-point errors at five.
-    if affected < 5 or total - affected < 5:
-        return p, None, None
-    se = math.sqrt(p * (1 - p) / total)
-    return p, max(0.0, p - 1.96 * se), min(1.0, p + 1.96 * se)
+    z = 1.96
+    adjustment = z**2 / total
+    center = p + adjustment / 2
+    half_width = z * math.sqrt((p * (1 - p) + adjustment / 4) / total)
+    lower = 0.0 if affected == 0 else (center - half_width) / (1 + adjustment)
+    upper = 1.0 if affected == total else (center + half_width) / (1 + adjustment)
+    return p, lower, upper
 
 
 def _summarize_numeric_values(values):

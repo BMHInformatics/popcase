@@ -20,12 +20,6 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="nav">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          {% if user.is_authenticated %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'popcase:wizard_step' step='geographic-level' %}">New analysis</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'popcase:results' %}">Results</a></li>
-          {% endif %}
-        </ul>
         <ul class="navbar-nav ms-auto">
           {% if user.is_authenticated %}
             <li class="nav-item"><span class="navbar-text me-3">{{ user.get_username }}</span></li>

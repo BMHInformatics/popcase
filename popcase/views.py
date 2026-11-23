@@ -1167,6 +1167,9 @@ def wizard_step(request, step: str = "geographic-level"):
         return redirect("popcase:wizard_step", step="geographic-level")
     if step != 'geographic-level' and _session_get(request, 'geographic_level') == 'patient' and not patient_access_allowed(request.user):
         return HttpResponseForbidden('Patient-level reporting is restricted to administrators.')
+    is_patient_level = _session_get(request, "geographic_level") == "patient"
+    if step == "stratification" and is_patient_level:
+        return redirect("popcase:wizard_step", step="measures")
 
     form_map = {
         "geographic-level": GeographicLevelForm,
@@ -1183,6 +1186,10 @@ def wizard_step(request, step: str = "geographic-level"):
 
     FormClass = form_map[step]
     initial = _session_get(request, step, {})
+    if step == "geographic-level":
+        saved_level = _session_get(request, "geographic_level", initial.get("geographic_level"))
+        if saved_level is not None or "geographic_level" in initial:
+            initial = dict(initial, geographic_level="none" if saved_level in NORMALIZED_TOTAL_LEVELS else saved_level)
 
     cancer_tree = leaf_meta = leaf_choices = None
     if step == "filters":
@@ -1192,6 +1199,8 @@ def wizard_step(request, step: str = "geographic-level"):
     form_kwargs = {"initial": None if request.method == "POST" else initial}
     if step == 'geographic-level':
         form_kwargs['allow_patient'] = patient_access_allowed(request.user)
+        # FR76 temporarily disables new no-comparison runs. Preserve saved runs.
+        form_kwargs['allow_no_comparison'] = initial.get("geographic_level") == "none"
     if step == "filters":
         form_kwargs["geographic_level"] = _normalize_geographic_level(_session_get(request, "geographic_level", "none"))
     if step in {"measures", "stratification"}:
@@ -1206,6 +1215,8 @@ def wizard_step(request, step: str = "geographic-level"):
 
     if request.method == "POST" and form.is_valid():
         cleaned_data = _clean_session_value(form.cleaned_data)
+        if step == "geographic-level":
+            cleaned_data["geographic_level"] = form.cleaned_data["geographic_level"]
 
         if step == "measures":
             geographic_level = _normalize_geographic_level(_session_get(request, "geographic_level", "county"))
@@ -1226,6 +1237,9 @@ def wizard_step(request, step: str = "geographic-level"):
 
         if step == "geographic-level":
             _session_set(request, "geographic_level", form.cleaned_data.get("geographic_level", "none"))
+
+        if step == "measures" and is_patient_level:
+            return redirect("popcase:results")
 
         if step != STEPS[-1]:
             next_step = STEPS[STEPS.index(step) + 1]
@@ -1342,8 +1356,10 @@ def results(request):
     stratification = wizard.get("stratification") or {}
     if any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
         from .stratification_output import comparison_sections, row_groups
-        all_sections = comparison_sections(dataset_rows, stratification, dataset_columns,
-                                          dynamic_header_map, dynamic_numeric_cols)
+        all_sections = comparison_sections(
+            dataset_rows, stratification, dataset_columns, dynamic_header_map, dynamic_numeric_cols,
+            geography_first=geographic_level in {"county", "tract", "place", "zcta"},
+        )
         dataset_total_rows = sum(len(section["rows"]) for section in all_sections)
         dataset_is_truncated = dataset_total_rows > dataset_preview_limit
         remaining = dataset_preview_limit
@@ -1357,8 +1373,15 @@ def results(request):
                 section["columns"], section["header_map"], section["numeric_columns"], section["column_groups"] or None)
             comparison_tables.append(section)
 
+    selected_races = _coerce_to_list(filters.get("race_ethnicity"))
+    race_choices = dict(FiltersForm.get_race_choices_for_geography(geographic_level))
+    race_filter_labels = [
+        race_choices.get(token, token)
+        for token in _unique_in_order([token for token in race_choices if token in selected_races] + selected_races)
+    ]
     context = {
         "comparison_sections": comparison_tables,
+        "race_filter_labels": race_filter_labels,
         "visualization_payload": visualization_payload,
         "stratification_selections": [(label, STRATIFICATION_LABELS.get((wizard.get("stratification") or {}).get(axis), "None"))
                                      for axis, label in (("row_variable", "Row"), ("col_variable", "Column"), ("table_variable", "Table"))],

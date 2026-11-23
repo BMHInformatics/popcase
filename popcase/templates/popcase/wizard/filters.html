@@ -4,22 +4,12 @@
     {% block content %}
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h4 class="mb-0">Filters</h4>
-        <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset_wizard_step' step=current_step %}">Reset this page</a>
+        {% include "popcase/wizard/reset_controls.html" %}
       </div>
-      <ul class="nav nav-tabs mb-3">
-  {% for s in steps %}
-    {% if s == current_step %}
-      <li class="nav-item"><span class="nav-link active">{{ s|title }}</span></li>
-    {% else %}
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'popcase:wizard_step' step=s %}">{{ s|title }}</a>
-      </li>
-    {% endif %}
-  {% endfor %}
-</ul>
+      {% include "popcase/wizard/navigation.html" %}
 
 
-      <form method="post">
+      <form method="post" id="wizard-step-form">
         {% csrf_token %}
         <div class="row g-3">
           <div class="col-lg-5">

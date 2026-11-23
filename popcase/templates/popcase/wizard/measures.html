@@ -40,18 +40,10 @@
 
   <div class="d-flex justify-content-between align-items-center mb-2">
     <h4 class="mb-0">Measures</h4>
-    <a class="btn btn-outline-secondary btn-sm" href="{% url 'popcase:reset_wizard_step' step=current_step %}">Reset this page</a>
+    {% include "popcase/wizard/reset_controls.html" %}
   </div>
 
-  <ul class="nav nav-tabs mb-3">
-    {% for s in steps %}
-      {% if s == current_step %}
-        <li class="nav-item"><span class="nav-link active">{{ s|title }}</span></li>
-      {% else %}
-        <li class="nav-item"><a class="nav-link" href="{% url 'popcase:wizard_step' step=s %}">{{ s|title }}</a></li>
-      {% endif %}
-    {% endfor %}
-  </ul>
+  {% include "popcase/wizard/navigation.html" %}
 
   {% if not is_geo_strat and not is_patient_level %}
     <div class="alert alert-info">
@@ -70,7 +62,7 @@
     </div>
   {% endif %}
 
-  <form method="post">
+  <form method="post" id="wizard-step-form">
     {% csrf_token %}
 
     {% if form.non_field_errors %}
@@ -750,7 +742,7 @@
 
     <div class="d-flex justify-content-between mt-3">
       <button class="btn btn-outline-secondary" name="prev" value="1" type="submit">Back</button>
-      <button class="btn btn-primary" id="measuresNextButton" type="submit">Next</button>
+      <button class="btn btn-primary" id="measuresNextButton" type="submit">{% if is_patient_level %}Finish{% else %}Next{% endif %}</button>
     </div>
   </form>
 
@@ -758,7 +750,7 @@
     document.addEventListener("DOMContentLoaded", function () {
       const warningBox = document.getElementById("sexSpecificRateWarning");
       const noMeasuresWarning = document.getElementById("noMeasuresWarning");
-      const measuresNextButton = document.getElementById("measuresNextButton");
+      const measuresNextButtons = document.querySelectorAll("#measuresNextButton, #wizard-top-submit");
       const measureFieldNames = new Set([
         "patient_all_registry",
         "patient_variables",
@@ -797,9 +789,7 @@
           return isMeasureCheckbox(cb) && cb.checked;
         });
 
-        if (measuresNextButton) {
-          measuresNextButton.disabled = !hasMeasureSelected;
-        }
+        measuresNextButtons.forEach(button => { button.disabled = !hasMeasureSelected; });
         if (noMeasuresWarning) {
           noMeasuresWarning.classList.toggle("d-none", hasMeasureSelected);
         }

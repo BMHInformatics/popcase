@@ -21,18 +21,18 @@ SEX_CHOICES = [
 ]
 
 BRIDGED_RACE_CHOICES = [
-    ("nh_white", "Non-Hispanic White"),
-    ("nh_black", "Non-Hispanic Black"),
     ("nh_aian", "Non-Hispanic AI/AN"),
     ("nh_api", "Non-Hispanic API"),
+    ("nh_black", "Non-Hispanic Black"),
+    ("nh_white", "Non-Hispanic White"),
     ("hisp_any", "Hispanic (any race)"),
 ]
 
 ZCTA_PLACE_RACE_CHOICES = [
-    ("nh_white", "Non-Hispanic White alone"),
-    ("nh_black", "Non-Hispanic Black alone"),
     ("nh_aian", "Non-Hispanic AI/AN alone"),
     ("nh_api", "Non-Hispanic API alone"),
+    ("nh_black", "Non-Hispanic Black alone"),
+    ("nh_white", "Non-Hispanic White alone"),
     ("nh_other", "Other Non-Hispanic"),
     ("hisp_any", "Hispanic (any race(s))"),
 ]
@@ -131,10 +131,19 @@ DX_QUARTER_FALLBACK_CHOICES = [(f"{year}q{quarter}", f"{year}q{quarter}") for ye
 
 
 class GeographicLevelForm(forms.Form):
-    def __init__(self, *args, allow_patient=False, **kwargs):
+    def __init__(self, *args, allow_patient=False, allow_no_comparison=True, **kwargs):
         super().__init__(*args, **kwargs)
+        self.allow_no_comparison = allow_no_comparison
+        if not allow_no_comparison:
+            self.fields["geographic_level"].initial = None
         if not allow_patient:
             self.fields['geographic_level'].choices = [(k, v) for k, v in GEO_CHOICES if k != 'patient']
+
+    def clean_geographic_level(self):
+        level = self.cleaned_data["geographic_level"]
+        if level == "none" and not self.allow_no_comparison:
+            raise forms.ValidationError("Choose a geographic level. Do not compare locations is temporarily unavailable.")
+        return level
 
     geographic_level = forms.ChoiceField(
         choices=GEO_CHOICES,

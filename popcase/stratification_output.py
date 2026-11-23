@@ -5,10 +5,13 @@ from .stratification_categories import category_order
 
 
 def row_groups(rows, key):
+    if key == 'label':
+        return [{'label': label, 'rows': list(items)} for (_, label), items in
+                groupby(rows, key=lambda row: (row.get('geoid'), row.get('label')))]
     return [{'label': value, 'rows': list(items)} for value, items in groupby(rows, key=lambda row: row.get(key))] if key else []
 
 
-def comparison_sections(rows, state, columns, header_map, numeric_columns):
+def comparison_sections(rows, state, columns, header_map, numeric_columns, geography_first=False):
     row_key = 'stratum_' + state['row_variable'] if state.get('row_variable') else None
     column_key = 'stratum_' + state['col_variable'] if state.get('col_variable') else None
     table_key = 'stratum_' + state['table_variable'] if state.get('table_variable') else None
@@ -20,9 +23,10 @@ def comparison_sections(rows, state, columns, header_map, numeric_columns):
         source = sections[table_value]
         title = f'{header_map.get(table_key, table_key)}: {table_value}' if table_key else ''
         section_columns = [col for col in columns if col != table_key]
-        if row_key in section_columns:
-            section_columns.remove(row_key)
-            section_columns.insert(0, row_key)
+        group_key = 'label' if row_key and geography_first else row_key
+        if group_key in section_columns:
+            section_columns.remove(group_key)
+            section_columns.insert(0, group_key)
         headers = dict(header_map)
         numeric = list(numeric_columns)
         column_groups = {}
@@ -50,8 +54,12 @@ def comparison_sections(rows, state, columns, header_map, numeric_columns):
                     target[pivot_keys[(row.get(column_key), measure)]] = row.get(measure)
             arranged = list(indexed.values())
         if row_key:
-            arranged = sorted(arranged, key=lambda row: (category_order(state['row_variable'], row.get(row_key)), str(row.get('label') or ''), str(row.get('geoid') or '')))
+            def order(row):
+                category = category_order(state['row_variable'], row.get(row_key))
+                location = (str(row.get('label') or ''), str(row.get('geoid') or ''))
+                return (location, category) if geography_first else (category, location)
+            arranged = sorted(arranged, key=order)
         result.append({'title': title, 'rows': arranged, 'columns': section_columns,
                        'header_map': headers, 'numeric_columns': numeric, 'column_groups': column_groups,
-                       'row_key': row_key, 'row_label': header_map.get(row_key, row_key)})
+                       'row_key': group_key, 'row_label': header_map.get(group_key, group_key)})
     return result

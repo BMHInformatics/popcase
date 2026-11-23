@@ -340,7 +340,11 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
         for combination in product(*domains):
             grouped.setdefault((geoid,) + combination, {})
     rows = []
-    for key in sorted(grouped, key=lambda k: tuple(category_order(v, value) for v, value in zip(variables, k[1:])) + ((0, 0, k[0]),)):
+    def row_order(key):
+        categories = tuple(category_order(variable, value) for variable, value in zip(variables, key[1:]))
+        return (key[0], categories) if stratification.get('row_variable') else (categories, key[0])
+
+    for key in sorted(grouped, key=row_order):
         geoid = key[0]
         row = {'label': 'All selected locations' if geoid == 'total' else services._geo_label(level, geoid), 'geoid': geoid}
         row.update({'stratum_' + variable: value for variable, value in zip(variables, key[1:])})

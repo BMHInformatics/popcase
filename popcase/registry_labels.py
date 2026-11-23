@@ -27,7 +27,7 @@ ORIGIN = {'0': 'Non-Hispanic', '1': 'Mexican', '2': 'Puerto Rican', '3': 'Cuban'
 RECEPTOR = {'0': 'Negative', '1': 'Positive', '7': 'Test performed; result unavailable',
             '9': 'Unknown or indeterminate'}
 CODE_LABELS = {
-    'Sex': SEX, 'sex_code': SEX, 'Race 1': RACE, 'race_code': RACE,
+    'Sex': SEX, 'sex_code': SEX, 'Race 1': RACE, 'Race 2': RACE, 'Race 3': RACE, 'race_code': RACE,
     'Spanish/Hispanic Origin': ORIGIN, 'hispanic_origin_code': ORIGIN,
     'Lymphovascular Invasion': {'0': 'Not present', '1': 'Present',
         '2': 'Lymphatic/small-vessel invasion only', '3': 'Venous invasion / angioinvasion only',

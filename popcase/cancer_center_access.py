@@ -16,7 +16,7 @@ OUTPUTS = {'nci': 'nearest_nci_drive_time', 'coc': 'nearest_coc_acad_drive_time'
 
 
 def get_cancer_center_access_lookup(geographic_level, requested):
-    """Minimize each center category independently; missing routes stay missing.
+    """Minimize each center category independently and mark null routes as >120.
 
     Values retain the source travel_time_p50 units. The center lookup is the
     authority for category membership, including for the denormalized BG table.
@@ -43,13 +43,16 @@ def get_cancer_center_access_lookup(geographic_level, requested):
                 FROM public."{table}" m
                 JOIN public.coc_travelmatrix_center_lookup c ON c.id = m.to_id
                 WHERE c."Type" IN ({','.join(['%s'] * len(selected))})
-                  AND m.travel_time_p50 >= 0 AND m.from_id IS NOT NULL
+                  AND (m.travel_time_p50 >= 0 OR m.travel_time_p50 IS NULL)
+                  AND m.from_id IS NOT NULL
                 GROUP BY m.from_id, c."Type"
             ''', [CENTER_TYPES[token] for token in selected])
             tokens = {CENTER_TYPES[token]: token for token in selected}
             for raw_geoid, category, travel_time in cur.fetchall():
                 geoid = str(raw_geoid).zfill(GEOID_WIDTHS[geographic_level])
-                result.setdefault(geoid, {})[OUTPUTS[tokens[category]]] = travel_time
+                result.setdefault(geoid, {})[OUTPUTS[tokens[category]]] = (
+                    ">120" if travel_time is None else travel_time
+                )
     except DatabaseError:
         logger.exception('Cancer-center drive times unavailable for %s', geographic_level)
         return {}

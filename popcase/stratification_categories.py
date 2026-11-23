@@ -1,10 +1,10 @@
 """Category domains and stable display ordering for stratified results."""
 import re
 
-RACES = ['Non-Hispanic White', 'Non-Hispanic Black', 'Non-Hispanic AI/AN', 'Non-Hispanic API', 'Hispanic (any race)']
+RACES = ['Non-Hispanic AI/AN', 'Non-Hispanic API', 'Non-Hispanic Black', 'Non-Hispanic White', 'Hispanic (any race)']
 ORDER = {
     'sex': ['Female', 'Male', 'Unknown/other sex'],
-    'race_eth': RACES + ['Other Non-Hispanic', 'Unknown race/ethnicity'],
+    'race_eth': RACES[:-1] + ['Other Non-Hispanic', 'Unknown race/ethnicity', RACES[-1]],
     'stage': ['In situ', 'Localized', 'Regional', 'Distant', 'Unknown', 'Not applicable/unstaged'],
     'receptor3': ['ER+/HER2-', 'HER2+', 'Triple negative', 'Unknown receptor status'],
     'receptor4': ['ER+/HER2-', 'ER+/HER2+', 'ER-/HER2+', 'Triple negative', 'Unknown receptor status'],
