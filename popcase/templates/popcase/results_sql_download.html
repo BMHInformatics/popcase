@@ -1,0 +1,20 @@
+  <div class="mt-3">
+    <button class="btn btn-outline-secondary btn-sm" type="button" id="download-results-sql">Download SQL</button>
+  </div>
+  {{ results_sql|json_script:"popcase-results-sql" }}
+<script>
+const sqlDownload = document.getElementById("download-results-sql");
+if (sqlDownload) {
+  sqlDownload.addEventListener("click", () => {
+    const sql = JSON.parse(document.getElementById("popcase-results-sql").textContent);
+    const url = URL.createObjectURL(new Blob([sql], {type: "application/sql;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "popcase_results.sql";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+}
+</script>
