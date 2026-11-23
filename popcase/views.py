@@ -5,7 +5,6 @@ import re
 from collections import Counter
 from .result_formatting import format_result, format_result_row
 from .result_sql import capture_results_sql, current_results_sql, result_lookup_cache
-from .visualization import metastatic_bar_payload_for_results
 
 from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpResponse
 from django.shortcuts import render, redirect
@@ -1321,13 +1320,6 @@ def results(request):
     dataset_rows = _apply_current_display_options(payload["dataset_rows"], support_measures, display_options)
     result_mode = payload["result_mode"]
 
-    visualization_payload = metastatic_bar_payload_for_results(
-        dataset_rows, geographic_level=geographic_level,
-        disease_measures=disease_measures,
-        stratification=wizard.get('stratification') or {},
-        dx_start=dx_start, dx_end=dx_end,
-    )
-
     dataset_preview_limit = _get_preview_row_limit(request)
     dataset_total_rows = payload.get('patient_row_count', len(dataset_rows))
     dataset_is_truncated = dataset_total_rows > dataset_preview_limit
@@ -1391,7 +1383,6 @@ def results(request):
     context = {
         "comparison_sections": comparison_tables,
         "race_filter_labels": race_filter_labels,
-        "visualization_payload": visualization_payload,
         "stratification_selections": [(label, STRATIFICATION_LABELS.get((wizard.get("stratification") or {}).get(axis), "None"))
                                      for axis, label in (("row_variable", "Row"), ("col_variable", "Column"), ("table_variable", "Table"))],
         "stratification_active": any((wizard.get("stratification") or {}).get(axis) for axis in ("row_variable", "col_variable", "table_variable")),
