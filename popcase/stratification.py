@@ -139,7 +139,7 @@ def summarize(records, measures, details):
 
 
 def build_stratified_dataset(geographic_level, year_range, filters, disease_measures,
-                             stratification, linking_year, _mortality=False):
+                             stratification, linking_year, _mortality=False, *, patient_access_measures=()):
     variables = selected_variables(stratification)
     if geographic_level == 'patient':
         raise StratificationUnavailable('Patient-level stratification is not yet available.')
@@ -151,9 +151,12 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
         linking_year = rate_linking_year(linking_year, geographic_level)
         deaths = mortality_rows(geographic_level, year_range, filters, mortality_measures, stratification, linking_year)
         other = measures - mortality_measures
-        if not other:
+        if not other and not patient_access_measures:
             return deaths
-        cases = build_stratified_dataset(geographic_level, year_range, filters, other, stratification, linking_year)
+        cases = build_stratified_dataset(
+            geographic_level, year_range, filters, other, stratification, linking_year,
+            **({'patient_access_measures': patient_access_measures} if patient_access_measures else {}),
+        )
         def identity(row):
             return (row['geoid'],) + tuple(row.get('stratum_' + v) for v in variables)
         combined = {identity(row): row for row in cases}
@@ -163,7 +166,7 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
     unsupported = measures - MEASURES - INCIDENCE_MEASURES
     if unsupported:
         raise StratificationUnavailable('Unsupported stratified measures: ' + ', '.join(sorted(unsupported)))
-    if not measures:
+    if not measures and not patient_access_measures:
         raise StratificationUnavailable('Select a disease measure to calculate within patient subgroups. Community measures describe the whole geographic area.')
     filters = dict(filters, dx_start=year_range[0], dx_end=year_range[1])
     query_filters = dict(filters)
@@ -340,6 +343,11 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
         for combination in product(*domains):
             grouped.setdefault((geoid,) + combination, {})
     rows = []
+    if patient_access_measures:
+        from . import patient_access
+        access_columns = [patient_access.OUTPUTS[token] for token in patient_access_measures]
+        access_links = patient_access.get_patient_links(patient_access.linkage_year())
+        access_lookup = patient_access.get_block_group_access_lookup(patient_access_measures)
     def row_order(key):
         categories = tuple(category_order(variable, value) for variable, value in zip(variables, key[1:]))
         return (key[0], categories) if stratification.get('row_variable') else (categories, key[0])
@@ -348,9 +356,14 @@ def build_stratified_dataset(geographic_level, year_range, filters, disease_meas
         geoid = key[0]
         row = {'label': 'All selected locations' if geoid == 'total' else services._geo_label(level, geoid), 'geoid': geoid}
         row.update({'stratum_' + variable: value for variable, value in zip(variables, key[1:])})
-        row.update(summarize(list(grouped[key].values()), measures, details))
+        group_records = list(grouped[key].values())
+        row.update(summarize(group_records, measures, details))
+        if patient_access_measures:
+            row.update(patient_access.summarize_block_group_access(
+                (record['mid'] for record in group_records), access_links, access_lookup, access_columns,
+            ))
         if rate_calculator:
-            row.update(rate_calculator.calculate(geoid, key[1:], list(grouped[key].values()), measures))
+            row.update(rate_calculator.calculate(geoid, key[1:], group_records, measures))
         if _mortality and mortality_error:
             for field in list(row):
                 if field not in ('label', 'geoid') and not field.startswith('stratum_'):

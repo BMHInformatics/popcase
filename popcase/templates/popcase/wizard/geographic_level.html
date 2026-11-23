@@ -19,13 +19,8 @@
             <div class="mb-3">
               {% for radio in form.geographic_level %}
                 <div class="form-check">
-                  {% if radio.data.value == "none" and not form.allow_no_comparison %}
-                    <input class="form-check-input" type="radio" id="{{ radio.id_for_label }}" disabled>
-                    <label class="form-check-label text-muted" for="{{ radio.id_for_label }}">{{ radio.choice_label }} (temporarily unavailable)</label>
-                  {% else %}
-                    {{ radio.tag }}
-                    <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
-                  {% endif %}
+                  {{ radio.tag }}
+                  <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
                 </div>
               {% endfor %}
             </div>

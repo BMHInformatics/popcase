@@ -803,9 +803,14 @@ def _build_results_payload_cached(
     stratification = _deserialize_payload(stratification_json)
     if geographic_level == "total" or any(stratification.get(axis) for axis in ("row_variable", "col_variable", "table_variable")):
         from .stratification import build_stratified_dataset
+        access_options = {}
+        if geographic_level == "total":
+            selected_access = tuple(token for token in PATIENT_OUTPUTS if token in support_measures)
+            if selected_access:
+                access_options["patient_access_measures"] = selected_access
         dataset_rows = build_stratified_dataset(
             geographic_level, (dx_start, dx_end), filters, disease_measures,
-            stratification, latest_year,
+            stratification, latest_year, **access_options,
         )
         if support_measures and geographic_level in {"county", "tract", "zcta", "place"}:
             community_rows = build_geo_dataset(
@@ -884,6 +889,9 @@ def _get_measure_selections(measures_state: dict, geographic_level: str):
         'gleason_sd' if token == 'gleason_ci' else token
         for token in _coerce_to_list(measures_state.get("disease_measures"))
     ]
+    if geographic_level == "total":
+        return disease_measures, [t for t in _coerce_to_list(measures_state.get("access_patient_measures"))
+                                  if t in PATIENT_OUTPUTS]
     cancer_prevention_measures = _coerce_to_list(measures_state.get("cancer_prevention"))
     health_status_measures = _coerce_to_list(measures_state.get("noncancer_health_status"))
     community_measures = [token for token in _coerce_to_list(measures_state.get("community_characteristics"))
@@ -979,6 +987,8 @@ def _build_preferred_dataset_columns(disease_measures, support_measures, display
     columns = []
     for token in disease_order:
         columns.extend(DISEASE_MEASURE_OUTPUT_COLUMNS.get(token, []))
+    if geographic_level == "total":
+        return columns + [column for token, column in PATIENT_OUTPUTS.items() if token in support_measures]
     for token in support_order:
         columns.extend(_support_columns_for_token(token, display_options))
     return list(dict.fromkeys(columns))
@@ -1199,8 +1209,6 @@ def wizard_step(request, step: str = "geographic-level"):
     form_kwargs = {"initial": None if request.method == "POST" else initial}
     if step == 'geographic-level':
         form_kwargs['allow_patient'] = patient_access_allowed(request.user)
-        # FR76 temporarily disables new no-comparison runs. Preserve saved runs.
-        form_kwargs['allow_no_comparison'] = initial.get("geographic_level") == "none"
     if step == "filters":
         form_kwargs["geographic_level"] = _normalize_geographic_level(_session_get(request, "geographic_level", "none"))
     if step in {"measures", "stratification"}:
@@ -1430,6 +1438,10 @@ def results(request):
 def _with_dynamic_community_headers(base_header_map, rows, geographic_level=None):
     """Add readable labels for dynamically suffixed community data columns."""
     header_map = dict(base_header_map)
+    if geographic_level == "total":
+        for column in PATIENT_OUTPUTS.values():
+            label = PATIENT_HEADERS.get(column) or header_map.get(column, column.replace("_", " "))
+            header_map[column] = f"Median {label}"
     if geographic_level in {'county', 'tract'}:
         header_map['rurality'] = 'Rurality (RUCC code)' if geographic_level == 'county' else 'Rurality (RUCA code)'
     if not rows:

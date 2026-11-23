@@ -2,6 +2,7 @@
 import logging
 import math
 from collections import defaultdict
+from statistics import median
 
 from django.conf import settings
 from django.db import DatabaseError, connections
@@ -119,6 +120,29 @@ def get_patient_links(year):
         # Keep invalid links as None, so a valid + invalid pair is ambiguous.
         links[patient_id].add(_block_group(raw_geoid))
     return links
+
+
+def summarize_block_group_access(patient_ids, links, access, columns):
+    """Use one observation per patient with an unambiguous block-group link."""
+    observations = defaultdict(list)
+    for patient_id in set(patient_ids):
+        candidates = links.get(patient_id, ())
+        if len(candidates) != 1:
+            continue
+        values = access.get(next(iter(candidates)), {})
+        for column, value in values.items():
+            if value is not None:
+                observations[column].append(value)
+
+    result = dict.fromkeys(columns)
+    for column in columns:
+        values = observations[column]
+        if values:
+            # A censored drive time contributes a lower bound, not an exact 120 minutes.
+            lower = median(120 if value == '>120' else float(value) for value in values)
+            upper = median(math.inf if value == '>120' else float(value) for value in values)
+            result[column] = lower if lower == upper else f'>{lower:g}'
+    return result
 
 
 def _matches_demographics(record, filters):
